@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dicionário Gamer </title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            dark: {
+              950: '#020617', // Deeper blue-black for better contrast with blue
+              900: '#0f172a',
+              850: '#1e293b',
+              800: '#1e293b',
+              700: '#334155',
+            },
+            brand: {
+              50: '#f0f9ff',
+              100: '#e0f2fe',
+              200: '#bae6fd',
+              300: '#7dd3fc',
+              400: '#38bdf8',
+              500: '#0ea5e9', // Electric Blue (Sky-500 style base)
+              600: '#0284c7',
+              700: '#0369a1',
+              800: '#075985',
+              900: '#0c4a6e',
+              950: '#082f49',
+            },
+            ocean: {
+              400: '#38bdf8',
+              500: '#0ea5e9',
+              900: '#0c4a6e',
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            display: ['Rajdhani', 'sans-serif'],
+          },
+          boxShadow: {
+            'subtle': '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+            'card': '0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.15)',
+            'glow-brand': '0 0 20px rgba(14, 165, 233, 0.25)', // Blue glow
+          },
+          animation: {
+            'fade-in': 'fadeIn 0.5s ease-in-out',
+            'marquee': 'marquee 60s linear infinite',
+            'marquee-reverse': 'marqueeReverse 60s linear infinite',
+            'pass-left': 'passLeft 35s linear infinite',
+            'pass-right': 'passRight 35s linear infinite',
+            'pass-up': 'passUp 35s linear infinite',
+            'pass-down': 'passDown 35s linear infinite',
+            'pass-diagonal-1': 'passDiagonal1 40s linear infinite',
+            'pass-diagonal-2': 'passDiagonal2 40s linear infinite',
+          },
+          keyframes: {
+            fadeIn: {
+              '0%': { opacity: '0' },
+              '100%': { opacity: '1' },
+            },
+            marquee: {
+              '0%': { transform: 'translateX(0%)' },
+              '100%': { transform: 'translateX(-100%)' },
+            },
+            marqueeReverse: {
+              '0%': { transform: 'translateX(-100%)' },
+              '100%': { transform: 'translateX(0%)' },
+            },
+            passLeft: {
+              '0%': { transform: 'translateX(100vw)' },
+              '100%': { transform: 'translateX(-100vw)' },
+            },
+            passRight: {
+              '0%': { transform: 'translateX(-100vw)' },
+              '100%': { transform: 'translateX(100vw)' },
+            },
+            passUp: {
+              '0%': { transform: 'translateY(100vh)' },
+              '100%': { transform: 'translateY(-100vh)' },
+            },
+            passDown: {
+              '0%': { transform: 'translateY(-100vh)' },
+              '100%': { transform: 'translateY(100vh)' },
+            },
+            passDiagonal1: {
+              '0%': { transform: 'translate(-50vw, -50vh)' },
+              '100%': { transform: 'translate(100vw, 100vh)' },
+            },
+            passDiagonal2: {
+              '0%': { transform: 'translate(100vw, -50vh)' },
+              '100%': { transform: 'translate(-50vw, 100vh)' },
+            },
+          }
+        },
+      },
+    }
+  </script>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Rajdhani:wght@500;600;700&display=swap"
+    rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #020617;
+      color: #e5e5e5;
+      overflow-x: hidden;
+    }
+
+    /* Clean Grid Pattern - very subtle */
+    .bg-grid-subtle {
+      background-image: linear-gradient(to right, #1e293b 1px, transparent 1px),
+        linear-gradient(to bottom, #1e293b 1px, transparent 1px);
+      background-size: 60px 60px;
+      mask-image: radial-gradient(circle at center, black 40%, transparent 100%);
+      opacity: 0.3;
+    }
+
+    /* Hide Scrollbar but allow scroll */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+
+    /* Custom Scrollbar for page */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #475569;
+    }
+
+    /* Fade effect for horizontal lists */
+    .mask-fade-right {
+      mask-image: linear-gradient(to right, black 85%, transparent 100%);
+      -webkit-mask-image: linear-gradient(to right, black 85%, transparent 100%);
+    }
+  </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
+    "react-router-dom": "https://aistudiocdn.com/react-router-dom@^7.9.6"
+  }
+}
+</script>
+  <link rel="stylesheet" href="/index.css">
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+
+</html>
