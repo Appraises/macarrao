@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sparkles } from 'lucide-react';
 import { Badge, Button } from '../components/UI';
-import { getTrendingTerms } from '../src/services/api';
+import { getTrendingTerms, getGames } from '../src/services/api';
 import { Term, Game } from '../types';
 
 // Sub-components
@@ -33,14 +33,18 @@ const TERM_OF_THE_DAY: Term = {
 export const Home: React.FC = () => {
     const navigate = useNavigate();
     const [terms, setTerms] = useState<Term[]>([]);
-    const [games] = useState<Game[]>(GAMES);
+    const [games, setGames] = useState<Game[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const termsData = await getTrendingTerms();
+                const [termsData, gamesData] = await Promise.all([
+                    getTrendingTerms(),
+                    getGames()
+                ]);
                 setTerms(termsData);
+                setGames(gamesData);
             } catch (error) {
                 console.error("Failed to fetch home data", error);
             } finally {
