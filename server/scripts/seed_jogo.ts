@@ -16,7 +16,7 @@ async function main() {
                 "Perdi o jogo (The Game)."
             ]),
             tags: 'Geral,Conceito',
-            verified: true
+            status: 'APPROVED'
         }
     });
 

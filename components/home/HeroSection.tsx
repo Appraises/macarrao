@@ -1,7 +1,9 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, ArrowRight, Hash } from 'lucide-react';
 import { searchTerms } from '../../src/services/api';
+import { trackAnalyticsEvent } from '../../src/lib/analytics';
+import type { TermSuggestion } from '../../types';
 
 const FLOATING_WORDS = [
     "GG", "WP", "GL", "HF", "NOOB", "FEEDER", "TANK", "HEALER", "DPS", "CARRY", "RUSH", "B", "PLANT",
@@ -19,36 +21,70 @@ const QUICK_CATEGORIES = [
 export const HeroSection: React.FC = () => {
     const navigate = useNavigate();
     const [searchTerm, setSearchTerm] = useState('');
-    const [suggestions, setSuggestions] = useState<{ id: string, word: string, definition: string, tags: string }[]>([]);
+    const [suggestions, setSuggestions] = useState<TermSuggestion[]>([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
+    const [activeSuggestion, setActiveSuggestion] = useState(-1);
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
         if (searchTerm.trim()) {
-            navigate(`/term/${encodeURIComponent(searchTerm.trim())}`);
+            navigate(`/dicionario?q=${encodeURIComponent(searchTerm.trim())}`, { state: { searchOrigin: 'home' } });
             setShowSuggestions(false);
         }
     };
 
-    // Debounced Search Effect
     useEffect(() => {
-        const delayDebounceFn = setTimeout(async () => {
-            if (searchTerm.trim().length >= 2) {
-                try {
-                    const results = await searchTerms(searchTerm);
-                    setSuggestions(results);
-                    setShowSuggestions(true);
-                } catch (error) {
-                    console.error("Search error", error);
-                }
-            } else {
-                setSuggestions([]);
-                setShowSuggestions(false);
-            }
-        }, 300);
+        const q = searchTerm.trim();
+        if (q.length < 2) {
+            setSuggestions([]);
+            setShowSuggestions(false);
+            setActiveSuggestion(-1);
+            return;
+        }
 
-        return () => clearTimeout(delayDebounceFn);
+        let cancelled = false;
+        const t = setTimeout(async () => {
+            try {
+                const results = await searchTerms(q);
+                if (cancelled) return;
+                setSuggestions(results);
+                setShowSuggestions(true);
+                setActiveSuggestion(-1);
+            } catch (error) {
+                if (!cancelled) setSuggestions([]);
+            }
+        }, 250);
+        return () => {
+            cancelled = true;
+            clearTimeout(t);
+        };
     }, [searchTerm]);
+
+    const chooseSuggestion = (suggestion: TermSuggestion, index: number) => {
+        trackAnalyticsEvent('Search Suggestion Selected', {
+            source: 'home_hero',
+            position: index + 1,
+        });
+        navigate(`/term/${encodeURIComponent(suggestion.word)}`, { state: { source: 'search_suggestion' } });
+        setShowSuggestions(false);
+    };
+
+    const handleSearchKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+        if (!showSuggestions || suggestions.length === 0) return;
+        if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            setActiveSuggestion((current) => (current + 1) % suggestions.length);
+        } else if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            setActiveSuggestion((current) => current <= 0 ? suggestions.length - 1 : current - 1);
+        } else if (event.key === 'Escape') {
+            setShowSuggestions(false);
+            setActiveSuggestion(-1);
+        } else if (event.key === 'Enter' && activeSuggestion >= 0) {
+            event.preventDefault();
+            chooseSuggestion(suggestions[activeSuggestion], activeSuggestion);
+        }
+    };
 
     // Generate random floating words for background
     const wordElements = useMemo(() => {
@@ -129,23 +165,33 @@ export const HeroSection: React.FC = () => {
                             className="w-full bg-transparent border-none focus:outline-none focus:ring-0 px-4 py-5 text-lg text-white placeholder-gray-500 font-medium"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
+                            onKeyDown={handleSearchKeyDown}
+                            onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+                            onBlur={() => window.setTimeout(() => setShowSuggestions(false), 150)}
+                            role="combobox"
+                            aria-autocomplete="list"
+                            aria-expanded={showSuggestions && suggestions.length > 0}
+                            aria-controls="home-search-suggestions"
+                            aria-activedescendant={activeSuggestion >= 0 ? `home-suggestion-${suggestions[activeSuggestion]?.id}` : undefined}
                         />
-                        <button type="submit" className="mr-3 p-3 bg-dark-800 hover:bg-brand-500 hover:text-white rounded-xl text-gray-400 transition-all flex-shrink-0">
+                        <button type="submit" title="Buscar no dicionário" className="mr-3 p-3 bg-dark-800 hover:bg-brand-500 hover:text-white rounded-xl text-gray-400 transition-all flex-shrink-0">
                             <ArrowRight className="w-5 h-5" />
                         </button>
                     </div>
 
                     {/* Search Suggestions Dropdown */}
                     {showSuggestions && suggestions.length > 0 && (
-                        <div className="absolute top-full left-0 right-0 mt-2 bg-dark-900 border border-dark-700 rounded-xl shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2">
-                            {suggestions.map((suggestion) => (
-                                <div
+                        <div id="home-search-suggestions" role="listbox" className="absolute top-full left-0 right-0 mt-2 bg-dark-900 border border-dark-700 rounded-xl shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2">
+                            {suggestions.map((suggestion, index) => (
+                                <button
+                                    type="button"
                                     key={suggestion.id}
-                                    onClick={() => {
-                                        navigate(`/term/${encodeURIComponent(suggestion.word)}`);
-                                        setShowSuggestions(false);
-                                    }}
-                                    className="px-6 py-3 hover:bg-dark-800 cursor-pointer flex items-center justify-between group transition-colors border-b border-dark-800/50 last:border-0"
+                                    id={`home-suggestion-${suggestion.id}`}
+                                    role="option"
+                                    aria-selected={activeSuggestion === index}
+                                    onMouseDown={(event) => event.preventDefault()}
+                                    onClick={() => chooseSuggestion(suggestion, index)}
+                                    className={`w-full px-6 py-3 cursor-pointer flex items-center justify-between group transition-colors border-b border-dark-800/50 last:border-0 text-left ${activeSuggestion === index ? 'bg-dark-800' : 'hover:bg-dark-800'}`}
                                 >
                                     <div className="flex flex-col">
                                         <div className="flex items-center gap-3">
@@ -161,7 +207,7 @@ export const HeroSection: React.FC = () => {
                                     <span className="text-xs text-gray-600 bg-dark-950 px-2 py-1 rounded border border-dark-800 group-hover:border-brand-500/30 transition-colors flex-shrink-0 ml-4">
                                         Termo
                                     </span>
-                                </div>
+                                </button>
                             ))}
                         </div>
                     )}
@@ -172,7 +218,10 @@ export const HeroSection: React.FC = () => {
                     {QUICK_CATEGORIES.map(cat => (
                         <button
                             key={cat}
-                            onClick={() => navigate(`/games`)}
+                            onClick={() => {
+                                trackAnalyticsEvent('Category Selected', { category: cat, source: 'home_hero' });
+                                navigate(`/dicionario?tag=${encodeURIComponent(cat)}`);
+                            }}
                             className="px-3 py-1.5 rounded-full bg-dark-800/50 border border-dark-700 text-xs font-medium text-gray-400 hover:text-brand-400 hover:border-brand-500/30 transition-all flex items-center gap-1.5"
                         >
                             <Hash className="w-3 h-3" />

@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { prisma } from '../lib/prisma';
 import { authenticateToken } from '../middleware/auth';
+import { NewsStatus } from '@prisma/client';
+import { validateCommentPayload } from '../utils/userInput';
 
 const router = Router();
 
@@ -8,6 +10,8 @@ const router = Router();
 router.get('/:newsId', async (req, res) => {
     try {
         const { newsId } = req.params;
+        const news = await prisma.news.findFirst({ where: { id: newsId, status: NewsStatus.PUBLISHED }, select: { id: true } });
+        if (!news) return res.status(404).json({ error: 'Noticia publicada nao encontrada.' });
         const comments = await prisma.comment.findMany({
             where: { newsId },
             include: {
@@ -32,20 +36,17 @@ import { awardXp } from '../services/leveling';
 
 // Create a new comment
 router.post('/', authenticateToken, async (req: any, res) => {
+    const validation = validateCommentPayload(req.body);
+    if (!validation.valid) return res.status(400).json({ error: validation.error });
     try {
-        const { content, newsId } = req.body;
-        // Fix: user.id is usually available on req.user, check auth middleware if needed. 
-        // Based on other files, it seems to be req.user.id
         const userId = req.user.id;
-
-        if (!content || !newsId) {
-            return res.status(400).json({ error: 'Content and newsId are required' });
-        }
+        const news = await prisma.news.findFirst({ where: { id: validation.data.newsId, status: NewsStatus.PUBLISHED }, select: { id: true } });
+        if (!news) return res.status(404).json({ error: 'Noticia publicada nao encontrada.' });
 
         const comment = await prisma.comment.create({
             data: {
-                content,
-                newsId,
+                content: validation.data.content,
+                newsId: validation.data.newsId,
                 userId
             },
             include: {
@@ -58,7 +59,11 @@ router.post('/', authenticateToken, async (req: any, res) => {
             }
         });
 
-        await awardXp(userId, 10); // Award 10 XP for commenting
+        try {
+            await awardXp(userId, 10);
+        } catch (error) {
+            console.error('[comments] Comment persisted, but XP award failed:', error);
+        }
 
         res.status(201).json(comment);
     } catch (error) {

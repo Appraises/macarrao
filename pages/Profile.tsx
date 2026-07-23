@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../src/context/AuthContext';
 import { getUserProfile, getUserActivity, updateUserProfile, getGames } from '../src/services/api';
 import { User, Term, Comment, Game } from '../types';
 import { Button } from '../components/UI';
-import { Gamepad2, Trophy, Medal, Star } from 'lucide-react';
+import { ClipboardList, Gamepad2, Trophy, Medal, Star } from 'lucide-react';
 
 // Sub-components
 import { ProfileHeader } from '../components/profile/ProfileHeader';
@@ -128,6 +129,11 @@ export const Profile: React.FC = () => {
 
                     {/* Right Column (Sidebar) */}
                     <div className="lg:col-span-4 space-y-6">
+
+                        <Link to="/minhas-contribuicoes" className="flex items-center justify-between rounded-lg border border-brand-500/20 bg-brand-500/10 p-4 text-brand-300 transition-colors hover:border-brand-500/40 hover:bg-brand-500/15">
+                            <span className="flex items-center gap-3 font-bold"><ClipboardList className="h-5 w-5" /> Minhas contribuições</span>
+                            <span className="text-xs text-brand-400">Acompanhar</span>
+                        </Link>
 
                         {/* Badges */}
                         <div className="bg-dark-900 border border-dark-700 rounded-xl p-6">

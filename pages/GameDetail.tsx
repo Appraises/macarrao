@@ -7,18 +7,34 @@ import { ArrowLeft, Map, Book, Search } from 'lucide-react';
 import { Input, Button, Badge } from '../components/UI';
 import { TermCard } from '../components/TermCard';
 import { MapViewer } from '../components/game/MapViewer';
+import { Seo } from '../components/Seo';
+import { JsonLd, breadcrumbSchema } from '../components/JsonLd';
+import { PaginationControls } from '../components/PaginationControls';
+import { usePaginatedListQuery } from '../src/hooks/usePaginatedListQuery';
+import type { PaginationMeta } from '../types';
+
+const EMPTY_PAGINATION: PaginationMeta = {
+    page: 1,
+    pageSize: 12,
+    total: 0,
+    totalPages: 0,
+    hasNext: false,
+    hasPrevious: false
+};
 
 export const GameDetail: React.FC = () => {
     const { slug } = useParams();
     const navigate = useNavigate();
     const [tab, setTab] = useState<'glossary' | 'maps'>('glossary');
-    const [search, setSearch] = useState('');
+    const { page, pageSize, search, setPage, setPageSize, setSearch } = usePaginatedListQuery(12);
     const [game, setGame] = useState<Game | null>(null);
     const [terms, setTerms] = useState<Term[]>([]);
     const [gameMaps, setGameMaps] = useState<GameMap[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [selectedMapId, setSelectedMapId] = useState<string | null>(null);
+    const [termsLoading, setTermsLoading] = useState(false);
+    const [termsPagination, setTermsPagination] = useState<PaginationMeta>(EMPTY_PAGINATION);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -28,8 +44,6 @@ export const GameDetail: React.FC = () => {
                 setGame(gameData);
 
                 if (gameData) {
-                    const termsData = await getTerms(gameData.id);
-                    setTerms(termsData);
                     const mapsData = await getMaps(gameData.id);
                     setGameMaps(mapsData);
                 }
@@ -42,6 +56,29 @@ export const GameDetail: React.FC = () => {
         };
         fetchData();
     }, [slug]);
+
+    useEffect(() => {
+        if (!game?.id) return;
+        const timeout = window.setTimeout(async () => {
+            setTermsLoading(true);
+            try {
+                const termsData = await getTerms({
+                    gameId: game.id,
+                    page,
+                    pageSize,
+                    search
+                });
+                setTerms(termsData.items);
+                setTermsPagination(termsData.pagination);
+            } catch (requestError: any) {
+                setError(requestError.message || 'Erro ao carregar termos');
+            } finally {
+                setTermsLoading(false);
+            }
+        }, 250);
+
+        return () => window.clearTimeout(timeout);
+    }, [game?.id, page, pageSize, search]);
 
     if (loading) {
         return <div className="min-h-screen flex items-center justify-center text-white">Carregando...</div>;
@@ -68,14 +105,20 @@ export const GameDetail: React.FC = () => {
 
     const activeMap = gameMaps.find(m => m.id === selectedMapId);
 
-    const filteredTerms = terms.filter(term => {
-        const matchesSearch = term.word.toLowerCase().includes(search.toLowerCase()) ||
-            term.definition.toLowerCase().includes(search.toLowerCase());
-        return matchesSearch;
-    });
-
     return (
         <div className="min-h-screen pb-20">
+            <Seo
+                title={`${game.name} — Glossário e Mapas`}
+                description={`Glossário de gírias e termos de ${game.name}${game.genre ? ` (${game.genre})` : ''}, além de mapas táticos e callouts. Aprenda o vocabulário do jogo.`}
+                image={game.image}
+                path={`/games/${game.slug}`}
+                type="article"
+            />
+            <JsonLd data={breadcrumbSchema([
+                { name: 'Início', path: '/' },
+                { name: 'Jogos', path: '/games' },
+                { name: game.name, path: `/games/${game.slug}` },
+            ])} />
             {/* Hero Banner */}
             <div className="relative h-[40vh] w-full overflow-hidden border-b border-brand-500/20">
                 <img src={game.image} className="w-full h-full object-cover animate-in fade-in duration-1000" />
@@ -88,7 +131,7 @@ export const GameDetail: React.FC = () => {
                     <div className="flex items-center gap-4">
                         <Badge color="brand" className="text-base px-3 py-1">{game.genre}</Badge>
                         <span className="text-gray-400 text-sm md:text-base bg-black/50 px-3 py-1 rounded-full backdrop-blur-sm border border-white/10">
-                            {terms.length} termos catalogados
+                            {termsPagination.total} termos catalogados
                         </span>
                     </div>
                 </div>
@@ -125,18 +168,27 @@ export const GameDetail: React.FC = () => {
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {filteredTerms.map(term => (
+                            {terms.map(term => (
                                 <div key={term.id} onClick={() => navigate(`/term/${term.word}`)} className="cursor-pointer h-full">
                                     <TermCard term={term} />
                                 </div>
                             ))}
-                            {filteredTerms.length === 0 && (
+                            {!termsLoading && terms.length === 0 && (
                                 <div className="col-span-full text-center py-20 bg-dark-900/30 rounded-xl border border-dark-800 border-dashed">
                                     <Book className="w-12 h-12 text-dark-700 mx-auto mb-4" />
                                     <h3 className="text-xl font-bold text-gray-300">Nenhum termo encontrado</h3>
                                     <p className="text-gray-500">Tente buscar por outra palavra ou contribua com o dicionário.</p>
                                 </div>
                             )}
+                        </div>
+                        <div className="mt-8 overflow-hidden rounded-lg border border-dark-800 bg-dark-900/50">
+                            <PaginationControls
+                                pagination={termsPagination}
+                                onPageChange={setPage}
+                                onPageSizeChange={setPageSize}
+                                disabled={termsLoading}
+                                pageSizeOptions={[12, 24, 48]}
+                            />
                         </div>
                     </div>
                 ) : (

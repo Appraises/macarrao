@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { validateEmail, validatePassword, validateName } from '../src/utils/validation';
+import { validateTermContent } from '../src/utils/validator';
 
 describe('validateEmail', () => {
     it('should accept valid email formats', () => {
@@ -60,5 +61,21 @@ describe('validateName', () => {
     it('should reject non-string values', () => {
         expect(validateName(null as any).valid).toBe(false);
         expect(validateName(undefined as any).valid).toBe(false);
+    });
+});
+
+describe('validateTermContent', () => {
+    it('does not treat a blocked sequence inside a legitimate word as profanity', () => {
+        expect(validateTermContent(
+            'Controle de ritmo',
+            'Uma estrategia usada para controlar o ritmo de uma partida competitiva.'
+        ).isValid).toBe(true);
+    });
+
+    it('still rejects a blocked term as a complete word', () => {
+        expect(validateTermContent(
+            'Termo ofensivo',
+            'Esta definicao inclui merda como uma palavra isolada.'
+        ).isValid).toBe(false);
     });
 });

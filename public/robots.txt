@@ -1,0 +1,15 @@
+User-agent: *
+Allow: /
+
+# Private / non-content routes — no SEO value
+Disallow: /dashboard
+Disallow: /login
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /verify-email
+Disallow: /settings
+Disallow: /perfil
+Disallow: /contribuir
+
+# Atualize o domínio abaixo para o seu domínio de produção
+Sitemap: https://SEU-DOMINIO.com/sitemap.xml

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Lock, User } from 'lucide-react';
-import { Button } from '../../components/UI';
+import { Button } from '../../../components/UI';
 import { login } from '../../services/api';
 
 export const DashboardLogin: React.FC = () => {

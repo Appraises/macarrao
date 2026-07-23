@@ -1,3 +1,4 @@
+import { ContentStatus } from '@prisma/client';
 import express from 'express';
 import { prisma } from '../lib/prisma';
 
@@ -8,40 +9,19 @@ router.get('/:gameId', async (req, res) => {
     try {
         const { gameId } = req.params;
         const maps = await prisma.gameMap.findMany({
-            where: { gameId },
+            where: {
+                gameId,
+                status: ContentStatus.PUBLISHED,
+                game: { status: ContentStatus.PUBLISHED }
+            },
             include: {
                 callouts: true
-            }
+            },
+            orderBy: [{ name: 'asc' }, { id: 'asc' }]
         });
         res.json(maps);
     } catch (error) {
         res.status(500).json({ error: 'Failed to fetch maps' });
-    }
-});
-
-// Create a new map (Admin only - for future use)
-router.post('/', async (req, res) => {
-    try {
-        const { gameId, name, image, tacticalImage, callouts } = req.body;
-
-        const map = await prisma.gameMap.create({
-            data: {
-                gameId,
-                name,
-                image,
-                tacticalImage,
-                callouts: {
-                    create: callouts
-                }
-            },
-            include: {
-                callouts: true
-            }
-        });
-
-        res.status(201).json(map);
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to create map' });
     }
 });
 

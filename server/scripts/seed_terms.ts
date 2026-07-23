@@ -17,7 +17,7 @@ const MOCK_TERMS = [
         upvotes: 1250,
         downvotes: 12,
         tags: 'Estratégia,MOBA,General',
-        verified: true
+        status: 'APPROVED'
     },
     {
         word: 'Nerf',
@@ -32,7 +32,7 @@ const MOCK_TERMS = [
         upvotes: 890,
         downvotes: 5,
         tags: 'Balanceamento,Geral,General',
-        verified: true
+        status: 'APPROVED'
     },
     {
         word: 'Smurf',
@@ -47,7 +47,7 @@ const MOCK_TERMS = [
         upvotes: 2300,
         downvotes: 450,
         tags: 'Comportamento,Geral,General',
-        verified: true
+        status: 'APPROVED'
     },
     {
         word: 'Intar',
@@ -62,7 +62,7 @@ const MOCK_TERMS = [
         upvotes: 1500,
         downvotes: 20,
         tags: 'Comportamento,Gíria,General',
-        verified: true
+        status: 'APPROVED'
     },
     {
         word: 'Tilt',
@@ -74,7 +74,7 @@ const MOCK_TERMS = [
         upvotes: 5000,
         downvotes: 20,
         tags: 'Psicológico,Geral,General',
-        verified: true
+        status: 'APPROVED'
     },
 
     // --- LEAGUE OF LEGENDS (ID: 1) ---
@@ -88,7 +88,7 @@ const MOCK_TERMS = [
         upvotes: 400,
         downvotes: 2,
         tags: 'Mecânica,MOBA',
-        verified: true
+        status: 'APPROVED'
     },
     {
         word: 'Inibidor',
@@ -100,7 +100,7 @@ const MOCK_TERMS = [
         upvotes: 350,
         downvotes: 5,
         tags: 'Objetivo,MOBA',
-        verified: true
+        status: 'APPROVED'
     },
     {
         word: 'Wave Management',
@@ -112,7 +112,7 @@ const MOCK_TERMS = [
         upvotes: 800,
         downvotes: 15,
         tags: 'Estratégia,MOBA',
-        verified: true
+        status: 'APPROVED'
     },
     {
         word: 'Leash',
@@ -124,7 +124,7 @@ const MOCK_TERMS = [
         upvotes: 600,
         downvotes: 10,
         tags: 'Estratégia,MOBA',
-        verified: true
+        status: 'APPROVED'
     },
 
     // --- VALORANT (ID: 2) ---
@@ -138,7 +138,7 @@ const MOCK_TERMS = [
         upvotes: 1100,
         downvotes: 25,
         tags: 'Objetivo,FPS',
-        verified: true
+        status: 'APPROVED'
     },
     {
         word: 'Operator (Op)',
@@ -150,7 +150,7 @@ const MOCK_TERMS = [
         upvotes: 950,
         downvotes: 30,
         tags: 'Arma,FPS',
-        verified: true
+        status: 'APPROVED'
     },
     {
         word: 'Default',
@@ -162,7 +162,7 @@ const MOCK_TERMS = [
         upvotes: 700,
         downvotes: 10,
         tags: 'Estratégia,FPS',
-        verified: true
+        status: 'APPROVED'
     },
     {
         word: 'Lineup',
@@ -174,7 +174,7 @@ const MOCK_TERMS = [
         upvotes: 1200,
         downvotes: 40,
         tags: 'Mecânica,FPS',
-        verified: true
+        status: 'APPROVED'
     },
 
     // --- CS2 (ID: 3) ---
@@ -188,7 +188,7 @@ const MOCK_TERMS = [
         upvotes: 1500,
         downvotes: 5,
         tags: 'Economia,FPS',
-        verified: true
+        status: 'APPROVED'
     },
     {
         word: 'Rush B',
@@ -200,7 +200,7 @@ const MOCK_TERMS = [
         upvotes: 5000,
         downvotes: 50,
         tags: 'Estratégia,FPS',
-        verified: true
+        status: 'APPROVED'
     },
     {
         word: 'Clutch',
@@ -212,7 +212,7 @@ const MOCK_TERMS = [
         upvotes: 2100,
         downvotes: 20,
         tags: 'Geral,FPS',
-        verified: true
+        status: 'APPROVED'
     },
     {
         word: 'Entry Fragger',
@@ -224,7 +224,7 @@ const MOCK_TERMS = [
         upvotes: 850,
         downvotes: 10,
         tags: 'Função,FPS',
-        verified: true
+        status: 'APPROVED'
     },
 
     // --- WORLD OF WARCRAFT (ID: 4) ---
@@ -238,7 +238,7 @@ const MOCK_TERMS = [
         upvotes: 1300,
         downvotes: 25,
         tags: 'Gíria,MMORPG',
-        verified: true
+        status: 'APPROVED'
     },
     {
         word: 'Aggro',
@@ -250,7 +250,7 @@ const MOCK_TERMS = [
         upvotes: 650,
         downvotes: 5,
         tags: 'Mecânica,MMORPG',
-        verified: true
+        status: 'APPROVED'
     }
 ];
 

@@ -1,15 +1,10 @@
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import App from './App';
+import { ViteReactSSG } from 'vite-react-ssg';
+import { routes } from './App';
+import './index.css';
+import { initSentry } from './src/lib/sentry';
 
-const rootElement = document.getElementById('root');
-if (!rootElement) {
-  throw new Error("Could not find root element to mount to");
-}
+initSentry();
 
-const root = ReactDOM.createRoot(rootElement);
-root.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-);
+// ViteReactSSG handles client-side hydration in the browser and static
+// rendering at build time. The route config lives in App.tsx.
+export const createRoot = ViteReactSSG({ routes });

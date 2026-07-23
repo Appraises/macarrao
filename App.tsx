@@ -1,32 +1,60 @@
-import React, { useState } from 'react';
-import { HashRouter, Routes, Route, Link, useNavigate, Navigate } from 'react-router-dom';
+import React, { useEffect, useState, Suspense } from 'react';
+import { Link, useNavigate, Navigate, Outlet, type RouteObject } from 'react-router-dom';
+
+// Eager: prerendered / content-rich pages (must render synchronously at build).
 import { Home } from './pages/Home';
-import { TermDetail } from './pages/TermDetail';
-import { Contribute } from './pages/Contribute';
-import { Login } from './pages/Login';
-import { VerifyEmail } from './pages/VerifyEmail';
+import { Dictionary } from './pages/Dictionary';
+import { TermDetail, termLoader } from './pages/TermDetail';
 import { Games } from './pages/Games';
 import { GameDetail } from './pages/GameDetail';
-import { Profile } from './pages/Profile';
 import { Esports } from './pages/Esports';
-import { MatchDetail } from './pages/MatchDetail';
-import { TournamentDetail } from './pages/TournamentDetail';
 import { News as NewsPage } from './pages/News';
 import { NewsDetail } from './pages/NewsDetail';
-import { Settings as SettingsPage } from './pages/Settings';
-import { ForgotPassword } from './pages/ForgotPassword';
-import { ResetPassword } from './pages/ResetPassword';
+import { NotFound } from './pages/NotFound';
+import { TermsOfUse } from './pages/TermsOfUse';
+import { PrivacyPolicy } from './pages/PrivacyPolicy';
 import { DashboardLogin } from './pages/DASHBOARD/DashboardLogin';
 import { DashboardLayout } from './pages/DASHBOARD/DashboardLayout';
-import { Overview } from './pages/DASHBOARD/Overview';
-import { Contributions } from './pages/DASHBOARD/Contributions';
-import { TermsList } from './pages/DASHBOARD/Terms';
-import { UsersList } from './pages/DASHBOARD/Users';
-import { News } from './pages/DASHBOARD/News';
+
+// Lazy: SPA-only pages, split into separate chunks loaded on demand.
+const lazyPage = (
+  factory: () => Promise<Record<string, React.ComponentType<any>>>,
+  name: string,
+) => React.lazy(() => factory().then((m) => ({ default: m[name] })));
+
+const Contribute = lazyPage(() => import('./pages/Contribute'), 'Contribute');
+const MyContributions = lazyPage(() => import('./pages/MyContributions'), 'MyContributions');
+const MyContributionDetail = lazyPage(() => import('./pages/MyContributionDetail'), 'MyContributionDetail');
+const Login = lazyPage(() => import('./pages/Login'), 'Login');
+const VerifyEmail = lazyPage(() => import('./pages/VerifyEmail'), 'VerifyEmail');
+const Profile = lazyPage(() => import('./pages/Profile'), 'Profile');
+const MatchDetail = lazyPage(() => import('./pages/MatchDetail'), 'MatchDetail');
+const TournamentDetail = lazyPage(() => import('./pages/TournamentDetail'), 'TournamentDetail');
+const SettingsPage = lazyPage(() => import('./pages/Settings'), 'Settings');
+const ForgotPassword = lazyPage(() => import('./pages/ForgotPassword'), 'ForgotPassword');
+const ResetPassword = lazyPage(() => import('./pages/ResetPassword'), 'ResetPassword');
+const Overview = lazyPage(() => import('./pages/DASHBOARD/Overview'), 'Overview');
+const Contributions = lazyPage(() => import('./pages/DASHBOARD/Contributions'), 'Contributions');
+const TermsList = lazyPage(() => import('./pages/DASHBOARD/Terms'), 'TermsList');
+const TermEditor = lazyPage(() => import('./pages/DASHBOARD/TermEditor'), 'TermEditor');
+const UsersList = lazyPage(() => import('./pages/DASHBOARD/Users'), 'UsersList');
+const DashboardNews = lazyPage(() => import('./pages/DASHBOARD/News'), 'News');
+const Reports = lazyPage(() => import('./pages/DASHBOARD/Reports'), 'Reports');
+const DashboardGames = lazyPage(() => import('./pages/DASHBOARD/Games'), 'Games');
+const DashboardMaps = lazyPage(() => import('./pages/DASHBOARD/Maps'), 'Maps');
+const DashboardTournaments = lazyPage(() => import('./pages/DASHBOARD/Tournaments'), 'Tournaments');
+const DashboardEsports = lazyPage(() => import('./pages/DASHBOARD/EsportsAdmin'), 'EsportsAdmin');
+const DashboardPrivacyRequests = lazyPage(() => import('./pages/DASHBOARD/PrivacyRequests'), 'PrivacyRequests');
+const DashboardAnalytics = lazyPage(() => import('./pages/DASHBOARD/Analytics'), 'Analytics');
+
 import { Button } from './components/UI';
-import { PlusCircle, Menu, X, Twitter, Instagram, Facebook, Youtube, User as UserIcon, LogOut, Settings, Home as HomeIcon, Gamepad2, Newspaper, Trophy } from 'lucide-react';
+import { PlusCircle, Menu, X, Twitter, Instagram, Facebook, Youtube, User as UserIcon, LogOut, Settings, Home as HomeIcon, Gamepad2, Newspaper, Trophy, BookOpen, ClipboardList } from 'lucide-react';
 import { User } from './types';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
+import { NotificationsProvider } from './src/context/NotificationsContext';
+import { NotificationCenter } from './components/NotificationCenter';
+import { PrivacyPreferencesDialog } from './components/PrivacyPreferences';
+import { initAnalytics } from './src/lib/analytics';
 
 const Header: React.FC = () => {
   const { user, logout } = useAuth();
@@ -49,8 +77,9 @@ const Header: React.FC = () => {
         </Link>
 
         {/* Desktop Nav */}
-        <nav className="hidden md:flex items-center justify-center gap-12 flex-1">
+        <nav className="hidden md:flex items-center justify-center gap-8 lg:gap-12 flex-1">
           <Link to="/" className="text-xs font-bold uppercase tracking-[0.2em] text-gray-400 hover:text-brand-400 transition-all duration-300 hover:drop-shadow-[0_0_8px_rgba(59,130,246,0.6)]">Início</Link>
+          <Link to="/dicionario" className="text-xs font-bold uppercase tracking-[0.2em] text-gray-400 hover:text-brand-400 transition-all duration-300 hover:drop-shadow-[0_0_8px_rgba(59,130,246,0.6)]">Dicionário</Link>
           <Link to="/games" className="text-xs font-bold uppercase tracking-[0.2em] text-gray-400 hover:text-brand-400 transition-all duration-300 hover:drop-shadow-[0_0_8px_rgba(59,130,246,0.6)]">Jogos</Link>
           <Link to="/news" className="text-xs font-bold uppercase tracking-[0.2em] text-gray-400 hover:text-brand-400 transition-all duration-300 hover:drop-shadow-[0_0_8px_rgba(59,130,246,0.6)]">Notícias</Link>
           <Link to="/esports" className="text-xs font-bold uppercase tracking-[0.2em] text-gray-400 hover:text-brand-400 transition-all duration-300 hover:drop-shadow-[0_0_8px_rgba(59,130,246,0.6)]">E-Sports</Link>
@@ -62,6 +91,8 @@ const Header: React.FC = () => {
             <PlusCircle className="w-4 h-4 text-black" />
             Contribuir
           </Button>
+
+          {user && <NotificationCenter />}
 
           {user ? (
             <div className="relative group">
@@ -82,6 +113,10 @@ const Header: React.FC = () => {
                   <Link to="/perfil" className="flex items-center gap-3 px-4 py-3 text-sm text-gray-300 hover:bg-dark-800 hover:text-white rounded-lg transition-colors">
                     <UserIcon className="w-4 h-4" />
                     Perfil
+                  </Link>
+                  <Link to="/minhas-contribuicoes" className="flex items-center gap-3 px-4 py-3 text-sm text-gray-300 hover:bg-dark-800 hover:text-white rounded-lg transition-colors">
+                    <ClipboardList className="w-4 h-4" />
+                    Minhas contribuições
                   </Link>
                   <Link to="/settings" className="flex items-center gap-3 px-4 py-3 text-sm text-gray-300 hover:bg-dark-800 hover:text-white rounded-lg transition-colors">
                     <Settings className="w-4 h-4" />
@@ -104,12 +139,16 @@ const Header: React.FC = () => {
         </div>
 
         {/* Mobile Toggle */}
-        <button
-          className="md:hidden text-gray-400 hover:text-white p-2 hover:bg-white/10 rounded-lg transition-colors"
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-        >
-          {mobileMenuOpen ? <X /> : <Menu />}
-        </button>
+        <div className="flex items-center gap-2 md:hidden">
+          {user && <NotificationCenter />}
+          <button
+            className="text-gray-400 hover:text-white p-2 hover:bg-white/10 rounded-lg transition-colors"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-label={mobileMenuOpen ? 'Fechar menu' : 'Abrir menu'}
+          >
+            {mobileMenuOpen ? <X /> : <Menu />}
+          </button>
+        </div>
       </div>
 
       {/* Mobile Menu */}
@@ -136,6 +175,14 @@ const Header: React.FC = () => {
             >
               <HomeIcon className="w-8 h-8 text-gray-600 group-hover:text-brand-500 transition-colors" />
               Início
+            </Link>
+            <Link
+              to="/dicionario"
+              onClick={() => setMobileMenuOpen(false)}
+              className="group flex items-center gap-4 text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-gray-400 to-gray-600 hover:from-brand-400 hover:to-brand-600 transition-all duration-300"
+            >
+              <BookOpen className="w-8 h-8 text-gray-600 group-hover:text-brand-500 transition-colors" />
+              Dicionário
             </Link>
             <Link
               to="/games"
@@ -181,6 +228,9 @@ const Header: React.FC = () => {
                     <p className="text-xs text-brand-400 font-bold uppercase tracking-wider">Nível {user.level}</p>
                   </div>
                 </div>
+                <Link to="/minhas-contribuicoes" onClick={() => setMobileMenuOpen(false)} className="flex items-center justify-center gap-2 p-3 rounded-lg bg-brand-500/10 border border-brand-500/20 text-sm font-bold text-brand-300 transition-colors">
+                  <ClipboardList className="w-4 h-4" /> Minhas contribuições
+                </Link>
                 <div className="grid grid-cols-2 gap-3">
                   <Link to="/perfil" onClick={() => setMobileMenuOpen(false)} className="flex items-center justify-center gap-2 p-3 rounded-lg bg-white/5 hover:bg-white/10 text-sm font-bold text-gray-300 transition-colors">
                     <UserIcon className="w-4 h-4" /> Perfil
@@ -206,6 +256,23 @@ const Header: React.FC = () => {
         </div>
       )}
     </header>
+  );
+};
+
+const FooterPrivacySettings: React.FC = () => {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="text-gray-500 hover:text-white transition-colors text-sm font-medium block hover:translate-x-1 transform duration-200 text-left"
+      >
+        Preferências de analytics
+      </button>
+      <PrivacyPreferencesDialog open={open} onClose={() => setOpen(false)} />
+    </>
   );
 };
 
@@ -247,10 +314,11 @@ const Footer: React.FC = () => (
           </h4>
           <ul className="space-y-4">
             <li><Link to="/" className="text-gray-500 hover:text-white transition-colors text-sm font-medium block hover:translate-x-1 transform duration-200">Página Principal</Link></li>
+            <li><Link to="/dicionario" className="text-gray-500 hover:text-white transition-colors text-sm font-medium block hover:translate-x-1 transform duration-200">Dicionário</Link></li>
             <li><Link to="/games" className="text-gray-500 hover:text-white transition-colors text-sm font-medium block hover:translate-x-1 transform duration-200">Jogos</Link></li>
             <li><Link to="/contribuir" className="text-gray-500 hover:text-white transition-colors text-sm font-medium block hover:translate-x-1 transform duration-200">Enviar Palavras</Link></li>
             <li><a href="#" className="text-gray-500 hover:text-white transition-colors text-sm font-medium block hover:translate-x-1 transform duration-200">Suporte</a></li>
-            <li><a href="#" className="text-gray-500 hover:text-white transition-colors text-sm font-medium block hover:translate-x-1 transform duration-200">Reportar Palavras</a></li>
+            <li><Link to="/contribuir" className="text-gray-500 hover:text-white transition-colors text-sm font-medium block hover:translate-x-1 transform duration-200">Reportar Palavras</Link></li>
           </ul>
         </div>
 
@@ -260,8 +328,9 @@ const Footer: React.FC = () => (
             Termos e Privacidade
           </h4>
           <ul className="space-y-4">
-            <li><a href="#" className="text-gray-500 hover:text-white transition-colors text-sm font-medium block hover:translate-x-1 transform duration-200">Termos e Condições</a></li>
-            <li><a href="#" className="text-gray-500 hover:text-white transition-colors text-sm font-medium block hover:translate-x-1 transform duration-200">Privacidade</a></li>
+            <li><Link to="/termos" className="text-gray-500 hover:text-white transition-colors text-sm font-medium block hover:translate-x-1 transform duration-200">Termos de Uso</Link></li>
+            <li><Link to="/privacidade" className="text-gray-500 hover:text-white transition-colors text-sm font-medium block hover:translate-x-1 transform duration-200">Política de Privacidade</Link></li>
+            <li><FooterPrivacySettings /></li>
           </ul>
         </div>
 
@@ -279,7 +348,15 @@ const Footer: React.FC = () => (
   </footer>
 );
 
-const AppContent: React.FC = () => {
+// Fallback shown while a lazy-loaded page chunk is being fetched.
+const PageLoader: React.FC = () => (
+  <div className="flex-grow flex items-center justify-center py-32">
+    <div className="w-12 h-12 border-4 border-ocean-500/30 border-t-ocean-500 rounded-full animate-spin"></div>
+  </div>
+);
+
+// Default layout for the public site (Header + Footer around the routed page).
+const MainLayout: React.FC = () => {
   return (
     <div className="flex flex-col min-h-screen bg-dark-950 text-gray-200 font-sans selection:bg-brand-500/30 selection:text-brand-100 overflow-x-hidden">
       {/* Global Background Effects */}
@@ -289,24 +366,9 @@ const AppContent: React.FC = () => {
       <Header />
 
       <main className="flex-grow relative z-10 flex flex-col">
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/games" element={<Games />} />
-          <Route path="/games/:slug" element={<GameDetail />} />
-          <Route path="/news" element={<NewsPage />} />
-          <Route path="/news/:id" element={<NewsDetail />} />
-          <Route path="/esports" element={<Esports />} />
-          <Route path="/esports/match/:id" element={<MatchDetail />} />
-          <Route path="/esports/tournament/:id" element={<TournamentDetail />} />
-          <Route path="/term/:slug" element={<TermDetail />} />
-          <Route path="/perfil" element={<Profile />} />
-          <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/contribuir" element={<Contribute />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/verify-email" element={<VerifyEmail />} />
-        </Routes>
+        <Suspense fallback={<PageLoader />}>
+          <Outlet />
+        </Suspense>
       </main>
 
       <Footer />
@@ -314,28 +376,80 @@ const AppContent: React.FC = () => {
   );
 };
 
-const App: React.FC = () => {
+// Pathless root layout that provides auth context to the whole tree.
+const RootLayout: React.FC = () => {
+  useEffect(() => {
+    initAnalytics();
+  }, []);
+
   return (
     <AuthProvider>
-      <HashRouter>
-        <Routes>
-          {/* Dashboard Routes - Independent Layout */}
-          <Route path="/dashboard/login" element={<DashboardLogin />} />
-          <Route path="/dashboard" element={<DashboardLayout />}>
-            <Route index element={<Navigate to="/dashboard/overview" replace />} />
-            <Route path="overview" element={<Overview />} />
-            <Route path="contributions" element={<Contributions />} />
-            <Route path="users" element={<UsersList />} />
-            <Route path="terms" element={<TermsList />} />
-            <Route path="news" element={<News />} />
-          </Route>
-
-          {/* Main App Routes - Default Layout */}
-          <Route path="*" element={<AppContent />} />
-        </Routes>
-      </HashRouter>
+      <NotificationsProvider>
+        <Outlet />
+      </NotificationsProvider>
     </AuthProvider>
   );
 };
 
-export default App;
+// Route config (data-router format) consumed by vite-react-ssg for prerendering
+// and by react-router on the client.
+export const routes: RouteObject[] = [
+  {
+    element: <RootLayout />,
+    children: [
+      // Dashboard - independent layout, not indexed
+      { path: 'dashboard/login', element: <DashboardLogin /> },
+      {
+        path: 'dashboard',
+        element: <DashboardLayout />,
+        children: [
+          { index: true, element: <Navigate to="/dashboard/overview" replace /> },
+          { path: 'overview', element: <Overview /> },
+          { path: 'analytics', element: <DashboardAnalytics /> },
+          { path: 'contributions', element: <Contributions /> },
+          { path: 'users', element: <UsersList /> },
+          { path: 'terms', element: <TermsList /> },
+          { path: 'terms/new', element: <TermEditor /> },
+          { path: 'terms/:id', element: <TermEditor /> },
+          { path: 'reports', element: <Reports /> },
+          { path: 'news', element: <DashboardNews /> },
+          { path: 'games', element: <DashboardGames /> },
+          { path: 'maps', element: <DashboardMaps /> },
+          { path: 'tournaments', element: <DashboardTournaments /> },
+          { path: 'esports', element: <DashboardEsports /> },
+          { path: 'privacy-requests', element: <DashboardPrivacyRequests /> },
+        ],
+      },
+      // Main public site - default layout
+      {
+        path: '/',
+        element: <MainLayout />,
+        children: [
+          { index: true, element: <Home /> },
+          { path: 'dicionario', element: <Dictionary /> },
+          { path: 'games', element: <Games /> },
+          { path: 'games/:slug', element: <GameDetail /> },
+          { path: 'news', element: <NewsPage /> },
+          { path: 'news/:id', element: <NewsDetail /> },
+          { path: 'esports', element: <Esports /> },
+          { path: 'esports/match/:id', element: <MatchDetail /> },
+          { path: 'esports/tournament/:id', element: <TournamentDetail /> },
+          { path: 'term/:slug', element: <TermDetail />, loader: termLoader },
+          { path: 'perfil', element: <Profile /> },
+          { path: 'settings', element: <SettingsPage /> },
+          { path: 'contribuir', element: <Contribute /> },
+          { path: 'minhas-contribuicoes', element: <MyContributions /> },
+          { path: 'minhas-contribuicoes/:id', element: <MyContributionDetail /> },
+          { path: 'login', element: <Login /> },
+          { path: 'forgot-password', element: <ForgotPassword /> },
+          { path: 'reset-password', element: <ResetPassword /> },
+          { path: 'verify-email', element: <VerifyEmail /> },
+          { path: 'termos', element: <TermsOfUse /> },
+          { path: 'privacidade', element: <PrivacyPolicy /> },
+          // Catch-all 404 (rendered inside the main layout, marked noindex)
+          { path: '*', element: <NotFound /> },
+        ],
+      },
+    ],
+  },
+];

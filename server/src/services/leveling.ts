@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 
 const XP_TABLE = [
@@ -19,11 +20,18 @@ const BADGES = [
     { level: 10, name: 'Lenda', icon: 'Trophy' }
 ];
 
-export const awardXp = async (userId: string, amount: number) => {
-    const user = await prisma.user.findUnique({ where: { id: userId } });
+export const awardXp = async (
+    userId: string,
+    amount: number,
+    client: Pick<Prisma.TransactionClient, 'user'> | typeof prisma = prisma
+) => {
+    const user = await client.user.update({
+        where: { id: userId },
+        data: { xp: { increment: amount } }
+    });
     if (!user) return;
 
-    let newXp = (user.xp || 0) + amount;
+    const newXp = user.xp || 0;
     let newLevel = user.level;
 
     // Check for level up
@@ -53,10 +61,9 @@ export const awardXp = async (userId: string, amount: number) => {
         }
     });
 
-    await prisma.user.update({
+    await client.user.update({
         where: { id: userId },
         data: {
-            xp: newXp,
             level: newLevel,
             badges: newBadges
         }

@@ -4,6 +4,7 @@ import { GameGenre, Game } from '../types';
 import { Search, Gamepad2 } from 'lucide-react';
 import { Input, Badge } from '../components/UI';
 import { getGames } from '../src/services/api';
+import { Seo } from '../components/Seo';
 
 export const Games: React.FC = () => {
     const navigate = useNavigate();
@@ -29,6 +30,11 @@ export const Games: React.FC = () => {
 
     return (
         <div className="min-h-screen py-12 px-4 max-w-7xl mx-auto">
+            <Seo
+                title="Biblioteca de Jogos"
+                description="Explore glossários dedicados, mapas e gírias específicas de cada universo gamer. Encontre os termos de FPS, MOBA, RPG e muito mais."
+                path="/games"
+            />
             {/* Header */}
             <div className="mb-12 text-center animate-in fade-in slide-in-from-bottom-4 duration-700">
                 <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">Biblioteca de Jogos</h1>

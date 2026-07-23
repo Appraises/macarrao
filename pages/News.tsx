@@ -3,17 +3,32 @@ import { Link } from 'react-router-dom';
 import { Calendar, User, MessageSquare, Clock } from 'lucide-react';
 import { Badge } from '../components/UI';
 import { getNews } from '../src/services/api';
+import { Seo } from '../components/Seo';
+import { PaginationControls } from '../components/PaginationControls';
+import { usePaginatedListQuery } from '../src/hooks/usePaginatedListQuery';
+import type { News as NewsItem, PaginationMeta } from '../types';
 
+const EMPTY_PAGINATION: PaginationMeta = {
+    page: 1,
+    pageSize: 12,
+    total: 0,
+    totalPages: 0,
+    hasNext: false,
+    hasPrevious: false
+};
 
 export const News: React.FC = () => {
-    const [news, setNews] = React.useState<any[]>([]);
+    const { page, pageSize, setPage, setPageSize } = usePaginatedListQuery(12);
+    const [news, setNews] = React.useState<NewsItem[]>([]);
+    const [pagination, setPagination] = React.useState<PaginationMeta>(EMPTY_PAGINATION);
     const [loading, setLoading] = React.useState(true);
 
     React.useEffect(() => {
         const fetchNews = async () => {
             try {
-                const data = await getNews();
-                setNews(data);
+                const data = await getNews({ page, pageSize });
+                setNews(data.items);
+                setPagination(data.pagination);
             } catch (error) {
                 console.error("Failed to fetch news", error);
             } finally {
@@ -21,10 +36,10 @@ export const News: React.FC = () => {
             }
         };
         fetchNews();
-    }, []);
+    }, [page, pageSize]);
 
-    const featuredNews = news.slice(0, 4);
-    const latestNews = news.slice(4);
+    const featuredNews = page === 1 ? news.slice(0, 4) : [];
+    const latestNews = page === 1 ? news.slice(4) : news;
 
     if (loading) {
         return (
@@ -36,6 +51,11 @@ export const News: React.FC = () => {
 
     return (
         <div className="min-h-screen bg-[#0a0b10] text-gray-200 font-sans pb-20">
+            <Seo
+                title="Notícias sobre Games"
+                description="As últimas notícias do mundo dos games e e-sports: lançamentos, atualizações, campeonatos e cultura gamer."
+                path="/news"
+            />
 
             {/* Header Section */}
             <div className="bg-dark-950 border-b border-white/5 py-12">
@@ -59,7 +79,7 @@ export const News: React.FC = () => {
             <div className="max-w-7xl mx-auto px-4 py-8">
 
                 {/* DESTAQUES (Featured Grid) */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-16">
+                {featuredNews.length > 0 && <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-16">
                     {featuredNews.map((item) => (
                         <Link
                             key={item.id}
@@ -84,7 +104,7 @@ export const News: React.FC = () => {
                             </div>
                         </Link>
                     ))}
-                </div>
+                </div>}
 
                 {/* ÚLTIMAS NOTÍCIAS (Latest News List) */}
                 <div className="flex items-center justify-center mb-8">
@@ -146,10 +166,14 @@ export const News: React.FC = () => {
                     ))}
                 </div>
 
-                <div className="mt-12 text-center">
-                    <button className="px-8 py-3 bg-dark-800 hover:bg-dark-700 text-white text-sm font-bold uppercase tracking-wider rounded transition-colors border border-dark-700 hover:border-brand-500/50">
-                        Carregar Mais Notícias
-                    </button>
+                <div className="mt-12 overflow-hidden rounded-lg border border-dark-800 bg-dark-900/50">
+                    <PaginationControls
+                        pagination={pagination}
+                        onPageChange={setPage}
+                        onPageSizeChange={setPageSize}
+                        disabled={loading}
+                        pageSizeOptions={[12, 24, 48]}
+                    />
                 </div>
 
             </div>
