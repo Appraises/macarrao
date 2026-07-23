@@ -241,10 +241,27 @@ export interface ContributorRef {
   role?: string;
 }
 
+/** One numbered sense of a word. Ranked by score; authorship is shown per sense. */
+export interface TermMeaning {
+  id: string;
+  definition: string;
+  examples: string[];
+  context?: string | null;
+  game?: Pick<Game, 'id' | 'name' | 'slug'> | null;
+  order: number;
+  upvotes: number;
+  downvotes: number;
+  score: number;
+  author?: ContributorRef | null;
+  createdAt?: string;
+}
+
 export interface Term {
   id: string;
   word: string;
+  /** Legacy top-level definition: mirrors the leading meaning. Prefer `meanings`. */
   definition: string;
+  meanings?: TermMeaning[];
   phonetic?: string | null;
   pronunciationGuide?: string | null;
   examples: string[];
@@ -382,7 +399,26 @@ export interface AdminTermInput {
   aliases: string[];
 }
 
+/** A community-proposed sense awaiting moderation. */
+export interface PendingMeaning {
+  id: string;
+  definition: string;
+  examples: string[];
+  context?: string | null;
+  status: string;
+  createdAt: string;
+  term: { id: string; word: string };
+  game?: Pick<Game, 'id' | 'name'> | null;
+  author?: ContributorRef | null;
+}
+
+/** A sense as returned to the dashboard, including non-approved ones. */
+export interface AdminTermMeaning extends TermMeaning {
+  status: string;
+}
+
 export interface AdminTermDetail extends Term {
+  meanings?: AdminTermMeaning[];
   metrics: { viewsTotal: number; views28d: number; pendingReports: number; voteBalance: number };
   quality: AdminTermQuality;
   reports: Array<{ id: string; reason: string; details?: string | null; status: string; createdAt: string }>;

@@ -27,12 +27,31 @@ export function breadcrumbSchema(items: { name: string; path: string }[]) {
   };
 }
 
-export function definedTermSchema(term: { word: string; definition: string }) {
+export function definedTermSchema(term: {
+  word: string;
+  definition: string;
+  aliases?: string[];
+  meanings?: Array<{ definition: string; game?: { name: string } | null; context?: string | null }>;
+}) {
+  // schema.org DefinedTerm carries a single description, so multiple senses are
+  // numbered into one string the way a dictionary entry reads. Aliases become
+  // alternateName, which is exactly what they are.
+  const senses = term.meanings || [];
+  const description = senses.length > 1
+    ? senses
+        .map((sense, index) => {
+          const scope = sense.game?.name || sense.context;
+          return `${index + 1}. ${scope ? `(${scope}) ` : ''}${sense.definition}`;
+        })
+        .join(' ')
+    : senses[0]?.definition || term.definition;
+
   return {
     '@context': 'https://schema.org',
     '@type': 'DefinedTerm',
     name: term.word,
-    description: term.definition,
+    description,
+    ...(term.aliases?.length ? { alternateName: term.aliases } : {}),
     url: abs(`/term/${encodeURIComponent(term.word)}`),
     inDefinedTermSet: {
       '@type': 'DefinedTermSet',

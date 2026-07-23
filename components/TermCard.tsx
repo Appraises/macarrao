@@ -6,39 +6,45 @@ import { ThumbsUp, ThumbsDown, Volume2, Share2, CheckCircle2, AlertCircle, Flag 
 import { DefinitionParser } from './DefinitionParser';
 import { Avatar } from './Avatar';
 import { useAuth } from '../src/context/AuthContext';
-import { voteTerm, getMyVote, reportTerm } from '../src/services/api';
+import { voteMeaning, getMyMeaningVotes, reportTerm } from '../src/services/api';
 import { trackAnalyticsEvent } from '../src/lib/analytics';
 
 interface TermCardProps {
   term: Term;
 }
 
+type MeaningVote = { up: number; down: number; my: number };
+
 export const TermCard: React.FC<TermCardProps> = ({ term }) => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [voteState, setVoteState] = useState<'up' | 'down' | null>(null);
-  const [counts, setCounts] = useState({ up: term.upvotes || 0, down: term.downvotes || 0 });
-  const [voting, setVoting] = useState(false);
+  // Votes now live on each sense. Keyed by meaning id.
+  const [votes, setVotes] = useState<Record<string, MeaningVote>>({});
+  const [votingId, setVotingId] = useState<string | null>(null);
 
-  // Sync counts and load the user's existing vote whenever the term changes.
+  // Seed counts from the term payload, then load the user's per-sense votes.
   useEffect(() => {
-    setCounts({ up: term.upvotes || 0, down: term.downvotes || 0 });
-    setVoteState(null);
+    const seed: Record<string, MeaningVote> = {};
+    (term.meanings || []).forEach((m) => { seed[m.id] = { up: m.upvotes || 0, down: m.downvotes || 0, my: 0 }; });
+    setVotes(seed);
     if (user && term.id) {
-      getMyVote(term.id)
-        .then((r) => setVoteState(r?.myVote === 1 ? 'up' : r?.myVote === -1 ? 'down' : null))
+      getMyMeaningVotes(term.id)
+        .then((map) => setVotes((current) => {
+          const next = { ...current };
+          Object.entries(map).forEach(([id, value]) => { if (next[id]) next[id] = { ...next[id], my: value }; });
+          return next;
+        }))
         .catch(() => { /* ignore */ });
     }
   }, [term.id, user]);
 
-  const handleVote = async (type: 'up' | 'down') => {
+  const handleVote = async (meaningId: string, type: 'up' | 'down') => {
     if (!user) { navigate('/login'); return; } // voting requires login
-    if (voting) return;
-    setVoting(true);
+    if (votingId) return;
+    setVotingId(meaningId);
     try {
-      const res = await voteTerm(term.id, type);
-      setCounts({ up: res.upvotes, down: res.downvotes });
-      setVoteState(res.myVote === 1 ? 'up' : res.myVote === -1 ? 'down' : null);
+      const res = await voteMeaning(meaningId, type);
+      setVotes((current) => ({ ...current, [meaningId]: { up: res.upvotes, down: res.downvotes, my: res.myVote } }));
       trackAnalyticsEvent('Term Vote', {
         direction: type,
         term: term.word,
@@ -47,7 +53,7 @@ export const TermCard: React.FC<TermCardProps> = ({ term }) => {
     } catch (e) {
       /* keep previous state on failure */
     } finally {
-      setVoting(false);
+      setVotingId(null);
     }
   };
 
@@ -102,6 +108,10 @@ export const TermCard: React.FC<TermCardProps> = ({ term }) => {
   // Public author info (present on the term detail response).
   const author = term.author && typeof term.author === 'object' ? term.author : null;
   const aliases = Array.isArray(term.aliases) ? term.aliases : [];
+  // Senses arrive ranked by score. A single sense reads better unnumbered, like a
+  // dictionary entry with only one definition.
+  const meanings = term.meanings?.length ? term.meanings : null;
+  const numbered = (meanings?.length ?? 0) > 1;
 
   return (
     <div className="relative group">
@@ -146,34 +156,102 @@ export const TermCard: React.FC<TermCardProps> = ({ term }) => {
           </div>
         </div>
 
-        <div className="mb-6 flex-grow">
-          <p className="text-lg md:text-xl text-gray-200 leading-relaxed font-normal border-l-2 border-brand-500 pl-6">
-            <DefinitionParser text={term.definition} keywords={term.keywords} />
+        {aliases.length > 0 && (
+          <p className="-mt-2 mb-5 text-xs text-gray-500">
+            <span className="font-semibold text-gray-400">Também escrito como:</span> {aliases.join(' · ')}
           </p>
-          {aliases.length > 0 && (
-            <p className="mt-4 pl-6 text-xs text-gray-500">
-              <span className="font-semibold text-gray-400">Também escrito como:</span> {aliases.join(' · ')}
-            </p>
+        )}
+
+        <div className="mb-6 flex-grow">
+          {meanings ? (
+            <div className="divide-y divide-dark-800">
+              {meanings.map((meaning, index) => (
+                <div key={meaning.id} className="flex gap-3 py-5 first:pt-0">
+                  {numbered && <span className="flex-none pt-0.5 text-lg font-bold text-gray-600">{index + 1}.</span>}
+                  <div className="min-w-0 flex-1">
+                    {(meaning.game || meaning.context) && (
+                      <div className="mb-2.5 flex flex-wrap gap-2">
+                        {meaning.game && <Badge color="blue">{meaning.game.name}</Badge>}
+                        {meaning.context && <Badge color="gray">{meaning.context}</Badge>}
+                      </div>
+                    )}
+                    <p className="text-lg md:text-xl font-normal leading-relaxed text-gray-200">
+                      <DefinitionParser text={meaning.definition} keywords={term.keywords} />
+                    </p>
+                    {meaning.examples.length > 0 && (
+                      <ul className="mt-3 space-y-2">
+                        {meaning.examples.map((ex, i) => (
+                          <li key={i} className="border-l-2 border-brand-500/40 pl-3 text-sm italic text-gray-400">"{ex}"</li>
+                        ))}
+                      </ul>
+                    )}
+                    {meaning.author && (
+                      <div className="mt-3 flex items-center gap-2 text-xs text-gray-500">
+                        <Avatar name={meaning.author.name} src={meaning.author.avatar} size={18} className="flex-none" />
+                        <span>
+                          por <span className="font-semibold text-gray-400">{meaning.author.name}</span>
+                          {meaning.author.level ? <span className="text-brand-400/70"> · Nível {meaning.author.level}</span> : null}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  {(() => {
+                    const v = votes[meaning.id] || { up: meaning.upvotes || 0, down: meaning.downvotes || 0, my: 0 };
+                    const score = v.up - v.down;
+                    const busy = votingId === meaning.id;
+                    return (
+                      <div className="flex flex-none flex-col items-center gap-0.5 self-start rounded-lg border border-dark-700 bg-dark-950 p-1">
+                        <button
+                          onClick={() => handleVote(meaning.id, 'up')}
+                          disabled={busy}
+                          title="Concordo com este significado"
+                          aria-label="Votar a favor"
+                          className={`rounded p-1 transition-colors disabled:opacity-50 ${v.my === 1 ? 'text-brand-400 bg-brand-500/10' : 'text-gray-500 hover:text-gray-200'}`}
+                        >
+                          <ThumbsUp className="h-4 w-4" />
+                        </button>
+                        <span className={`font-mono text-xs font-bold ${score > 0 ? 'text-brand-300' : score < 0 ? 'text-red-400' : 'text-gray-500'}`}>
+                          {score > 0 ? `+${score}` : score}
+                        </span>
+                        <button
+                          onClick={() => handleVote(meaning.id, 'down')}
+                          disabled={busy}
+                          title="Discordo deste significado"
+                          aria-label="Votar contra"
+                          className={`rounded p-1 transition-colors disabled:opacity-50 ${v.my === -1 ? 'text-red-400 bg-red-500/10' : 'text-gray-500 hover:text-gray-200'}`}
+                        >
+                          <ThumbsDown className="h-4 w-4" />
+                        </button>
+                      </div>
+                    );
+                  })()}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <>
+              <p className="text-lg md:text-xl text-gray-200 leading-relaxed font-normal border-l-2 border-brand-500 pl-6">
+                <DefinitionParser text={term.definition} keywords={term.keywords} />
+              </p>
+              {term.examples.length > 0 && (
+                <div className="mt-6 rounded-lg border border-dark-700/50 bg-dark-800/50 p-5">
+                  <h4 className="mb-4 text-xs font-bold uppercase tracking-widest text-gray-500">Exemplos</h4>
+                  <ul className="space-y-3">
+                    {term.examples.map((ex, idx) => (
+                      <li key={idx} className="flex items-start gap-3 text-sm italic text-gray-300">
+                        <span className="text-lg font-bold leading-none text-brand-500">›</span>
+                        <span>"{ex}"</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </>
           )}
         </div>
 
-        {term.examples.length > 0 && (
-          <div className="bg-dark-800/50 rounded-lg p-5 mb-6 border border-dark-700/50">
-            <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4 flex items-center gap-2">
-              Exemplos
-            </h4>
-            <ul className="space-y-3">
-              {term.examples.map((ex, idx) => (
-                <li key={idx} className="text-gray-300 text-sm italic flex items-start gap-3">
-                  <span className="text-brand-500 font-bold text-lg leading-none">›</span>
-                  <span>"{ex}"</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {author && (
+        {/* Só no fallback legado: com sentidos, cada um já mostra o próprio autor. */}
+        {author && !meanings && (
           <div className="flex items-center gap-2 mb-4 text-xs text-gray-500">
             <Avatar name={author.name} src={author.avatar} size={22} className="flex-none" />
             <span>
@@ -193,26 +271,6 @@ export const TermCard: React.FC<TermCardProps> = ({ term }) => {
             {term.gameSpecifics?.map(g => (
               <Badge key={g.gameId} color="blue">{g.gameName}</Badge>
             ))}
-          </div>
-
-          <div className="flex items-center gap-1 bg-dark-950 rounded-lg p-1 border border-dark-700">
-            <button
-              onClick={() => handleVote('up')}
-              disabled={voting}
-              className={`p-2 rounded-md flex items-center gap-1.5 text-sm font-bold transition-all disabled:opacity-60 ${voteState === 'up' ? 'text-brand-400 bg-brand-500/10' : 'text-gray-400 hover:text-white hover:bg-dark-800'}`}
-            >
-              <ThumbsUp className="w-4 h-4" />
-              {counts.up}
-            </button>
-            <div className="w-px h-4 bg-dark-700"></div>
-            <button
-              onClick={() => handleVote('down')}
-              disabled={voting}
-              className={`p-2 rounded-md flex items-center gap-1.5 text-sm font-bold transition-all disabled:opacity-60 ${voteState === 'down' ? 'text-red-400 bg-red-500/10' : 'text-gray-400 hover:text-white hover:bg-dark-800'}`}
-            >
-              <ThumbsDown className="w-4 h-4" />
-              {counts.down}
-            </button>
           </div>
         </div>
 

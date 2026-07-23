@@ -2,14 +2,23 @@ import { cleanPlainText } from './content';
 import { normalizeTextList } from './userInput';
 import { validateTermContent } from './validator';
 
-export const parseTermPayload = (body: unknown) => {
+/**
+ * `requireDefinition` is false when updating an existing term: definition, examples
+ * and gameId are derived from its meanings now, so the term form no longer owns them.
+ */
+export const parseTermPayload = (body: unknown, { requireDefinition = true } = {}) => {
     const input = body && typeof body === 'object' && !Array.isArray(body)
         ? body as Record<string, unknown>
         : {};
     const word = cleanPlainText(input.word);
     const definition = cleanPlainText(input.definition);
-    const contentValidation = validateTermContent(word, definition);
-    if (!contentValidation.isValid) return { valid: false as const, error: contentValidation.error };
+    if (requireDefinition || definition) {
+        const contentValidation = validateTermContent(word, definition);
+        if (!contentValidation.isValid) return { valid: false as const, error: contentValidation.error };
+    } else {
+        const wordValidation = validateTermContent(word, 'placeholder suficiente para validar');
+        if (!wordValidation.isValid) return { valid: false as const, error: wordValidation.error };
+    }
 
     const examples = normalizeTextList(input.examples, 'Exemplos', { maxItems: 10, maxLength: 300 });
     if (!examples.valid) return examples;

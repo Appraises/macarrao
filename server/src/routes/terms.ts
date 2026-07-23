@@ -11,8 +11,19 @@ import { parseTermPayload } from '../utils/terms';
 import { AdminTermError, permanentlyDeleteAdminTerm, updateAdminTerm } from '../services/adminTerms';
 import { analyticsEnabled } from '../services/analytics/privacy';
 import { captureInternalSearch, recordTermViewWithSearch } from '../services/analytics/search';
+import { getMyMeaningVotes, parseMeaningPayload, proposeTermMeaning, TermMeaningError, voteOnMeaning } from '../services/termMeanings';
+import rateLimit from 'express-rate-limit';
 
 const router = Router();
+
+// Proposing a sense is cheap and open to everyone, so cap it per IP.
+const meaningLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    max: 10,
+    message: { error: 'Muitas sugestoes em pouco tempo. Tente novamente mais tarde.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
 
 // Get terms with optional filters. Calls without pagination parameters keep the
 // legacy array response during the frontend migration.
@@ -195,7 +206,16 @@ router.get('/:idOrSlug', async (req, res) => {
 
         const withRelations = {
             game: true,
-            author: { select: { id: true, name: true, avatar: true, level: true } }
+            author: { select: { id: true, name: true, avatar: true, level: true } },
+            // Public entry shows approved senses only; a pending new sense must never
+            // take the whole term off the air.
+            meanings: {
+                where: { status: TermStatus.APPROVED },
+                include: {
+                    game: { select: { id: true, name: true, slug: true } },
+                    author: { select: { id: true, name: true, avatar: true, level: true } }
+                }
+            }
         } as const;
 
         if (isUuid) {
@@ -264,15 +284,48 @@ router.get('/:idOrSlug', async (req, res) => {
 
         const parsedRelatedTerms = Array.isArray(term.relatedTerms) ? term.relatedTerms : [];
 
+        // Senses are ranked by score, as decided: the community decides which meaning
+        // leads. `order` only breaks ties, keeping the original numbering stable.
+        const meanings = (term.meanings || [])
+            .map((meaning) => ({
+                id: meaning.id,
+                definition: meaning.definition,
+                examples: Array.isArray(meaning.examples) ? meaning.examples : [],
+                context: meaning.context,
+                game: meaning.game,
+                order: meaning.order,
+                upvotes: meaning.upvotes,
+                downvotes: meaning.downvotes,
+                score: meaning.upvotes - meaning.downvotes,
+                author: meaning.author,
+                createdAt: meaning.createdAt
+            }))
+            .sort((a, b) => b.score - a.score || a.order - b.order || a.createdAt.getTime() - b.createdAt.getTime());
+
         res.json({
             ...term,
             tags: tags,
             keywords,
             relatedTerms: parsedRelatedTerms,
-            aliases: Array.isArray(term.aliases) ? term.aliases : []
+            aliases: Array.isArray(term.aliases) ? term.aliases : [],
+            meanings
         });
     } catch (error) {
         res.status(500).json({ error: 'Failed to fetch term' });
+    }
+});
+
+// Propose a new sense for an existing word. Open to any signed-in user; the sense
+// waits for moderation without affecting what is published.
+router.post('/:id/meanings', meaningLimiter, authenticateToken, async (req: AuthRequest, res) => {
+    try {
+        const content = parseMeaningPayload(req.body);
+        const meaning = await proposeTermMeaning(req.params.id, req.user!.id, content);
+        res.status(201).json({ id: meaning.id, status: meaning.status });
+    } catch (error) {
+        if (error instanceof TermMeaningError) return res.status(error.status).json({ error: error.message });
+        console.error('[terms] propose meaning:', error);
+        res.status(500).json({ error: 'Nao foi possivel enviar o significado.' });
     }
 });
 
@@ -314,69 +367,30 @@ router.delete('/:id', authenticateToken, requireAdmin, async (req: AuthRequest, 
     }
 });
 
-// Vote (authenticated, deduplicated: one vote per user, click again to undo)
-router.post('/:id/vote', authenticateToken, async (req: AuthRequest, res) => {
-    const { id } = req.params;
+// Vote on a specific sense (authenticated; click the same arrow again to undo).
+router.post('/meanings/:meaningId/vote', authenticateToken, async (req: AuthRequest, res) => {
     const { type } = req.body; // 'up' | 'down'
     const userId = req.user?.id;
-
     if (!userId) return res.status(401).json({ error: 'Login required to vote.' });
     if (type !== 'up' && type !== 'down') return res.status(400).json({ error: 'Invalid vote type.' });
-
-    const value = type === 'up' ? 1 : -1;
-
     try {
-        const term = await prisma.term.findFirst({
-            where: { id, status: TermStatus.APPROVED, archivedAt: null },
-            select: { id: true },
-        });
-        if (!term) return res.status(404).json({ error: 'Termo nao encontrado.' });
-
-        const existing = await prisma.termVote.findUnique({
-            where: { termId_userId: { termId: id, userId } },
-        });
-
-        let myVote = value;
-        if (existing && existing.value === value) {
-            await prisma.termVote.delete({ where: { id: existing.id } }); // same click -> undo
-            myVote = 0;
-        } else if (existing) {
-            await prisma.termVote.update({ where: { id: existing.id }, data: { value } });
-        } else {
-            await prisma.termVote.create({ data: { termId: id, userId, value } });
-        }
-
-        // Recompute counts from the votes table (source of truth) and persist.
-        const [upvotes, downvotes] = await Promise.all([
-            prisma.termVote.count({ where: { termId: id, value: 1 } }),
-            prisma.termVote.count({ where: { termId: id, value: -1 } }),
-        ]);
-        await prisma.term.update({ where: { id }, data: { upvotes, downvotes } });
-
-        res.json({ upvotes, downvotes, myVote });
+        const result = await voteOnMeaning(req.params.meaningId, userId, type === 'up' ? 1 : -1);
+        res.json(result);
     } catch (error) {
+        if (error instanceof TermMeaningError) return res.status(error.status).json({ error: error.message });
+        console.error('[terms] vote meaning:', error);
         res.status(400).json({ error: 'Vote failed' });
     }
 });
 
-// Current user's vote for a term: { myVote: 1 | -1 | 0 }
-router.get('/:id/my-vote', authenticateToken, async (req: AuthRequest, res) => {
-    const { id } = req.params;
+// The current user's votes across a term's senses: { [meaningId]: 1 | -1 }
+router.get('/:id/my-votes', authenticateToken, async (req: AuthRequest, res) => {
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ error: 'Login required.' });
     try {
-        const term = await prisma.term.findFirst({
-            where: { id, status: TermStatus.APPROVED, archivedAt: null },
-            select: { id: true },
-        });
-        if (!term) return res.status(404).json({ error: 'Termo nao encontrado.' });
-
-        const vote = await prisma.termVote.findUnique({
-            where: { termId_userId: { termId: id, userId } },
-        });
-        res.json({ myVote: vote?.value ?? 0 });
+        res.json({ votes: await getMyMeaningVotes(req.params.id, userId) });
     } catch (error) {
-        res.status(400).json({ error: 'Failed to fetch vote.' });
+        res.status(400).json({ error: 'Failed to fetch votes.' });
     }
 });
 

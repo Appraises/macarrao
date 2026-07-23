@@ -4,6 +4,7 @@ import type {
     LeaderboardEntry,
     AdminTermAttention,
     AdminTermDetail,
+    PendingMeaning,
     AdminTermDuplicate,
     AdminTermInput,
     AdminTermListResponse,
@@ -308,6 +309,31 @@ export const createAdminTerm = async (data: AdminTermInput): Promise<AdminTermDe
 export const updateAdminTerm = async (id: string, data: AdminTermInput & { expectedRevision: number }): Promise<AdminTermDetail> =>
     (await api.put(`/dashboard/terms/${encodeURIComponent(id)}`, data)).data;
 
+/* --- Significados (sentidos) de um termo --- */
+
+export interface MeaningInput {
+    definition: string;
+    examples: string[];
+    gameId: string | null;
+    context: string | null;
+}
+
+export const getPendingMeanings = async (): Promise<PendingMeaning[]> =>
+    (await api.get('/dashboard/terms/meanings/pending')).data;
+
+export const moderateMeaning = async (id: string, status: 'APPROVED' | 'REJECTED') =>
+    (await api.patch(`/dashboard/terms/meanings/${encodeURIComponent(id)}/status`, { status })).data;
+
+export const createAdminMeaning = async (termId: string, data: MeaningInput) =>
+    (await api.post(`/dashboard/terms/${encodeURIComponent(termId)}/meanings`, data)).data;
+
+export const updateAdminMeaning = async (id: string, data: MeaningInput) =>
+    (await api.put(`/dashboard/terms/meanings/${encodeURIComponent(id)}`, data)).data;
+
+export const deleteAdminMeaning = async (id: string): Promise<void> => {
+    await api.delete(`/dashboard/terms/meanings/${encodeURIComponent(id)}`);
+};
+
 export const archiveAdminTerm = async (id: string): Promise<Term> =>
     (await api.post(`/dashboard/terms/${encodeURIComponent(id)}/archive`)).data;
 
@@ -590,14 +616,24 @@ export const getTermOfTheDay = async () => {
     return response.data;
 };
 
-export const voteTerm = async (id: string, type: 'up' | 'down') => {
-    const response = await api.post(`/terms/${id}/vote`, { type });
-    return response.data; // { upvotes, downvotes, myVote }
+export const voteMeaning = async (meaningId: string, type: 'up' | 'down') => {
+    const response = await api.post(`/terms/meanings/${meaningId}/vote`, { type });
+    return response.data as { upvotes: number; downvotes: number; score: number; myVote: number };
 };
 
-export const getMyVote = async (id: string) => {
-    const response = await api.get(`/terms/${id}/my-vote`);
-    return response.data; // { myVote: 1 | -1 | 0 }
+/** The user's votes across a term's senses: { [meaningId]: 1 | -1 }. */
+export const getMyMeaningVotes = async (termId: string) => {
+    const response = await api.get(`/terms/${termId}/my-votes`);
+    return (response.data?.votes || {}) as Record<string, number>;
+};
+
+/** Propose a new sense for an existing word. Lands as PENDING for moderation. */
+export const proposeTermMeaning = async (
+  termId: string,
+  payload: { definition: string; examples: string[]; gameId: string | null; context: string | null },
+) => {
+  const response = await api.post(`/terms/${termId}/meanings`, payload);
+  return response.data as { id: string; status: string };
 };
 
 export const reportTerm = async (id: string, reason: string, details?: string) => {

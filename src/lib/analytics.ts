@@ -15,6 +15,7 @@ export type AnalyticsEventName =
   | 'Catalog Viewed'
   | 'Category Selected'
   | 'Contribution Submitted'
+  | 'Meaning Proposed'
   | 'Login Completed'
   | 'Search Submitted'
   | 'Search No Results'

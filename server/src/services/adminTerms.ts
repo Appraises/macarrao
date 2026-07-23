@@ -3,6 +3,7 @@ import { prisma } from '../lib/prisma';
 import { writeAuditLog } from './audit';
 import { normalizeCatalogSearch } from './termCatalog';
 import { termSnapshot } from '../utils/terms';
+import { syncTermFromMeanings } from './termMeanings';
 
 export type AdminTermState = 'ACTIVE' | 'ARCHIVED';
 export type AdminTermAttention = 'ANY' | 'REPORTED' | 'MISSING_TAGS' | 'MISSING_EXAMPLES';
@@ -247,7 +248,17 @@ export const getAdminTerm = async (id: string) => {
     const [term, viewsTotal, views28d, reports] = await Promise.all([
         prisma.term.findFirst({
             where: { id, ...publicContentWhere },
-            include: { game: true, author: { select: { id: true, name: true, email: true } } },
+            include: {
+                game: true,
+                author: { select: { id: true, name: true, email: true } },
+                meanings: {
+                    orderBy: { order: 'asc' },
+                    include: {
+                        game: { select: { id: true, name: true, slug: true } },
+                        author: { select: { id: true, name: true, avatar: true, level: true } },
+                    },
+                },
+            },
         }),
         prisma.termView.count({ where: { termId: id } }),
         prisma.termView.count({ where: { termId: id, createdAt: { gte: since } } }),
@@ -309,6 +320,20 @@ export const createAdminTerm = async (content: AdminTermContent, actorId: string
         },
         include: { game: true },
     });
+    // A new term starts with its first sense already approved, so the entry is never
+    // published without a meaning behind the denormalized definition.
+    await tx.termMeaning.create({
+        data: {
+            termId: term.id,
+            definition: content.definition,
+            examples: content.examples,
+            gameId: content.gameId,
+            order: 1,
+            status: TermStatus.APPROVED,
+            authorId: null,
+        },
+    });
+    await syncTermFromMeanings(term.id, tx);
     await writeAuditLog({ actorId, action: 'TERM_CREATE', entityType: 'TERM', entityId: term.id, after: termSnapshot(term) }, tx);
     return term;
 });
@@ -329,18 +354,21 @@ export const updateAdminTerm = async (
     }
     await ensureGame(content.gameId, tx);
     await ensureUniqueWord(content.word, id, tx);
-    const updated = await tx.term.update({
+    // definition/examples/gameId are derived from the meanings now, so the term form
+    // only owns the word-level fields; sync recomputes the rest afterwards.
+    const { definition: _definition, examples: _examples, gameId: _gameId, ...wordFields } = content;
+    await tx.term.update({
         where: { id },
         data: {
-            ...content,
-            examples: content.examples,
+            ...wordFields,
             tags: content.tags,
             relatedTerms: content.relatedTerms,
             aliases: content.aliases,
             revision: { increment: 1 },
         },
-        include: { game: true },
     });
+    await syncTermFromMeanings(id, tx);
+    const updated = await tx.term.findUniqueOrThrow({ where: { id }, include: { game: true } });
     await writeAuditLog({
         actorId,
         action: 'TERM_UPDATE',

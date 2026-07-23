@@ -40,6 +40,7 @@ const TermEditor = lazyPage(() => import('./pages/DASHBOARD/TermEditor'), 'TermE
 const UsersList = lazyPage(() => import('./pages/DASHBOARD/Users'), 'UsersList');
 const DashboardNews = lazyPage(() => import('./pages/DASHBOARD/News'), 'News');
 const Reports = lazyPage(() => import('./pages/DASHBOARD/Reports'), 'Reports');
+const Meanings = lazyPage(() => import('./pages/DASHBOARD/Meanings'), 'Meanings');
 const DashboardGames = lazyPage(() => import('./pages/DASHBOARD/Games'), 'Games');
 const DashboardMaps = lazyPage(() => import('./pages/DASHBOARD/Maps'), 'Maps');
 const DashboardTournaments = lazyPage(() => import('./pages/DASHBOARD/Tournaments'), 'Tournaments');
@@ -412,6 +413,7 @@ export const routes: RouteObject[] = [
           { path: 'terms/new', element: <TermEditor /> },
           { path: 'terms/:id', element: <TermEditor /> },
           { path: 'reports', element: <Reports /> },
+          { path: 'meanings', element: <Meanings /> },
           { path: 'news', element: <DashboardNews /> },
           { path: 'games', element: <DashboardGames /> },
           { path: 'maps', element: <DashboardMaps /> },

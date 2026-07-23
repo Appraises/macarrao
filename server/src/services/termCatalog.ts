@@ -28,7 +28,24 @@ export const normalizeCatalogSearch = (value: string): string => value
     .trim();
 
 const normalizedWord = Prisma.sql`public.dicionario_normalize(t."word")`;
-const normalizedDefinition = Prisma.sql`public.dicionario_normalize(t."definition")`;
+
+// Search and the game filter must see every published sense, not just the leading one
+// mirrored onto "Term". These reach into the term's approved meanings.
+const meaningDefinitionMatches = (value: string) => Prisma.sql`EXISTS (
+    SELECT 1 FROM "TermMeaning" AS m
+    WHERE m."termId" = t."id" AND m."status" = 'APPROVED'::"TermStatus"
+      AND public.dicionario_normalize(m."definition") LIKE ${`%${value}%`}
+)`;
+
+const gameMatches = (gameId: string) => Prisma.sql`(
+    t."gameId" = ${gameId}
+    OR EXISTS (
+        SELECT 1 FROM jsonb_array_elements_text(
+            CASE WHEN jsonb_typeof(t."gameIds") = 'array' THEN t."gameIds" ELSE '[]'::jsonb END
+        ) AS gid(value) WHERE gid.value = ${gameId}
+    )
+)`;
+
 const normalizedTags = Prisma.sql`
     SELECT public.dicionario_normalize(tag.value)
     FROM jsonb_array_elements_text(
@@ -55,7 +72,7 @@ const searchCondition = (search: string) => {
     const contains = `%${search}%`;
     const basic = Prisma.sql`
         ${normalizedWord} LIKE ${contains}
-        OR ${normalizedDefinition} LIKE ${contains}
+        OR ${meaningDefinitionMatches(search)}
         OR ${tagMatches(search)}
         OR ${aliasMatches(search)}
     `;
@@ -76,7 +93,7 @@ const relevanceScore = (search?: string) => {
             WHEN ${normalizedWord} LIKE ${contains} THEN 600
             WHEN ${aliasMatches(search)} THEN 500
             WHEN ${tagMatches(search)} THEN 400
-            WHEN ${normalizedDefinition} LIKE ${contains} THEN 200
+            WHEN ${meaningDefinitionMatches(search)} THEN 200
             ELSE CAST(similarity(${normalizedWord}, ${search}) * 100 AS integer)
         END
     `;
@@ -107,7 +124,7 @@ const catalogConditions = (input: CatalogListInput, search?: string) => {
         Prisma.sql`t."status" = 'APPROVED'::"TermStatus"`,
         Prisma.sql`t."archivedAt" IS NULL`
     ];
-    if (input.gameId) conditions.push(Prisma.sql`t."gameId" = ${input.gameId}`);
+    if (input.gameId) conditions.push(gameMatches(input.gameId));
     if (input.tag) conditions.push(tagMatches(normalizeCatalogSearch(input.tag), true));
     if (input.letter === '#') {
         conditions.push(Prisma.sql`LEFT(${normalizedWord}, 1) !~ '^[a-z]$'`);
@@ -156,9 +173,10 @@ export const getCatalogMeta = async () => {
         prisma.$queryRaw<CountRow[]>`SELECT COUNT(*)::integer AS count FROM "Term" WHERE "status" = 'APPROVED'::"TermStatus" AND "archivedAt" IS NULL`,
         prisma.$queryRaw<CountRow[]>`SELECT COUNT(DISTINCT "authorId")::integer AS count FROM "Term" WHERE "status" = 'APPROVED'::"TermStatus" AND "archivedAt" IS NULL AND "authorId" IS NOT NULL`,
         prisma.$queryRaw<GameMetaRow[]>`
-            SELECT g."id", g."name", g."slug", COUNT(t."id")::integer AS count
+            SELECT g."id", g."name", g."slug", COUNT(DISTINCT t."id")::integer AS count
             FROM "Game" AS g
-            INNER JOIN "Term" AS t ON t."gameId" = g."id" AND t."status" = 'APPROVED'::"TermStatus" AND t."archivedAt" IS NULL
+            INNER JOIN "TermMeaning" AS m ON m."gameId" = g."id" AND m."status" = 'APPROVED'::"TermStatus"
+            INNER JOIN "Term" AS t ON t."id" = m."termId" AND t."status" = 'APPROVED'::"TermStatus" AND t."archivedAt" IS NULL
             WHERE g."status" = 'PUBLISHED'
             GROUP BY g."id", g."name", g."slug"
             ORDER BY g."name" ASC

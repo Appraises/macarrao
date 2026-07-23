@@ -188,6 +188,7 @@ model User {
   updatedAt                DateTime              @updatedAt
   comments                 Comment[]
   terms                    Term[]
+  termMeanings             TermMeaning[]
   termVotes                TermVote[]
   termModerationEvents     TermModerationEvent[] @relation("TermModerationActor")
   notifications            Notification[]
@@ -216,6 +217,7 @@ model Game {
   status         ContentStatus  @default(PUBLISHED)
   archivedAt     DateTime?
   terms          Term[]
+  termMeanings   TermMeaning[]
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
   maps           GameMap[]
@@ -267,6 +269,10 @@ model Term {
   examples           Json                  @default("[]")
   relatedTerms       Json?
   aliases            Json                  @default("[]") // alternate spellings/forms; findability + SEO
+  meanings           TermMeaning[]
+  // Denormalized from meanings so catalog cards, raw-SQL search and OG images stay cheap:
+  // definition mirrors the top-voted meaning, gameIds lists every game across meanings.
+  gameIds            Json                  @default("[]")
   gameId             String?
   game               Game?                 @relation(fields: [gameId], references: [id])
   upvotes            Int                   @default(0)
@@ -295,6 +301,35 @@ model Term {
   @@index([status, createdAt])
   @@index([status, upvotes])
   @@index([status, archivedAt, word])
+}
+
+/// One numbered sense of a word, like a dictionary entry. A term holds the word
+/// (spelling, phonetics, aliases, tags); each meaning holds a definition bound to a
+/// game or context. Ordering is by score; moderation and authorship are per meaning,
+/// so a pending new sense never takes the whole term off the air.
+model TermMeaning {
+  id         String     @id @default(uuid())
+  termId     String
+  term       Term       @relation(fields: [termId], references: [id], onDelete: Cascade)
+  definition String
+  examples   Json       @default("[]")
+  gameId     String?
+  game       Game?      @relation(fields: [gameId], references: [id], onDelete: SetNull)
+  context    String? // free label when the sense is not game-bound: "competitivo", "streaming"
+  order      Int        @default(1)
+  upvotes    Int        @default(0)
+  downvotes  Int        @default(0)
+  status     TermStatus @default(PENDING)
+  authorId   String?
+  author     User?      @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  votes      TermVote[]
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  @@index([termId, order])
+  @@index([termId, status])
+  @@index([gameId])
+  @@index([authorId])
 }
 
 model TermModerationEvent {
@@ -513,14 +548,18 @@ model TermVote {
   id        String   @id @default(uuid())
   termId    String
   term      Term     @relation(fields: [termId], references: [id], onDelete: Cascade)
+  // Votes belong to a single sense - that is what ranks the meanings.
+  meaningId String
+  meaning   TermMeaning @relation(fields: [meaningId], references: [id], onDelete: Cascade)
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   value     Int // +1 = upvote, -1 = downvote
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([termId, userId]) // one vote per user per term
+  @@unique([meaningId, userId]) // one vote per user per sense
   @@index([termId])
+  @@index([meaningId])
 }
 
 model Report {

@@ -12,6 +12,7 @@ import {
 import type {
     AdminTermDetail, AdminTermDuplicate, AdminTermInput, Game, TermHistoryEntry, TermSuggestion
 } from '../../types';
+import { MeaningsEditor } from '../../components/dashboard/MeaningsEditor';
 
 type Tab = 'content' | 'history' | 'reports';
 const EMPTY_FORM: AdminTermInput = {
@@ -242,11 +243,21 @@ export const TermEditor: React.FC = () => {
                             <label><span className={labelClass}>Jogo</span><select value={form.gameId || ''} onChange={(event) => setField('gameId', event.target.value || null)} className={inputClass}><option value="">Uso geral</option>{games.map((game) => <option key={game.id} value={game.id}>{game.name}</option>)}</select></label>
                             {!isNew && detail && form.word.trim() !== detail.word && <div className="sm:col-span-2 rounded border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-200"><AlertTriangle className="mr-1.5 inline h-4 w-4" />Alterar a palavra muda a URL publica. Redirecionamentos historicos ainda nao fazem parte desta etapa.</div>}
                             {duplicates.length > 0 && <div className={`sm:col-span-2 rounded border px-3 py-3 ${exactDuplicate ? 'border-rose-500/25 bg-rose-500/10' : 'border-amber-500/20 bg-amber-500/10'}`}><p className={`text-xs font-semibold ${exactDuplicate ? 'text-rose-200' : 'text-amber-200'}`}>{exactDuplicate ? 'Duplicidade exata: o salvamento esta bloqueado.' : 'Possiveis duplicidades. Revise antes de salvar.'}</p><div className="mt-2 flex flex-wrap gap-2">{duplicates.map((item) => <Link key={item.id} to={`/dashboard/terms/${item.id}`} className="rounded border border-white/10 bg-dark-950 px-2 py-1 text-xs text-gray-300 hover:text-white">{item.word} · {Math.round(item.score * 100)}%</Link>)}</div></div>}
-                            <label className="sm:col-span-2"><span className={labelClass}>Definicao *</span><textarea required maxLength={2000} rows={7} value={form.definition} onChange={(event) => setField('definition', event.target.value)} className={`${inputClass} resize-y leading-6`} /></label>
+                            {isNew && <label className="sm:col-span-2"><span className={labelClass}>Definicao *</span><textarea required maxLength={2000} rows={7} value={form.definition} onChange={(event) => setField('definition', event.target.value)} className={`${inputClass} resize-y leading-6`} /><span className="mt-1 block text-xs text-gray-600">Vira o primeiro significado do termo. Depois de publicado, os significados sao gerenciados na secao abaixo.</span></label>}
                             <label><span className={labelClass}>Fonetica</span><input maxLength={100} value={form.phonetic || ''} onChange={(event) => setField('phonetic', event.target.value || null)} placeholder="Ex.: /gank/" className={inputClass} /></label>
                             <label><span className={labelClass}>Guia de pronuncia</span><input maxLength={120} value={form.pronunciationGuide || ''} onChange={(event) => setField('pronunciationGuide', event.target.value || null)} placeholder="Ex.: guenque" className={inputClass} /></label>
                         </div>
                     </section>
+
+                    {!isNew && detail && (
+                        <MeaningsEditor
+                            termId={detail.id}
+                            meanings={detail.meanings || []}
+                            games={games}
+                            onChanged={load}
+                            onError={(text) => setNotice({ kind: 'error', text })}
+                        />
+                    )}
 
                     <section className="rounded border border-white/10 bg-dark-900 p-5">
                         <h2 className="mb-5 font-semibold text-white">Descoberta e contexto</h2>

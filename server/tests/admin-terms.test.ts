@@ -9,6 +9,8 @@ const mocks = vi.hoisted(() => ({
     termCreate: vi.fn(),
     termUpdate: vi.fn(),
     termDelete: vi.fn(),
+    meaningCreate: vi.fn(),
+    meaningFindMany: vi.fn(),
     auditCreate: vi.fn(),
     viewCount: vi.fn(),
     reportFindMany: vi.fn(),
@@ -22,10 +24,14 @@ const tx = {
     term: {
         findFirst: mocks.termFindFirst,
         findUnique: mocks.termFindUnique,
+        findUniqueOrThrow: mocks.termFindUnique,
         create: mocks.termCreate,
         update: mocks.termUpdate,
         delete: mocks.termDelete,
     },
+    // A term now owns its meanings; creation seeds the first one and syncs the
+    // denormalized columns from them.
+    termMeaning: { create: mocks.meaningCreate, findMany: mocks.meaningFindMany },
     adminAuditLog: { create: mocks.auditCreate },
 };
 
@@ -64,6 +70,8 @@ beforeEach(() => {
     vi.clearAllMocks();
     mocks.txQueryRaw.mockResolvedValue([]);
     mocks.auditCreate.mockResolvedValue({ id: 'audit-1' });
+    mocks.meaningCreate.mockResolvedValue({ id: 'meaning-1' });
+    mocks.meaningFindMany.mockResolvedValue([]);
 });
 
 describe('administrative term catalog', () => {

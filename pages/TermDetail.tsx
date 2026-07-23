@@ -5,6 +5,7 @@ import { Button } from '../components/UI';
 import { CompactTermCard } from '../components/CompactTermCard';
 import { ArrowLeft, SearchX, Gamepad2, PlusCircle, ScrollText, Image as ImageIcon, ArrowUpRight } from 'lucide-react';
 import { TermCard } from '../components/TermCard';
+import { AddMeaningPanel } from '../components/AddMeaningPanel';
 import { Term } from '../types';
 import { Seo } from '../components/Seo';
 import { JsonLd, definedTermSchema, breadcrumbSchema } from '../components/JsonLd';
@@ -167,6 +168,8 @@ export const TermDetail: React.FC = () => {
             {/* LEFT ~60% */}
             <div className="lg:col-span-3 space-y-6">
               <TermCard term={term} />
+
+              <AddMeaningPanel term={term} />
 
               {/* Origin */}
               {term.origin ? (

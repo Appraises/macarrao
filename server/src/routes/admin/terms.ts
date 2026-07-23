@@ -16,6 +16,16 @@ import {
 } from '../../services/adminTerms';
 import { buildPaginationMeta, parsePagination } from '../../utils/pagination';
 import { parseTermPayload } from '../../utils/terms';
+import {
+    createTermMeaning,
+    deleteTermMeaning,
+    listPendingMeanings,
+    moderateTermMeaning,
+    parseMeaningPayload,
+    TermMeaningError,
+    updateTermMeaning,
+} from '../../services/termMeanings';
+import { TermStatus } from '@prisma/client';
 
 const router = Router();
 
@@ -114,7 +124,7 @@ router.post('/', async (req: AuthRequest, res) => {
 });
 
 router.put('/:id', async (req: AuthRequest, res) => {
-    const parsed = parseTermPayload(req.body);
+    const parsed = parseTermPayload(req.body, { requireDefinition: false });
     if (!parsed.valid) return res.status(400).json({ error: parsed.error });
     const expectedRevision = Number(req.body?.expectedRevision);
     if (!Number.isInteger(expectedRevision) || expectedRevision < 1) {
@@ -150,6 +160,62 @@ router.delete('/:id', async (req: AuthRequest, res) => {
         res.json({ message: 'Termo excluido definitivamente.', ...deleted });
     } catch (error) {
         handleError(error, res);
+    }
+});
+
+/* -------------------------------------------------------------------------- */
+/* Significados (sentidos) de um termo                                        */
+/* -------------------------------------------------------------------------- */
+
+const handleMeaningError = (error: unknown, res: any) => {
+    if (error instanceof TermMeaningError) return res.status(error.status).json({ error: error.message });
+    console.error('[admin/terms] meaning:', error);
+    res.status(500).json({ error: 'Nao foi possivel concluir a operacao.' });
+};
+
+// Fila de significados propostos pela comunidade, aguardando moderacao.
+router.get('/meanings/pending', async (_req, res) => {
+    try {
+        res.json(await listPendingMeanings());
+    } catch (error) {
+        handleMeaningError(error, res);
+    }
+});
+
+router.patch('/meanings/:id/status', async (req, res) => {
+    const status = String(req.body?.status || '').toUpperCase();
+    if (status !== TermStatus.APPROVED && status !== TermStatus.REJECTED) {
+        return res.status(400).json({ error: 'Estado invalido.' });
+    }
+    try {
+        res.json(await moderateTermMeaning(req.params.id, status as TermStatus));
+    } catch (error) {
+        handleMeaningError(error, res);
+    }
+});
+
+router.post('/:id/meanings', async (req, res) => {
+    try {
+        res.status(201).json(await createTermMeaning(req.params.id, parseMeaningPayload(req.body)));
+    } catch (error) {
+        handleMeaningError(error, res);
+    }
+});
+
+router.put('/meanings/:id', async (req, res) => {
+    try {
+        res.json(await updateTermMeaning(req.params.id, parseMeaningPayload(req.body)));
+    } catch (error) {
+        handleMeaningError(error, res);
+    }
+});
+
+router.delete('/meanings/:id', async (req, res) => {
+    try {
+        await deleteTermMeaning(req.params.id);
+        res.status(204).end();
+    } catch (error) {
+        handleMeaningError(error, res);
     }
 });
 
