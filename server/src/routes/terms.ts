@@ -502,7 +502,10 @@ router.get('/:id/my-votes', authenticateToken, async (req: AuthRequest, res) => 
 
 // Report a term (public — anyone can flag bad content for moderation)
 const REPORT_REASONS = ['incorreto', 'ofensivo', 'spam', 'duplicado', 'outro'];
-router.post('/:id/report', async (req, res) => {
+// Reporting stays open to logged-out visitors, but it writes straight into the
+// moderation queue, so it needs the same guards the media report already has: a
+// per-IP budget, and one open report per person per term.
+router.post('/:id/report', mediaLimiter, optionalAuthenticateToken, async (req: AuthRequest, res) => {
     const { id } = req.params;
     const { reason, details } = req.body;
 
@@ -516,11 +519,21 @@ router.post('/:id/report', async (req, res) => {
         });
         if (!term) return res.status(404).json({ error: 'Termo não encontrado.' });
 
+        const reporterId = req.user?.id ?? null;
+        if (reporterId) {
+            const existing = await prisma.report.findFirst({
+                where: { termId: id, reporterId, status: 'PENDING' },
+                select: { id: true },
+            });
+            if (existing) return res.status(409).json({ error: 'Voce ja denunciou este termo.' });
+        }
+
         const report = await prisma.report.create({
             data: {
                 termId: id,
                 reason,
                 details: cleanPlainText(details).slice(0, 500) || null,
+                reporterId,
             },
         });
         res.status(201).json({ id: report.id, status: report.status });

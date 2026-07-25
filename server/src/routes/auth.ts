@@ -19,6 +19,36 @@ const emailActionLimiter = rateLimit({
     message: { error: 'Muitas tentativas. Aguarde alguns minutos e tente novamente.' }
 });
 
+/**
+ * Credential endpoints get their own budget. The global limiter is 100 requests per
+ * 15 minutes across the whole API, which a normal page load spends on legitimate
+ * traffic while still leaving an attacker plenty of password guesses. Counting only
+ * failures means someone signing in normally never hits this.
+ */
+const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 10,
+    skipSuccessfulRequests: true,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    message: { error: 'Muitas tentativas de login. Aguarde alguns minutos e tente novamente.' }
+});
+
+const registerLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    limit: 5,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    message: { error: 'Muitas contas criadas a partir deste endereco. Tente novamente mais tarde.' }
+});
+
+/**
+ * A dummy hash to compare against when the email has no account. Without it the
+ * request returns before bcrypt ever runs, and the ~100ms difference tells an
+ * attacker which emails are registered even though both answers say the same thing.
+ */
+const TIMING_EQUALIZER_HASH = bcrypt.hashSync('timing-equalizer-not-a-real-password', 10);
+
 const hashToken = (token: string): string => crypto.createHash('sha256').update(token).digest('hex');
 const newToken = (lifetimeMs: number) => {
     const token = crypto.randomBytes(32).toString('hex');
@@ -43,7 +73,7 @@ const publicUser = <T extends Record<string, any>>(user: T) => {
     return safeUser;
 };
 
-router.post('/login', async (req, res) => {
+router.post('/login', loginLimiter, async (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) {
         return res.status(400).json({ error: 'Email e senha sao obrigatorios.' });
@@ -54,7 +84,10 @@ router.post('/login', async (req, res) => {
 
     try {
         const user = await prisma.user.findUnique({ where: { email: normalizeEmail(email) } });
-        if (!user || !(await bcrypt.compare(password, user.password))) {
+        // Always spend the bcrypt time, even with no account, so the response takes the
+        // same shape whether or not the email exists.
+        const passwordMatches = await bcrypt.compare(password, user?.password ?? TIMING_EQUALIZER_HASH);
+        if (!user || !passwordMatches) {
             return res.status(401).json({ error: 'Credenciais invalidas.' });
         }
 
@@ -66,7 +99,7 @@ router.post('/login', async (req, res) => {
     }
 });
 
-router.post('/register', async (req, res) => {
+router.post('/register', registerLimiter, async (req, res) => {
     const { name, email, password, acceptTerms } = req.body;
     const nameCheck = validateName(name);
     if (!nameCheck.valid) return res.status(400).json({ error: nameCheck.message });
@@ -88,7 +121,10 @@ router.post('/register', async (req, res) => {
                 name: name.trim(),
                 email: normalizeEmail(email),
                 password: await bcrypt.hash(password, 10),
-                avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(name.trim())}&background=random`,
+                // No avatar: the UI draws a gradient identicon from the name locally.
+                // The old default embedded the person's real name in a third-party URL,
+                // so every render would have announced them to ui-avatars.com.
+                avatar: null,
                 verificationToken: verification.hash,
                 verificationTokenExpires: verification.expiresAt,
                 termsAcceptedAt: acceptedAt,

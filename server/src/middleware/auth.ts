@@ -15,7 +15,9 @@ const bearerToken = (req: Request): string | null => {
 };
 
 export const authenticatedUser = async (token: string) => {
-    const payload = jwt.verify(token, JWT_SECRET);
+    // Pin the algorithm. Without this, verification accepts whatever the token's own
+    // header asks for, which is how algorithm-confusion attacks get started.
+    const payload = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
     if (!payload || typeof payload === 'string' || typeof payload.userId !== 'string') return null;
 
     const fullUser = await prisma.user.findUnique({ where: { id: payload.userId } });
