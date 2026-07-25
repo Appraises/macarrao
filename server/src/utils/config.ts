@@ -27,6 +27,32 @@ if (PLACEHOLDER_SENDER.test(EMAIL_FROM)) {
     console.warn(`[config] AVISO: EMAIL_FROM usa um remetente de exemplo (${EMAIL_FROM}).`);
     console.warn('[config]        O Resend so entrega a partir de um dominio verificado na conta.');
 }
+// Where uploaded media lives. 'local' keeps files on the server's own disk, which is
+// fine on a VPS but loses every image on an ephemeral host and cannot be shared across
+// instances. 's3' points at any S3-compatible bucket (AWS, Cloudflare R2, Backblaze,
+// MinIO) and is what makes more than one instance possible.
+const MEDIA_DRIVER = (process.env.MEDIA_DRIVER || 'local').toLowerCase();
+const MEDIA_S3_BUCKET = process.env.MEDIA_S3_BUCKET || '';
+const MEDIA_S3_REGION = process.env.MEDIA_S3_REGION || 'auto';
+const MEDIA_S3_ENDPOINT = process.env.MEDIA_S3_ENDPOINT || '';
+const MEDIA_S3_ACCESS_KEY_ID = process.env.MEDIA_S3_ACCESS_KEY_ID || '';
+const MEDIA_S3_SECRET_ACCESS_KEY = process.env.MEDIA_S3_SECRET_ACCESS_KEY || '';
+const MEDIA_S3_PUBLIC_URL = (process.env.MEDIA_S3_PUBLIC_URL || '').replace(/\/$/, '');
+if (MEDIA_DRIVER === 's3') {
+    const missing = [
+        ['MEDIA_S3_BUCKET', MEDIA_S3_BUCKET],
+        ['MEDIA_S3_ACCESS_KEY_ID', MEDIA_S3_ACCESS_KEY_ID],
+        ['MEDIA_S3_SECRET_ACCESS_KEY', MEDIA_S3_SECRET_ACCESS_KEY],
+        ['MEDIA_S3_PUBLIC_URL', MEDIA_S3_PUBLIC_URL],
+    ].filter(([, value]) => !value).map(([name]) => name);
+    if (missing.length) {
+        console.error(`[config] ERRO: MEDIA_DRIVER=s3 mas faltam: ${missing.join(', ')}. Uploads vao falhar.`);
+    }
+} else {
+    console.warn('[config] Uploads no disco local. Em host efemero (Vercel/Render/Railway) as');
+    console.warn('[config] imagens somem a cada deploy — use MEDIA_DRIVER=s3 em producao.');
+}
+
 // Image safety pre-screen (SafeSearch). Off by default: images go straight to owner
 // curation. When a provider + key are set, uploads are screened first and unsafe ones
 // are flagged for admin review instead of reaching the term owner.
@@ -70,6 +96,13 @@ export {
     PUBLIC_API_URL,
     RESEND_API_KEY,
     EMAIL_FROM,
+    MEDIA_DRIVER,
+    MEDIA_S3_BUCKET,
+    MEDIA_S3_REGION,
+    MEDIA_S3_ENDPOINT,
+    MEDIA_S3_ACCESS_KEY_ID,
+    MEDIA_S3_SECRET_ACCESS_KEY,
+    MEDIA_S3_PUBLIC_URL,
     IMAGE_MODERATION_ENABLED,
     IMAGE_MODERATION_PROVIDER,
     IMAGE_MODERATION_API_KEY,

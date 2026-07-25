@@ -39,6 +39,9 @@ vi.mock('../src/lib/prisma', () => {
 vi.mock('../src/services/media', () => ({
     storeImage: mocks.storeImage,
     removeUploadedMedia: mocks.removeUploadedMedia,
+    // Local driver behaviour: a relative path gets the API origin in front.
+    resolveMediaUrl: (pathname: string, baseUrl: string) =>
+        /^https?:\/\//.test(pathname) ? pathname : `${baseUrl}${pathname}`,
 }));
 
 vi.mock('../src/services/imageModeration', () => ({ screenImage: mocks.screenImage }));

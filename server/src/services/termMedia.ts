@@ -1,7 +1,7 @@
 import { Prisma, TermMediaKind, TermStatus } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { cleanPlainText } from '../utils/content';
-import { removeUploadedMedia, storeImage } from './media';
+import { removeUploadedMedia, resolveMediaUrl, storeImage } from './media';
 import { screenImage } from './imageModeration';
 
 export class TermMediaError extends Error {
@@ -107,7 +107,7 @@ export const submitImage = async (
             termId,
             authorId,
             kind: TermMediaKind.IMAGE,
-            url: `${baseUrl}${stored.pathname}`,
+            url: resolveMediaUrl(stored.pathname, baseUrl),
             content: caption,
             status: TermStatus.PENDING,
             flagged: !screen.safe,

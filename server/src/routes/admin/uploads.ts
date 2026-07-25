@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response, Router } from 'express';
 import multer from 'multer';
 import { PUBLIC_API_URL } from '../../utils/config';
-import { MediaFolder, storeImage } from '../../services/media';
+import { MediaFolder, resolveMediaUrl, storeImage } from '../../services/media';
 
 const router = Router();
 const allowedFolders = new Set<MediaFolder>(['games', 'maps']);
@@ -37,7 +37,7 @@ router.post('/:folder', acceptSingleImage, async (req, res) => {
         }
         const baseUrl = PUBLIC_API_URL || `${req.protocol}://${req.get('host')}`;
         res.status(201).json({
-            url: `${baseUrl}${stored.pathname}`,
+            url: resolveMediaUrl(stored.pathname, baseUrl),
             mimeType: stored.mimeType,
             size: stored.size
         });
