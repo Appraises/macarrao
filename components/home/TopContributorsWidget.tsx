@@ -61,7 +61,7 @@ export const TopContributorsWidget: React.FC = () => {
                         {entries.map((entry, idx) => {
                             const rank = idx + 1;
                             return (
-                                <div key={entry.id} className="flex items-center gap-3 px-4 py-3 hover:bg-dark-800/50 transition-colors">
+                                <Link key={entry.id} to={`/u/${entry.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-dark-800/50 transition-colors">
                                     <span className={`w-4 text-center font-mono font-black text-sm flex-shrink-0 ${rankNumberColor(rank)}`}>
                                         {rank}
                                     </span>
@@ -79,7 +79,7 @@ export const TopContributorsWidget: React.FC = () => {
                                         <span className="block text-sm font-black text-white tabular-nums">{entry.terms}</span>
                                         <span className="text-[9px] text-gray-500 uppercase tracking-wide">termos</span>
                                     </span>
-                                </div>
+                                </Link>
                             );
                         })}
                     </div>

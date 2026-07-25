@@ -59,7 +59,13 @@ app.use('/uploads', express.static(UPLOAD_ROOT, {
     index: false,
     maxAge: '1y',
     immutable: true,
-    setHeaders: (res) => res.setHeader('X-Content-Type-Options', 'nosniff')
+    setHeaders: (res) => {
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+        // Helmet defaults every response to same-origin, which silently blocks the
+        // frontend from displaying uploaded media whenever it runs on a different
+        // origin than the API (i.e. always, in production). These files are public.
+        res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    }
 }));
 
 // WebSocket Setup

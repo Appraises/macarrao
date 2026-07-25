@@ -1,4 +1,4 @@
-import { Prisma, TermStatus } from '@prisma/client';
+import { Prisma, Register, TermStatus, WordClass } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { writeAuditLog } from './audit';
 import { normalizeCatalogSearch } from './termCatalog';
@@ -32,7 +32,17 @@ export interface AdminTermContent {
     pronunciationGuide: string | null;
     relatedTerms: string[];
     aliases: string[];
+    // Linguistic layer: lives on the sense, never on the term row.
+    wordClass?: WordClass | null;
+    register?: Register | null;
+    inflections?: Array<{ label: string; form: string }>;
 }
+
+/** Term columns only — the linguistic fields belong to the first sense. */
+const termColumns = (content: AdminTermContent) => {
+    const { wordClass, register, inflections, ...rest } = content;
+    return rest;
+};
 
 type AdminTermRowRaw = {
     id: string;
@@ -83,7 +93,9 @@ const ensureGame = async (gameId: string | null, client: Prisma.TransactionClien
 };
 
 const acquireWordLock = async (client: Prisma.TransactionClient, normalizedWord: string) => {
-    await client.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${normalizedWord}))`;
+    // $executeRaw, not $queryRaw: the lock function returns void and Prisma cannot
+    // deserialize a void column, which made every create/update blow up here.
+    await client.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${normalizedWord}))`;
 };
 
 const ensureUniqueWord = async (
@@ -307,7 +319,7 @@ export const createAdminTerm = async (content: AdminTermContent, actorId: string
     await ensureUniqueWord(content.word, undefined, tx);
     const term = await tx.term.create({
         data: {
-            ...content,
+            ...termColumns(content),
             examples: content.examples,
             tags: content.tags,
             relatedTerms: content.relatedTerms,
@@ -328,6 +340,9 @@ export const createAdminTerm = async (content: AdminTermContent, actorId: string
             definition: content.definition,
             examples: content.examples,
             gameId: content.gameId,
+            wordClass: content.wordClass ?? null,
+            register: content.register ?? null,
+            inflections: (content.inflections ?? []) as unknown as Prisma.InputJsonValue,
             order: 1,
             status: TermStatus.APPROVED,
             authorId: null,
@@ -356,7 +371,7 @@ export const updateAdminTerm = async (
     await ensureUniqueWord(content.word, id, tx);
     // definition/examples/gameId are derived from the meanings now, so the term form
     // only owns the word-level fields; sync recomputes the rest afterwards.
-    const { definition: _definition, examples: _examples, gameId: _gameId, ...wordFields } = content;
+    const { definition: _definition, examples: _examples, gameId: _gameId, wordClass: _wc, register: _reg, inflections: _inf, ...wordFields } = content;
     await tx.term.update({
         where: { id },
         data: {

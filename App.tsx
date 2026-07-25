@@ -28,6 +28,7 @@ const MyContributionDetail = lazyPage(() => import('./pages/MyContributionDetail
 const Login = lazyPage(() => import('./pages/Login'), 'Login');
 const VerifyEmail = lazyPage(() => import('./pages/VerifyEmail'), 'VerifyEmail');
 const Profile = lazyPage(() => import('./pages/Profile'), 'Profile');
+const PublicProfile = lazyPage(() => import('./pages/PublicProfile'), 'PublicProfile');
 const MatchDetail = lazyPage(() => import('./pages/MatchDetail'), 'MatchDetail');
 const TournamentDetail = lazyPage(() => import('./pages/TournamentDetail'), 'TournamentDetail');
 const SettingsPage = lazyPage(() => import('./pages/Settings'), 'Settings');
@@ -438,6 +439,7 @@ export const routes: RouteObject[] = [
           { path: 'esports/tournament/:id', element: <TournamentDetail /> },
           { path: 'term/:slug', element: <TermDetail />, loader: termLoader },
           { path: 'perfil', element: <Profile /> },
+          { path: 'u/:id', element: <PublicProfile /> },
           { path: 'settings', element: <SettingsPage /> },
           { path: 'contribuir', element: <Contribute /> },
           { path: 'minhas-contribuicoes', element: <MyContributions /> },

@@ -26,6 +26,7 @@ import {
     updateTermMeaning,
 } from '../../services/termMeanings';
 import { TermStatus } from '@prisma/client';
+import { listPendingForAdmin } from '../../services/termMedia';
 
 const router = Router();
 
@@ -216,6 +217,19 @@ router.delete('/meanings/:id', async (req, res) => {
         res.status(204).end();
     } catch (error) {
         handleMeaningError(error, res);
+    }
+});
+
+/* -------------------------------------------------------------------------- */
+/* Midias da comunidade (origem + imagens) - fila do admin, inclui flagged     */
+/* -------------------------------------------------------------------------- */
+
+router.get('/media/pending', async (_req, res) => {
+    try {
+        res.json(await listPendingForAdmin());
+    } catch (error) {
+        console.error('[admin/terms] media pending:', error);
+        res.status(500).json({ error: 'Nao foi possivel carregar a fila de midias.' });
     }
 });
 

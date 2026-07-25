@@ -4,6 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { OverviewTab } from '../components/tournament/OverviewTab';
 import { MatchesTab } from '../components/tournament/MatchesTab';
 import { StatsTab } from '../components/tournament/StatsTab';
+import { NewsTab } from '../components/tournament/NewsTab';
 import { Seo } from '../components/Seo';
 import { esportsService } from '../services/esportsService';
 import { useAuth } from '../src/context/AuthContext';
@@ -98,6 +99,7 @@ export const TournamentDetail: React.FC = () => {
                 {tab === 'Overview' && <OverviewTab tournament={tournament} />}
                 {tab === 'Matches' && <MatchesTab matches={tournament.matches || []} />}
                 {tab === 'Stats' && <StatsTab tournamentGame={tournament.game} tournamentId={tournament.id} />}
+                {tab === 'News' && <NewsTab news={tournament.news || []} />}
 
                 {tab === 'Pickem' && (
                     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">

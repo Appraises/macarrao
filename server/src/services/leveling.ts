@@ -14,11 +14,8 @@ const XP_TABLE = [
     4500    // Level 10
 ];
 
-const BADGES = [
-    { level: 3, name: 'Iniciado', icon: 'Star' },
-    { level: 5, name: 'Veterano', icon: 'Medal' },
-    { level: 10, name: 'Lenda', icon: 'Trophy' }
-];
+// Badges moved to their own system (services/badges.ts) — awardXp only handles XP
+// and level now. Call evaluateBadges after the milestone event to grant badges.
 
 export const awardXp = async (
     userId: string,
@@ -51,22 +48,9 @@ export const awardXp = async (
         }
     }
 
-    // Check for new badges
-    const currentBadges: string[] = Array.isArray(user.badges) ? user.badges as string[] : [];
-
-    const newBadges = [...currentBadges];
-    BADGES.forEach(badge => {
-        if (newLevel >= badge.level && !newBadges.includes(badge.name)) {
-            newBadges.push(badge.name);
-        }
-    });
-
     await client.user.update({
         where: { id: userId },
-        data: {
-            level: newLevel,
-            badges: newBadges
-        }
+        data: { level: newLevel }
     });
 
     return { newLevel, newXp, leveledUp: newLevel > user.level };

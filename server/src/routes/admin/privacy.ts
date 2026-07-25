@@ -333,6 +333,8 @@ router.post('/:id/complete', async (req: AuthRequest, res) => {
                         anonymizedAt: completedAt
                     }
                 });
+                // Earned badges are personal data too — clear them on anonymization.
+                await tx.userBadge.deleteMany({ where: { userId: existing.user.id } });
             }
 
             const item = await tx.privacyRequest.update({

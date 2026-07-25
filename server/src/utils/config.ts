@@ -27,6 +27,16 @@ if (PLACEHOLDER_SENDER.test(EMAIL_FROM)) {
     console.warn(`[config] AVISO: EMAIL_FROM usa um remetente de exemplo (${EMAIL_FROM}).`);
     console.warn('[config]        O Resend so entrega a partir de um dominio verificado na conta.');
 }
+// Image safety pre-screen (SafeSearch). Off by default: images go straight to owner
+// curation. When a provider + key are set, uploads are screened first and unsafe ones
+// are flagged for admin review instead of reaching the term owner.
+const IMAGE_MODERATION_ENABLED = process.env.IMAGE_MODERATION_ENABLED === 'true';
+const IMAGE_MODERATION_PROVIDER = (process.env.IMAGE_MODERATION_PROVIDER || 'google').toLowerCase();
+const IMAGE_MODERATION_API_KEY = process.env.IMAGE_MODERATION_API_KEY || '';
+if (IMAGE_MODERATION_ENABLED && !IMAGE_MODERATION_API_KEY) {
+    console.warn('[config] AVISO: IMAGE_MODERATION_ENABLED=true mas IMAGE_MODERATION_API_KEY esta vazia.');
+    console.warn('[config]        O pre-filtro de imagens fica inativo ate a chave ser definida.');
+}
 const LIQUIPEDIA_API_KEY = process.env.LIQUIPEDIA_API_KEY || '';
 const LIQUIPEDIA_API_BASE = (process.env.LIQUIPEDIA_API_BASE || 'https://api.liquipedia.net/api/v3').replace(/\/$/, '');
 const LIQUIPEDIA_USER_AGENT = process.env.LIQUIPEDIA_USER_AGENT || 'DicionarioGamer/1.0 (contato@dicionariogamer.com.br)';
@@ -60,6 +70,9 @@ export {
     PUBLIC_API_URL,
     RESEND_API_KEY,
     EMAIL_FROM,
+    IMAGE_MODERATION_ENABLED,
+    IMAGE_MODERATION_PROVIDER,
+    IMAGE_MODERATION_API_KEY,
     LIQUIPEDIA_API_KEY,
     LIQUIPEDIA_API_BASE,
     LIQUIPEDIA_USER_AGENT,

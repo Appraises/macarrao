@@ -1,13 +1,14 @@
 import crypto from 'crypto';
 import path from 'path';
 import { mkdir, unlink, writeFile } from 'fs/promises';
-import { GAME_UPLOAD_DIR, MAP_UPLOAD_DIR } from '../utils/uploads';
+import { GAME_UPLOAD_DIR, MAP_UPLOAD_DIR, TERM_UPLOAD_DIR } from '../utils/uploads';
 
-export type MediaFolder = 'games' | 'maps';
+export type MediaFolder = 'games' | 'maps' | 'terms';
 
 const uploadDirectories: Record<MediaFolder, string> = {
     games: GAME_UPLOAD_DIR,
-    maps: MAP_UPLOAD_DIR
+    maps: MAP_UPLOAD_DIR,
+    terms: TERM_UPLOAD_DIR
 };
 
 export const detectImageType = (buffer: Buffer): { extension: string; mimeType: string } | null => {

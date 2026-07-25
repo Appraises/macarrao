@@ -37,6 +37,16 @@ const meaningDefinitionMatches = (value: string) => Prisma.sql`EXISTS (
       AND public.dicionario_normalize(m."definition") LIKE ${`%${value}%`}
 )`;
 
+// Inflected forms ("gankado", "gankei") must find the entry, the same way aliases do.
+const inflectionMatches = (value: string, exact = false) => Prisma.sql`EXISTS (
+    SELECT 1 FROM "TermMeaning" AS m
+    CROSS JOIN LATERAL jsonb_array_elements(
+        CASE WHEN jsonb_typeof(m."inflections") = 'array' THEN m."inflections" ELSE '[]'::jsonb END
+    ) AS inf(entry)
+    WHERE m."termId" = t."id" AND m."status" = 'APPROVED'::"TermStatus"
+      AND public.dicionario_normalize(inf.entry->>'form') ${exact ? Prisma.sql`= ${value}` : Prisma.sql`LIKE ${`%${value}%`}`}
+)`;
+
 const gameMatches = (gameId: string) => Prisma.sql`(
     t."gameId" = ${gameId}
     OR EXISTS (
@@ -75,6 +85,7 @@ const searchCondition = (search: string) => {
         OR ${meaningDefinitionMatches(search)}
         OR ${tagMatches(search)}
         OR ${aliasMatches(search)}
+        OR ${inflectionMatches(search)}
     `;
 
     if (search.length < 3) return Prisma.sql`(${basic})`;
@@ -89,9 +100,11 @@ const relevanceScore = (search?: string) => {
         CASE
             WHEN ${normalizedWord} = ${search} THEN 1000
             WHEN ${aliasMatches(search, true)} THEN 900
+            WHEN ${inflectionMatches(search, true)} THEN 850
             WHEN ${normalizedWord} LIKE ${prefix} THEN 800
             WHEN ${normalizedWord} LIKE ${contains} THEN 600
             WHEN ${aliasMatches(search)} THEN 500
+            WHEN ${inflectionMatches(search)} THEN 450
             WHEN ${tagMatches(search)} THEN 400
             WHEN ${meaningDefinitionMatches(search)} THEN 200
             ELSE CAST(similarity(${normalizedWord}, ${search}) * 100 AS integer)

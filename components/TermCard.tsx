@@ -8,6 +8,8 @@ import { Avatar } from './Avatar';
 import { useAuth } from '../src/context/AuthContext';
 import { voteMeaning, getMyMeaningVotes, reportTerm } from '../src/services/api';
 import { trackAnalyticsEvent } from '../src/lib/analytics';
+import { registerMeta, wordClassFull, wordClassShort } from './wordClass';
+import { cancelSpeech, getVoices, resolveSpeech, speakTerm, speechSupported, type ResolvedSpeech } from './speech';
 
 interface TermCardProps {
   term: Term;
@@ -95,14 +97,29 @@ export const TermCard: React.FC<TermCardProps> = ({ term }) => {
     }
   };
 
-  // Pronunciation via the browser's speech synthesis (reads the Brazilian guide).
-  const speak = () => {
-    if (typeof window === 'undefined' || !window.speechSynthesis) return;
-    const utter = new SpeechSynthesisUtterance(term.pronunciationGuide || term.word);
-    utter.lang = 'pt-BR';
-    utter.rate = 0.95;
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(utter);
+  // Pronunciation. The heavy lifting (voice picking, language choice, guide vs word)
+  // lives in components/speech.ts — see the note there on why the naive call is wrong.
+  const [speaking, setSpeaking] = useState(false);
+  const [speech, setSpeech] = useState<ResolvedSpeech | null>(null);
+  const canSpeak = speechSupported();
+
+  // The decision depends on which voices the machine has, and that list loads async.
+  useEffect(() => {
+    if (!canSpeak) return;
+    let alive = true;
+    getVoices().then((voices) => {
+      if (alive) setSpeech(resolveSpeech({ word: term.word, guide: term.pronunciationGuide }, voices));
+    });
+    return () => { alive = false; };
+  }, [term.word, term.pronunciationGuide, canSpeak]);
+
+  useEffect(() => () => cancelSpeech(), []); // never leave audio playing on unmount
+
+  const speak = async () => {
+    if (speaking) { cancelSpeech(); setSpeaking(false); return; }
+    setSpeaking(true);
+    await speakTerm({ word: term.word, guide: term.pronunciationGuide });
+    setSpeaking(false);
   };
 
   // Public author info (present on the term detail response).
@@ -117,67 +134,141 @@ export const TermCard: React.FC<TermCardProps> = ({ term }) => {
     <div className="relative group">
       {/* Clean Border Card */}
       <div className="relative bg-dark-900 border border-dark-700 rounded-xl p-6 md:p-8 h-full flex flex-col shadow-card">
-        <div className="flex justify-between items-start mb-6">
-          <div>
-            <div className="flex items-center gap-3 flex-wrap">
+        {/* Cabeçalho: identidade da palavra (grafia, som, variações) */}
+        <header className="border-b border-dark-800 pb-5">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
               <h2 className="text-3xl md:text-4xl font-bold text-white tracking-tight">{term.word}</h2>
               {term.status === 'APPROVED' && (
                 <span title="Verificado pela Comunidade" className="flex items-center text-brand-500">
                   <CheckCircle2 className="w-5 h-5" />
                 </span>
               )}
-            </div>
-            <div className="flex items-center gap-3 mt-3 text-gray-400 font-mono text-sm">
-              {term.phonetic && <span className="bg-dark-800 px-2 py-1 rounded text-xs border border-dark-700">{term.phonetic}</span>}
-              {term.pronunciationGuide && (
-                <span className="text-gray-500 italic">"{term.pronunciationGuide}"</span>
+              {canSpeak && (
+                <button
+                  onClick={() => void speak()}
+                  title={!speech ? 'Ouvir pronúncia'
+                    : speech.source === 'guide' ? `Ouvir "${speech.text}" (guia de pronúncia)`
+                    : speech.source === 'native' ? `Ouvir "${speech.text}" em ${speech.lang === 'en-US' ? 'inglês' : 'português'}`
+                    : `Ouvir "${speech.text}" (aproximação — seu sistema não tem voz em inglês)`}
+                  aria-label="Ouvir pronúncia"
+                  className={`rounded-full p-1.5 transition-colors ${speaking ? 'bg-brand-500/15 text-brand-400' : 'text-gray-500 hover:bg-brand-500/10 hover:text-brand-400'}`}
+                >
+                  <Volume2 className={`w-4 h-4 ${speaking ? 'animate-pulse' : ''}`} />
+                </button>
               )}
-              <button onClick={speak} title="Ouvir pronúncia" aria-label="Ouvir pronúncia" className="p-1.5 hover:text-brand-400 transition-colors rounded-full hover:bg-brand-500/10">
-                <Volume2 className="w-4 h-4" />
-              </button>
+            </div>
+
+            <div className="relative flex flex-none gap-2">
+              <Button variant="ghost" title="Compartilhar termo" aria-label="Compartilhar termo" onClick={() => void shareTerm()} className="!p-2 text-gray-500 hover:text-gray-200"><Share2 className="w-5 h-5" /></Button>
+              <Button
+                variant="ghost"
+                title="Reportar termo"
+                onClick={() => { setReportSent(false); setShowReport(true); }}
+                className="!p-2 text-gray-500 hover:text-red-400"
+              >
+                <Flag className="w-5 h-5" />
+              </Button>
+              {shareMsg && (
+                <span className="absolute right-0 top-full mt-2 z-10 whitespace-nowrap rounded border border-dark-700 bg-dark-950 px-2 py-1 text-[11px] font-semibold text-brand-300 shadow-lg">
+                  {shareMsg}
+                </span>
+              )}
             </div>
           </div>
 
-          <div className="relative flex gap-2">
-            <Button variant="ghost" title="Compartilhar termo" aria-label="Compartilhar termo" onClick={() => void shareTerm()} className="!p-2 text-gray-500 hover:text-gray-200"><Share2 className="w-5 h-5" /></Button>
-            <Button
-              variant="ghost"
-              title="Reportar termo"
-              onClick={() => { setReportSent(false); setShowReport(true); }}
-              className="!p-2 text-gray-500 hover:text-red-400"
-            >
-              <Flag className="w-5 h-5" />
-            </Button>
-            {shareMsg && (
-              <span className="absolute right-0 top-full mt-2 z-10 whitespace-nowrap rounded border border-dark-700 bg-dark-950 px-2 py-1 text-[11px] font-semibold text-brand-300 shadow-lg">
-                {shareMsg}
-              </span>
-            )}
-          </div>
-        </div>
+          {(term.phonetic || term.pronunciationGuide) && (
+            <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
+              {/* O guia em português é a resposta real para "como eu falo isso",
+                  então ele lidera; a fonética IPA fica como referência técnica. */}
+              {term.pronunciationGuide && (
+                <span className="font-semibold text-gray-200">
+                  fala-se <span className="text-brand-300">"{term.pronunciationGuide}"</span>
+                </span>
+              )}
+              {term.phonetic && (
+                <span className="rounded border border-dark-700 bg-dark-800 px-2 py-1 font-mono text-xs text-gray-400">{term.phonetic}</span>
+              )}
+            </div>
+          )}
 
-        {aliases.length > 0 && (
-          <p className="-mt-2 mb-5 text-xs text-gray-500">
-            <span className="font-semibold text-gray-400">Também escrito como:</span> {aliases.join(' · ')}
-          </p>
-        )}
+          {aliases.length > 0 && (
+            <p className="mt-3 text-xs text-gray-500">
+              <span className="font-semibold text-gray-400">Também escrito como:</span> {aliases.join(' · ')}
+            </p>
+          )}
+        </header>
 
-        <div className="mb-6 flex-grow">
+        <div className="flex-grow">
           {meanings ? (
             <div className="divide-y divide-dark-800">
               {meanings.map((meaning, index) => (
-                <div key={meaning.id} className="flex gap-3 py-5 first:pt-0">
+                <div key={meaning.id} className="flex gap-3 py-5">
                   {numbered && <span className="flex-none pt-0.5 text-lg font-bold text-gray-600">{index + 1}.</span>}
                   <div className="min-w-0 flex-1">
-                    {(meaning.game || meaning.context) && (
-                      <div className="mb-2.5 flex flex-wrap gap-2">
-                        {meaning.game && <Badge color="blue">{meaning.game.name}</Badge>}
-                        {meaning.context && <Badge color="gray">{meaning.context}</Badge>}
-                      </div>
-                    )}
+                    {/* Linha de cabeçalho do sentido: classificação à esquerda, voto à
+                        direita — ancorado aqui, o voto deixa de flutuar no meio do card. */}
+                    <div className="mb-2.5 flex flex-wrap items-center gap-2">
+                      {meaning.wordClass && (
+                        <span title={wordClassFull(meaning.wordClass) || undefined} className="font-mono text-xs italic text-gray-500">
+                          {wordClassShort(meaning.wordClass)}
+                        </span>
+                      )}
+                      {meaning.game && <Badge color="blue">{meaning.game.name}</Badge>}
+                      {meaning.context && <Badge color="gray">{meaning.context}</Badge>}
+                      {/* Discreto de propósito: informa quem repara, sem gritar com quem
+                          só quer a definição. A explicação fica no title. */}
+                      {(() => {
+                        const reg = registerMeta(meaning.register);
+                        if (!reg) return null;
+                        return <span title={reg.hint} className={`text-xs italic ${reg.className}`}>{reg.label}</span>;
+                      })()}
+                      {(() => {
+                        const v = votes[meaning.id] || { up: meaning.upvotes || 0, down: meaning.downvotes || 0, my: 0 };
+                        const score = v.up - v.down;
+                        const busy = votingId === meaning.id;
+                        return (
+                          // Sem moldura própria: acompanha os ícones ghost do cabeçalho
+                          // em vez de virar um widget destacado no meio da entrada.
+                          <div className="ml-auto flex flex-none items-center gap-1">
+                            <button
+                              onClick={() => handleVote(meaning.id, 'up')}
+                              disabled={busy}
+                              title="Concordo com este significado"
+                              aria-label="Votar a favor"
+                              className={`rounded-md p-1.5 transition-colors disabled:opacity-50 ${v.my === 1 ? 'text-brand-400' : 'text-gray-600 hover:bg-white/5 hover:text-gray-300'}`}
+                            >
+                              <ThumbsUp className="h-4 w-4" />
+                            </button>
+                            <span className={`min-w-[2rem] text-center text-sm font-bold tabular-nums ${score > 0 ? 'text-brand-300' : score < 0 ? 'text-red-400' : 'text-gray-500'}`}>
+                              {score > 0 ? `+${score}` : score}
+                            </span>
+                            <button
+                              onClick={() => handleVote(meaning.id, 'down')}
+                              disabled={busy}
+                              title="Discordo deste significado"
+                              aria-label="Votar contra"
+                              className={`rounded-md p-1.5 transition-colors disabled:opacity-50 ${v.my === -1 ? 'text-red-400' : 'text-gray-600 hover:bg-white/5 hover:text-gray-300'}`}
+                            >
+                              <ThumbsDown className="h-4 w-4" />
+                            </button>
+                          </div>
+                        );
+                      })()}
+                    </div>
                     <p className="text-lg md:text-xl font-normal leading-relaxed text-gray-200">
                       <DefinitionParser text={meaning.definition} keywords={term.keywords} />
                     </p>
+                    {meaning.inflections && meaning.inflections.length > 0 && (
+                      <p className="mt-2.5 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs text-gray-500">
+                        {meaning.inflections.map((inf) => (
+                          <span key={`${inf.label}-${inf.form}`}>
+                            <span className="text-gray-600">{inf.label}:</span>{' '}
+                            <span className="font-semibold text-gray-300">{inf.form}</span>
+                          </span>
+                        ))}
+                      </p>
+                    )}
                     {meaning.examples.length > 0 && (
                       <ul className="mt-3 space-y-2">
                         {meaning.examples.map((ex, i) => (
@@ -186,45 +277,18 @@ export const TermCard: React.FC<TermCardProps> = ({ term }) => {
                       </ul>
                     )}
                     {meaning.author && (
-                      <div className="mt-3 flex items-center gap-2 text-xs text-gray-500">
+                      <Link
+                        to={`/u/${meaning.author.id}`}
+                        className="mt-3 inline-flex items-center gap-2 text-xs text-gray-500 transition-colors hover:text-gray-300"
+                      >
                         <Avatar name={meaning.author.name} src={meaning.author.avatar} size={18} className="flex-none" />
                         <span>
                           por <span className="font-semibold text-gray-400">{meaning.author.name}</span>
                           {meaning.author.level ? <span className="text-brand-400/70"> · Nível {meaning.author.level}</span> : null}
                         </span>
-                      </div>
+                      </Link>
                     )}
                   </div>
-                  {(() => {
-                    const v = votes[meaning.id] || { up: meaning.upvotes || 0, down: meaning.downvotes || 0, my: 0 };
-                    const score = v.up - v.down;
-                    const busy = votingId === meaning.id;
-                    return (
-                      <div className="flex flex-none flex-col items-center gap-0.5 self-start rounded-lg border border-dark-700 bg-dark-950 p-1">
-                        <button
-                          onClick={() => handleVote(meaning.id, 'up')}
-                          disabled={busy}
-                          title="Concordo com este significado"
-                          aria-label="Votar a favor"
-                          className={`rounded p-1 transition-colors disabled:opacity-50 ${v.my === 1 ? 'text-brand-400 bg-brand-500/10' : 'text-gray-500 hover:text-gray-200'}`}
-                        >
-                          <ThumbsUp className="h-4 w-4" />
-                        </button>
-                        <span className={`font-mono text-xs font-bold ${score > 0 ? 'text-brand-300' : score < 0 ? 'text-red-400' : 'text-gray-500'}`}>
-                          {score > 0 ? `+${score}` : score}
-                        </span>
-                        <button
-                          onClick={() => handleVote(meaning.id, 'down')}
-                          disabled={busy}
-                          title="Discordo deste significado"
-                          aria-label="Votar contra"
-                          className={`rounded p-1 transition-colors disabled:opacity-50 ${v.my === -1 ? 'text-red-400 bg-red-500/10' : 'text-gray-500 hover:text-gray-200'}`}
-                        >
-                          <ThumbsDown className="h-4 w-4" />
-                        </button>
-                      </div>
-                    );
-                  })()}
                 </div>
               ))}
             </div>
@@ -261,18 +325,17 @@ export const TermCard: React.FC<TermCardProps> = ({ term }) => {
           </div>
         )}
 
-        <div className="flex flex-wrap justify-between items-center gap-4 pt-6 border-t border-dark-800 mt-auto">
-          <div className="flex flex-wrap gap-2">
+        {/* Rodapé: navegação por assunto. Só aparece se houver tags — antes um bloco
+            vazio com borda ficava pendurado no fim do card. */}
+        {term.tags.length > 0 && (
+          <div className="mt-auto flex flex-wrap gap-2 border-t border-dark-800 pt-5">
             {term.tags.map(tag => (
               <Link key={tag} to={`/dicionario?tag=${encodeURIComponent(tag)}`} className="inline-block transition-transform hover:-translate-y-0.5">
                 <Badge color="gray" className="cursor-pointer hover:border-brand-500/40 hover:text-brand-300">{tag}</Badge>
               </Link>
             ))}
-            {term.gameSpecifics?.map(g => (
-              <Badge key={g.gameId} color="blue">{g.gameName}</Badge>
-            ))}
           </div>
-        </div>
+        )}
 
         {term.status !== 'APPROVED' && (
           <div className="mt-4 flex items-center gap-2 text-xs text-yellow-500 bg-yellow-500/5 p-3 rounded border border-yellow-500/20">

@@ -2,12 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowUpRight, Gamepad2 } from 'lucide-react';
 import type { Term } from '../types';
-
-// Vibrant accents (same family as the generated avatars) — each term gets a
-// stable color derived from its word, so the rail feels alive but consistent.
-const PALETTE = ['#0EA5E9', '#22D3EE', '#818CF8', '#C084FC', '#F472B6', '#34D399'];
-const accentFor = (word: string) =>
-    PALETTE[[...word].reduce((sum, c) => sum + c.charCodeAt(0), 0) % PALETTE.length];
+import { accentFor } from './termAccent';
 
 // Lightweight term card for "you might also like" style recommendation rails.
 export const CompactTermCard: React.FC<{ term: Term; navigationState?: Record<string, unknown> }> = ({ term, navigationState }) => {

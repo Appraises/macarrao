@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
     queryRaw: vi.fn(),
     txQueryRaw: vi.fn(),
+    txExecuteRaw: vi.fn(),
     gameFindUnique: vi.fn(),
     termFindFirst: vi.fn(),
     termFindUnique: vi.fn(),
@@ -20,6 +21,7 @@ const mocks = vi.hoisted(() => ({
 
 const tx = {
     $queryRaw: mocks.txQueryRaw,
+    $executeRaw: mocks.txExecuteRaw,
     game: { findUnique: mocks.gameFindUnique },
     term: {
         findFirst: mocks.termFindFirst,
@@ -69,6 +71,7 @@ const existing = {
 beforeEach(() => {
     vi.clearAllMocks();
     mocks.txQueryRaw.mockResolvedValue([]);
+    mocks.txExecuteRaw.mockResolvedValue(1);
     mocks.auditCreate.mockResolvedValue({ id: 'audit-1' });
     mocks.meaningCreate.mockResolvedValue({ id: 'meaning-1' });
     mocks.meaningFindMany.mockResolvedValue([]);

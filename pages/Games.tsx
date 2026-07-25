@@ -9,7 +9,7 @@ import { Seo } from '../components/Seo';
 export const Games: React.FC = () => {
     const navigate = useNavigate();
     const [search, setSearch] = useState('');
-    const [selectedGenre, setSelectedGenre] = useState<GameGenre | 'All'>('All');
+    const [selectedGenre, setSelectedGenre] = useState<string>('All');
     const [games, setGames] = useState<Game[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -20,7 +20,16 @@ export const Games: React.FC = () => {
         });
     }, []);
 
-    const genres = ['All', ...Object.values(GameGenre)];
+    // Derived from the catalog itself: a fixed list drifts out of sync as games are
+    // added, showing filters that match nothing and hiding genres that exist.
+    const genres = React.useMemo(() => {
+        const counts = new Map<string, number>();
+        games.forEach(game => { if (game.genre) counts.set(game.genre, (counts.get(game.genre) || 0) + 1); });
+        const sorted = [...counts.entries()]
+            .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'pt-BR'))
+            .map(([genre]) => genre);
+        return ['All', ...sorted];
+    }, [games]);
 
     const filteredGames = games.filter(game => {
         const matchesSearch = game.name.toLowerCase().includes(search.toLowerCase());

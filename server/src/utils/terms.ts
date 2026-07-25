@@ -1,6 +1,7 @@
 import { cleanPlainText } from './content';
 import { normalizeTextList } from './userInput';
 import { validateTermContent } from './validator';
+import { parseInflections, parseRegister, parseWordClass } from '../services/termMeanings';
 
 /**
  * `requireDefinition` is false when updating an existing term: definition, examples
@@ -52,7 +53,12 @@ export const parseTermPayload = (body: unknown, { requireDefinition = true } = {
             phonetic,
             pronunciationGuide,
             relatedTerms: relatedTerms.data,
-            aliases
+            aliases,
+            // Linguistic layer. Optional everywhere: plenty of entries have no useful
+            // inflection and no obvious tone, and forcing a choice would produce noise.
+            wordClass: parseWordClass(input.wordClass),
+            register: parseRegister(input.register),
+            inflections: parseInflections(input.inflections)
         }
     };
 };

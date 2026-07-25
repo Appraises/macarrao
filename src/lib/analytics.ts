@@ -16,6 +16,8 @@ export type AnalyticsEventName =
   | 'Category Selected'
   | 'Contribution Submitted'
   | 'Meaning Proposed'
+  | 'Origin Proposed'
+  | 'Image Submitted'
   | 'Login Completed'
   | 'Search Submitted'
   | 'Search No Results'

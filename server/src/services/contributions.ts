@@ -3,8 +3,10 @@ import {
     NotificationEmailStatus,
     NotificationType,
     Prisma,
+    Register,
     TermModerationEventType,
-    TermStatus
+    TermStatus,
+    WordClass
 } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { cleanPlainText } from '../utils/content';
@@ -12,8 +14,10 @@ import { termSnapshot } from '../utils/terms';
 import { writeAuditLog } from './audit';
 import { sendContributionDecisionEmail } from './email';
 import { awardXp } from './leveling';
+import { evaluateBadges } from './badges';
 import { emitContributionQueueUpdate, emitUserNotification } from './realtime';
 import { normalizeCatalogSearch } from './termCatalog';
+import { syncTermFromMeanings } from './termMeanings';
 
 export interface ContributionContent {
     word: string;
@@ -24,7 +28,27 @@ export interface ContributionContent {
     phonetic?: string | null;
     pronunciationGuide?: string | null;
     relatedTerms?: string[];
+    // Linguistic layer, carried into the term's first sense.
+    wordClass?: WordClass | null;
+    register?: Register | null;
+    inflections?: Array<{ label: string; form: string }>;
 }
+
+/** Splits contribution input into term-level columns and the first sense's fields. */
+const splitContribution = (content: ContributionContent) => {
+    const { wordClass, register, inflections, ...termFields } = content;
+    return {
+        termFields,
+        meaning: {
+            definition: content.definition,
+            examples: content.examples,
+            gameId: content.gameId,
+            wordClass: wordClass ?? null,
+            register: register ?? null,
+            inflections: (inflections ?? []) as unknown as Prisma.InputJsonValue,
+        },
+    };
+};
 
 export type ModerationAction = 'APPROVE' | 'REJECT' | 'REQUEST_CHANGES';
 
@@ -110,15 +134,21 @@ const emailNotificationsEnabled = (preferences: Prisma.JsonValue): boolean => {
 
 export const createContribution = async (authorId: string, content: ContributionContent) => {
     await ensureGameExists(content.gameId);
+    const { termFields, meaning } = splitContribution(content);
     return prisma.$transaction(async (tx) => {
         const term = await tx.term.create({
             data: {
-                ...content,
+                ...termFields,
                 authorId,
                 status: TermStatus.PENDING,
                 revision: 1
             },
             include: contributionPublicDetailInclude
+        });
+        // The entry needs a sense from the start; it rides the term's moderation
+        // status so approving the contribution publishes both at once.
+        await tx.termMeaning.create({
+            data: { ...meaning, termId: term.id, authorId, order: 1, status: TermStatus.PENDING },
         });
         await tx.termModerationEvent.create({
             data: {
@@ -166,6 +196,9 @@ export const updateOwnContribution = async (input: {
         ? TermStatus.PENDING
         : existing.status;
     const nextRevision = existing.revision + 1;
+    // The linguistic fields belong to the sense, not to "Term" — spreading the whole
+    // payload here would hand Prisma columns that do not exist.
+    const { termFields, meaning } = splitContribution(input.content);
     const updated = await tx.term.updateMany({
         where: {
             id: existing.id,
@@ -174,7 +207,7 @@ export const updateOwnContribution = async (input: {
             status: existing.status
         },
         data: {
-            ...input.content,
+            ...termFields,
             status: nextStatus,
             revision: { increment: 1 }
         }
@@ -182,6 +215,11 @@ export const updateOwnContribution = async (input: {
     if (updated.count !== 1) {
         throw new ContributionError(409, 'A contribuicao mudou durante a edicao. Recarregue e tente novamente.');
     }
+
+    // Keep the first sense in step with the edited contribution.
+    const firstMeaning = await tx.termMeaning.findFirst({ where: { termId: existing.id }, orderBy: { order: 'asc' }, select: { id: true } });
+    if (firstMeaning) await tx.termMeaning.update({ where: { id: firstMeaning.id }, data: { ...meaning, status: nextStatus } });
+    else await tx.termMeaning.create({ data: { ...meaning, termId: existing.id, authorId: input.authorId, order: 1, status: nextStatus } });
 
     await tx.termModerationEvent.create({
         data: {
@@ -265,7 +303,9 @@ export const moderateContribution = async (input: {
 
         if (input.action === 'APPROVE') {
             const normalizedWord = normalizeCatalogSearch(existing.word);
-            await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${normalizedWord}))`;
+            // $executeRaw, not $queryRaw: the lock returns void and Prisma cannot
+            // deserialize a void column, which made every approval fail here.
+            await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${normalizedWord}))`;
             const duplicate = await tx.$queryRaw<Array<{ id: string; word: string }>>(Prisma.sql`
                 SELECT "id", "word" FROM "Term"
                 WHERE "status" = 'APPROVED'::"TermStatus"
@@ -285,6 +325,11 @@ export const moderateContribution = async (input: {
         if (updated.count !== 1) {
             throw new ContributionError(409, 'A contribuicao mudou durante a moderacao. Recarregue e tente novamente.');
         }
+
+        // The term's senses follow its moderation outcome, otherwise an approved entry
+        // would publish with no visible meaning behind it.
+        await tx.termMeaning.updateMany({ where: { termId: existing.id }, data: { status: config.status } });
+        if (input.action === 'APPROVE') await syncTermFromMeanings(existing.id, tx);
 
         const effectiveMessage = authorMessage || 'Sua contribuicao foi aprovada e ja esta disponivel no dicionario.';
         await tx.termModerationEvent.create({
@@ -370,6 +415,12 @@ export const moderateContribution = async (input: {
                     : { emailStatus: NotificationEmailStatus.FAILED, emailError: 'Falha ao enviar pelo provedor configurado.' }
             });
         }
+    }
+
+    // After commit: the term is now APPROVED, so badge conditions see the new state.
+    if (input.action === 'APPROVE' && result.detail.authorId) {
+        await evaluateBadges(result.detail.authorId).catch((error) =>
+            console.error('[badges] evaluate after approval failed:', error));
     }
 
     return result.detail;

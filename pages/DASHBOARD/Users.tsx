@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { getUsers, registerUser } from '../../src/services/api';
 import { User, PaginationMeta } from '../../types';
-import { Shield, User as UserIcon, Search, Plus, X } from 'lucide-react';
+import { Shield, Search, Plus, X } from 'lucide-react';
 import { Badge, Button } from '../../components/UI';
+import { Avatar } from '../../components/Avatar';
 import { PaginationControls } from '../../components/PaginationControls';
 import { usePaginatedListQuery } from '../../src/hooks/usePaginatedListQuery';
 
@@ -104,13 +105,7 @@ export const UsersList: React.FC = () => {
                                     <tr key={user.id} className="hover:bg-white/5 transition-colors">
                                         <td className="p-4">
                                             <div className="flex items-center gap-3">
-                                                {user.avatar ? (
-                                                    <img src={user.avatar} alt={user.name} className="w-10 h-10 rounded-full object-cover border border-dark-700" />
-                                                ) : (
-                                                    <div className="w-10 h-10 rounded-full bg-dark-800 flex items-center justify-center border border-dark-700">
-                                                        <UserIcon className="w-5 h-5 text-gray-500" />
-                                                    </div>
-                                                )}
+                                                <Avatar name={user.name} src={user.avatar} size={40} className="flex-shrink-0" />
                                                 <span className="font-bold text-white">{user.name}</span>
                                             </div>
                                         </td>

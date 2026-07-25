@@ -134,6 +134,25 @@ export default defineConfig(() => {
         await writeFile(path.join(dir, 'sitemap.xml'), xml, 'utf-8');
         console.log(`[ssg] Wrote sitemap.xml with ${urls.length} URLs.`);
 
+        // robots.txt is emitted here too, so its Sitemap URL can never drift from the
+        // one above — a hand-edited robots.txt is how a placeholder domain ends up
+        // published to crawlers.
+        const robots = [
+          'User-agent: *',
+          'Allow: /',
+          '',
+          '# Rotas privadas / sem valor de SEO',
+          ...['/dashboard', '/login', '/forgot-password', '/reset-password', '/verify-email', '/settings', '/perfil', '/contribuir']
+            .map((route) => `Disallow: ${route}`),
+          '',
+          `Sitemap: ${SITE_URL}/sitemap.xml`,
+          '',
+        ].join('\n');
+        await writeFile(path.join(dir, 'robots.txt'), robots, 'utf-8');
+        if (!process.env.VITE_SITE_URL) {
+          console.warn('[ssg] AVISO: VITE_SITE_URL nao definida — sitemap e robots.txt saem com o dominio de exemplo.');
+        }
+
         // Per-term Open Graph images.
         await generateTermImages(dir, terms);
       },

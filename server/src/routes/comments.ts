@@ -33,6 +33,7 @@ router.get('/:newsId', async (req, res) => {
 });
 
 import { awardXp } from '../services/leveling';
+import { evaluateBadges } from '../services/badges';
 
 // Create a new comment
 router.post('/', authenticateToken, async (req: any, res) => {
@@ -61,8 +62,9 @@ router.post('/', authenticateToken, async (req: any, res) => {
 
         try {
             await awardXp(userId, 10);
+            await evaluateBadges(userId);
         } catch (error) {
-            console.error('[comments] Comment persisted, but XP award failed:', error);
+            console.error('[comments] Comment persisted, but XP/badge award failed:', error);
         }
 
         res.status(201).json(comment);

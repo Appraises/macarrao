@@ -66,6 +66,34 @@ enum TermStatus {
   REJECTED
 }
 
+/// Grammatical class of a single sense. A word can change class between senses -
+/// "noob" is a noun in "ele e um noob" and an adjective in "jogada noob" - so this
+/// belongs to the meaning, never to the term.
+enum WordClass {
+  SUBSTANTIVO
+  VERBO
+  ADJETIVO
+  ADVERBIO
+  INTERJEICAO
+  EXPRESSAO
+}
+
+/// How a sense lands on the person hearing it. Escalating scale, so the UI can warn
+/// on the last two. Per sense, not per term: "bot" is technical in one sense and an
+/// insult in another.
+enum Register {
+  NEUTRO // descritivo, sem carga
+  INFORMAL // giria casual, tranquilo entre amigos
+  IRONICO // quase sempre sarcastico
+  PEJORATIVO // deprecia quem recebe
+  OFENSIVO // xingamento; pode render report ou ban
+}
+
+enum TermMediaKind {
+  ORIGIN // a narrative note about where the term comes from
+  IMAGE // a screenshot, clip frame or map spot that illustrates the term
+}
+
 enum TermModerationEventType {
   SUBMITTED
   AUTHOR_UPDATED
@@ -189,6 +217,8 @@ model User {
   comments                 Comment[]
   terms                    Term[]
   termMeanings             TermMeaning[]
+  termMedia                TermMedia[]
+  badgesEarned             UserBadge[]
   termVotes                TermVote[]
   termModerationEvents     TermModerationEvent[] @relation("TermModerationActor")
   notifications            Notification[]
@@ -270,6 +300,11 @@ model Term {
   relatedTerms       Json?
   aliases            Json                  @default("[]") // alternate spellings/forms; findability + SEO
   meanings           TermMeaning[]
+  media              TermMedia[]
+  // Denormalized approved origin note, so meta/prerender stay cheap. originHidden marks
+  // terms that plainly need no origin (e.g. abbreviations like GF): panel disappears.
+  origin             String?
+  originHidden       Boolean               @default(false)
   // Denormalized from meanings so catalog cards, raw-SQL search and OG images stay cheap:
   // definition mirrors the top-voted meaning, gameIds lists every game across meanings.
   gameIds            Json                  @default("[]")
@@ -313,6 +348,14 @@ model TermMeaning {
   term       Term       @relation(fields: [termId], references: [id], onDelete: Cascade)
   definition String
   examples   Json       @default("[]")
+  // Optional on purpose: plenty of entries have no useful inflection (interjections
+  // like "gg", expressions), and legacy senses start without a class.
+  wordClass  WordClass?
+  // Tone/charge of this sense. Optional: unset reads as neutral and shows no badge.
+  register   Register?
+  // Labelled forms: [{ label: "particípio", form: "gankado" }]. A loose list beats a
+  // rigid conjugation table for slang, and each class uses the labels that fit it.
+  inflections Json      @default("[]")
   gameId     String?
   game       Game?      @relation(fields: [gameId], references: [id], onDelete: SetNull)
   context    String? // free label when the sense is not game-bound: "competitivo", "streaming"
@@ -329,6 +372,45 @@ model TermMeaning {
   @@index([termId, order])
   @@index([termId, status])
   @@index([gameId])
+  @@index([authorId])
+}
+
+/// Community-contributed context on a term: origin notes and images. Curated by the
+/// term's owners (term author + approved-meaning authors), with admin as backstop.
+/// Stays PENDING and invisible until accepted, so nothing unreviewed is ever shown.
+/// A badge a user has earned. The catalog (name, icon, how it's earned) lives in
+/// code (services/badges.ts); only the fact that a user unlocked one is stored here.
+model UserBadge {
+  id       String   @id @default(uuid())
+  userId   String
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badgeId  String // slug from the code catalog
+  earnedAt DateTime @default(now())
+
+  @@unique([userId, badgeId])
+  @@index([userId])
+}
+
+model TermMedia {
+  id        String        @id @default(uuid())
+  termId    String
+  term      Term          @relation(fields: [termId], references: [id], onDelete: Cascade)
+  kind      TermMediaKind
+  content   String? // origin text, or an image caption
+  url       String? // set for IMAGE
+  order     Int           @default(0)
+  status    TermStatus    @default(PENDING)
+  // Set when an automated pre-screen (SafeSearch) flags an image for review.
+  flagged   Boolean       @default(false)
+  flagReason String?
+  authorId  String?
+  author    User?         @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  reports   Report[]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@index([termId, kind, status])
+  @@index([status])
   @@index([authorId])
 }
 
@@ -566,6 +648,9 @@ model Report {
   id         String   @id @default(uuid())
   termId     String
   term       Term     @relation(fields: [termId], references: [id], onDelete: Cascade)
+  // Set when the report targets a published image/origin rather than the term itself.
+  mediaId    String?
+  media      TermMedia? @relation(fields: [mediaId], references: [id], onDelete: Cascade)
   reason     String // incorreto, ofensivo, spam, duplicado, outro
   details    String?
   reporterId String? // user id when logged in, null for anonymous
@@ -574,6 +659,7 @@ model Report {
 
   @@index([status])
   @@index([termId])
+  @@index([mediaId])
 }
 
 model News {

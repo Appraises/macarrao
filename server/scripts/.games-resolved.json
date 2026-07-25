@@ -1,0 +1,557 @@
+{
+  "resolved": [
+    {
+      "name": "Rainbow Six Siege",
+      "steamName": "Tom Clancy's Rainbow Six Siege",
+      "appid": 359550,
+      "genre": "FPS",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/359550/header.jpg"
+    },
+    {
+      "name": "Apex Legends",
+      "steamName": "Apex Legends™",
+      "appid": 1172470,
+      "genre": "Battle Royale",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/1172470/header.jpg"
+    },
+    {
+      "name": "Team Fortress 2",
+      "steamName": "Team Fortress 2",
+      "appid": 440,
+      "genre": "FPS",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/440/header.jpg"
+    },
+    {
+      "name": "Titanfall 2",
+      "steamName": "Titanfall® 2",
+      "appid": 1237970,
+      "genre": "FPS",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/1237970/header.jpg"
+    },
+    {
+      "name": "Battlefield 2042",
+      "steamName": "Battlefield™ 2042",
+      "appid": 1517290,
+      "genre": "FPS",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/1517290/header.jpg"
+    },
+    {
+      "name": "DOOM Eternal",
+      "steamName": "DOOM Eternal",
+      "appid": 782330,
+      "genre": "FPS",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/782330/header.jpg"
+    },
+    {
+      "name": "Half-Life 2",
+      "steamName": "Half-Life 2",
+      "appid": 220,
+      "genre": "FPS",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/220/header.jpg"
+    },
+    {
+      "name": "Hunt: Showdown",
+      "steamName": "Hunt: Showdown 1896",
+      "appid": 594650,
+      "genre": "FPS",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/594650/header.jpg"
+    },
+    {
+      "name": "Insurgency: Sandstorm",
+      "steamName": "Insurgency: Sandstorm",
+      "appid": 581320,
+      "genre": "FPS",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/581320/header.jpg"
+    },
+    {
+      "name": "The Finals",
+      "steamName": "THE FINALS",
+      "appid": 2073850,
+      "genre": "FPS",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/2073850/header.jpg"
+    },
+    {
+      "name": "Delta Force",
+      "steamName": "Delta Force",
+      "appid": 2507950,
+      "genre": "FPS",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/2507950/header.jpg"
+    },
+    {
+      "name": "Smite",
+      "steamName": "SMITE®",
+      "appid": 386360,
+      "genre": "MOBA",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/386360/header.jpg"
+    },
+    {
+      "name": "Age of Empires II: Definitive Edition",
+      "steamName": "Age of Empires II: Definitive Edition",
+      "appid": 813780,
+      "genre": "Estratégia",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/813780/header.jpg"
+    },
+    {
+      "name": "StarCraft II",
+      "steamName": "Star Crafter",
+      "appid": 3476660,
+      "genre": "Estratégia",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/3476660/header.jpg"
+    },
+    {
+      "name": "Civilization VI",
+      "steamName": "Sid Meier’s Civilization® VI",
+      "appid": 289070,
+      "genre": "Estratégia",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/289070/header.jpg"
+    },
+    {
+      "name": "Total War: Warhammer III",
+      "steamName": "Total War: WARHAMMER III",
+      "appid": 1142710,
+      "genre": "Estratégia",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/1142710/header.jpg"
+    },
+    {
+      "name": "Company of Heroes 3",
+      "steamName": "Company of Heroes 3",
+      "appid": 1677280,
+      "genre": "Estratégia",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/1677280/header.jpg"
+    },
+    {
+      "name": "The Witcher 3: Wild Hunt",
+      "steamName": "The Witcher 3: Wild Hunt",
+      "appid": 292030,
+      "genre": "RPG",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/292030/header.jpg"
+    },
+    {
+      "name": "Baldur's Gate 3",
+      "steamName": "Baldur's Gate 3",
+      "appid": 1086940,
+      "genre": "RPG",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/1086940/header.jpg"
+    },
+    {
+      "name": "Cyberpunk 2077",
+      "steamName": "Cyberpunk 2077",
+      "appid": 1091500,
+      "genre": "RPG",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/1091500/header.jpg"
+    },
+    {
+      "name": "Dark Souls III",
+      "steamName": "DARK SOULS™ III",
+      "appid": 374320,
+      "genre": "RPG",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/374320/header.jpg"
+    },
+    {
+      "name": "Sekiro: Shadows Die Twice",
+      "steamName": "Sekiro™: Shadows Die Twice - GOTY Edition",
+      "appid": 814380,
+      "genre": "RPG",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/814380/header.jpg"
+    },
+    {
+      "name": "Diablo IV",
+      "steamName": "Diablo® IV",
+      "appid": 2344520,
+      "genre": "RPG",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/2344520/header.jpg"
+    },
+    {
+      "name": "Path of Exile",
+      "steamName": "Path of Exile",
+      "appid": 238960,
+      "genre": "RPG",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/238960/header.jpg"
+    },
+    {
+      "name": "Monster Hunter: World",
+      "steamName": "Monster Hunter: World",
+      "appid": 582010,
+      "genre": "RPG",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/582010/header.jpg"
+    },
+    {
+      "name": "Skyrim",
+      "steamName": "The Elder Scrolls V: Skyrim Special Edition",
+      "appid": 489830,
+      "genre": "RPG",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/489830/header.jpg"
+    },
+    {
+      "name": "Persona 5 Royal",
+      "steamName": "Persona 5 Royal",
+      "appid": 1687950,
+      "genre": "RPG",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/1687950/header.jpg"
+    },
+    {
+      "name": "Hollow Knight",
+      "steamName": "Hollow Knight",
+      "appid": 367520,
+      "genre": "Metroidvania",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/367520/header.jpg"
+    },
+    {
+      "name": "Hades",
+      "steamName": "Hades",
+      "appid": 1145360,
+      "genre": "Roguelike",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/1145360/header.jpg"
+    },
+    {
+      "name": "Slay the Spire",
+      "steamName": "Slay the Spire",
+      "appid": 646570,
+      "genre": "Roguelike",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/646570/header.jpg"
+    },
+    {
+      "name": "Vampire Survivors",
+      "steamName": "Vampire Survivors",
+      "appid": 1794680,
+      "genre": "Roguelike",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/1794680/header.jpg"
+    },
+    {
+      "name": "Risk of Rain 2",
+      "steamName": "Risk of Rain 2",
+      "appid": 632360,
+      "genre": "Roguelike",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/632360/header.jpg"
+    },
+    {
+      "name": "Rust",
+      "steamName": "Rust",
+      "appid": 252490,
+      "genre": "Sobrevivência",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/252490/header.jpg"
+    },
+    {
+      "name": "ARK: Survival Evolved",
+      "steamName": "ARK: Survival Evolved",
+      "appid": 346110,
+      "genre": "Sobrevivência",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/346110/header.jpg"
+    },
+    {
+      "name": "Valheim",
+      "steamName": "Valheim",
+      "appid": 892970,
+      "genre": "Sobrevivência",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/892970/header.jpg"
+    },
+    {
+      "name": "Terraria",
+      "steamName": "Terraria",
+      "appid": 105600,
+      "genre": "Sandbox",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/105600/header.jpg"
+    },
+    {
+      "name": "Stardew Valley",
+      "steamName": "Stardew Valley",
+      "appid": 413150,
+      "genre": "Simulação",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/413150/header.jpg"
+    },
+    {
+      "name": "Palworld",
+      "steamName": "Palworld",
+      "appid": 1623730,
+      "genre": "Sobrevivência",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/1623730/header.jpg"
+    },
+    {
+      "name": "Grounded",
+      "steamName": "Grounded",
+      "appid": 962130,
+      "genre": "Sobrevivência",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/962130/header.jpg"
+    },
+    {
+      "name": "Don't Starve Together",
+      "steamName": "Don't Starve Together",
+      "appid": 322330,
+      "genre": "Sobrevivência",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/322330/header.jpg"
+    },
+    {
+      "name": "Phasmophobia",
+      "steamName": "Phasmophobia",
+      "appid": 739630,
+      "genre": "Terror",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/739630/header.jpg"
+    },
+    {
+      "name": "Lethal Company",
+      "steamName": "Lethal Company",
+      "appid": 1966720,
+      "genre": "Terror",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/1966720/header.jpg"
+    },
+    {
+      "name": "Dead by Daylight",
+      "steamName": "Dead by Daylight",
+      "appid": 381210,
+      "genre": "Terror",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/381210/header.jpg"
+    },
+    {
+      "name": "Left 4 Dead 2",
+      "steamName": "Left 4 Dead 2",
+      "appid": 550,
+      "genre": "FPS",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/550/header.jpg"
+    },
+    {
+      "name": "Deep Rock Galactic",
+      "steamName": "Deep Rock Galactic",
+      "appid": 548430,
+      "genre": "Co-op",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/548430/header.jpg"
+    },
+    {
+      "name": "It Takes Two",
+      "steamName": "It Takes Two",
+      "appid": 1426210,
+      "genre": "Co-op",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/1426210/header.jpg"
+    },
+    {
+      "name": "Tekken 8",
+      "steamName": "TEKKEN 8",
+      "appid": 1778820,
+      "genre": "Luta",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/1778820/header.jpg"
+    },
+    {
+      "name": "Mortal Kombat 1",
+      "steamName": "Mortal Kombat 1",
+      "appid": 1971870,
+      "genre": "Luta",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/1971870/header.jpg"
+    },
+    {
+      "name": "Guilty Gear -Strive-",
+      "steamName": "GUILTY GEAR -STRIVE-",
+      "appid": 1384160,
+      "genre": "Luta",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/1384160/header.jpg"
+    },
+    {
+      "name": "Dragon Ball FighterZ",
+      "steamName": "DRAGON BALL FighterZ",
+      "appid": 678950,
+      "genre": "Luta",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/678950/header.jpg"
+    },
+    {
+      "name": "Forza Horizon 5",
+      "steamName": "Forza Horizon 5",
+      "appid": 1551360,
+      "genre": "Corrida",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/1551360/header.jpg"
+    },
+    {
+      "name": "F1 24",
+      "steamName": "F1® 24",
+      "appid": 2488620,
+      "genre": "Corrida",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/2488620/header.jpg"
+    },
+    {
+      "name": "Assetto Corsa",
+      "steamName": "Assetto Corsa",
+      "appid": 244210,
+      "genre": "Corrida",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/244210/header.jpg"
+    },
+    {
+      "name": "NBA 2K25",
+      "steamName": "NBA 2K25",
+      "appid": 2878980,
+      "genre": "Esporte",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/2878980/header.jpg"
+    },
+    {
+      "name": "Grand Theft Auto V",
+      "steamName": "Grand Theft Auto V Enhanced",
+      "appid": 3240220,
+      "genre": "Sandbox",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/3240220/header.jpg"
+    },
+    {
+      "name": "Red Dead Redemption 2",
+      "steamName": "Red Dead Redemption 2",
+      "appid": 1174180,
+      "genre": "Sandbox",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/1174180/header.jpg"
+    },
+    {
+      "name": "Cities: Skylines II",
+      "steamName": "Cities: Skylines II",
+      "appid": 949230,
+      "genre": "Simulação",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/949230/header.jpg"
+    },
+    {
+      "name": "The Sims 4",
+      "steamName": "The Sims™ 4",
+      "appid": 1222670,
+      "genre": "Simulação",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/1222670/header.jpg"
+    },
+    {
+      "name": "Euro Truck Simulator 2",
+      "steamName": "Euro Truck Simulator 2",
+      "appid": 227300,
+      "genre": "Simulação",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/227300/header.jpg"
+    },
+    {
+      "name": "Microsoft Flight Simulator",
+      "steamName": "Microsoft Flight Simulator 2024",
+      "appid": 2537590,
+      "genre": "Simulação",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/2537590/header.jpg"
+    },
+    {
+      "name": "Among Us",
+      "steamName": "Among Us",
+      "appid": 945360,
+      "genre": "Party",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/945360/header.jpg"
+    },
+    {
+      "name": "Overcooked! 2",
+      "steamName": "Overcooked! 2",
+      "appid": 728880,
+      "genre": "Party",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/728880/header.jpg"
+    },
+    {
+      "name": "Portal 2",
+      "steamName": "Portal 2",
+      "appid": 620,
+      "genre": "Puzzle",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/620/header.jpg"
+    },
+    {
+      "name": "PUBG: Battlegrounds",
+      "steamName": "PUBG: BATTLEGROUNDS",
+      "appid": 578080,
+      "genre": "Battle Royale",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/578080/header.jpg"
+    },
+    {
+      "name": "Naraka: Bladepoint",
+      "steamName": "NARAKA: BLADEPOINT",
+      "appid": 1203220,
+      "genre": "Battle Royale",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/1203220/header.jpg"
+    },
+    {
+      "name": "Destiny 2",
+      "steamName": "Destiny 2",
+      "appid": 1085660,
+      "genre": "MMO",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/1085660/header.jpg"
+    },
+    {
+      "name": "Warframe",
+      "steamName": "Warframe",
+      "appid": 230410,
+      "genre": "MMO",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/230410/header.jpg"
+    },
+    {
+      "name": "Final Fantasy XIV Online",
+      "steamName": "FINAL FANTASY XIV Online",
+      "appid": 39210,
+      "genre": "MMORPG",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/39210/header.jpg"
+    },
+    {
+      "name": "Albion Online",
+      "steamName": "Albion Online",
+      "appid": 761890,
+      "genre": "MMORPG",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/761890/header.jpg"
+    },
+    {
+      "name": "Sea of Thieves",
+      "steamName": "Sea of Thieves: 2026 Edition",
+      "appid": 1172620,
+      "genre": "Aventura",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/1172620/header.jpg"
+    },
+    {
+      "name": "No Man's Sky",
+      "steamName": "No Man's Sky",
+      "appid": 275850,
+      "genre": "Aventura",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/275850/header.jpg"
+    },
+    {
+      "name": "Elite Dangerous",
+      "steamName": "Elite Dangerous",
+      "appid": 359320,
+      "genre": "Simulação",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/359320/header.jpg"
+    },
+    {
+      "name": "Rimworld",
+      "steamName": "RimWorld",
+      "appid": 294100,
+      "genre": "Simulação",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/294100/header.jpg"
+    },
+    {
+      "name": "Factorio",
+      "steamName": "Factorio",
+      "appid": 427520,
+      "genre": "Simulação",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/427520/header.jpg"
+    },
+    {
+      "name": "Satisfactory",
+      "steamName": "Satisfactory",
+      "appid": 526870,
+      "genre": "Simulação",
+      "image": "https://cdn.cloudflare.steamstatic.com/steam/apps/526870/header.jpg"
+    }
+  ],
+  "failed": [
+    {
+      "name": "Escape from Tarkov",
+      "genre": "FPS",
+      "why": "header 404 (appid 3932890)"
+    },
+    {
+      "name": "EA SPORTS FC 25",
+      "query": "EA SPORTS FC",
+      "genre": "Esporte",
+      "why": "header 404 (appid 3405690)"
+    },
+    {
+      "name": "Fall Guys",
+      "genre": "Party",
+      "why": "sem resultado"
+    },
+    {
+      "name": "Lost Ark",
+      "genre": "MMORPG",
+      "why": "header 404 (appid 3720100)"
+    },
+    {
+      "name": "New World",
+      "genre": "MMORPG",
+      "why": "header 404 (appid 3561400)"
+    }
+  ]
+}

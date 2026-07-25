@@ -2,9 +2,14 @@ import axios from 'axios';
 import type {
     CatalogMeta,
     LeaderboardEntry,
+    PublicProfile,
     AdminTermAttention,
     AdminTermDetail,
+    Inflection,
     PendingMeaning,
+    PendingTermMedia,
+    Register,
+    WordClass,
     AdminTermDuplicate,
     AdminTermInput,
     AdminTermListResponse,
@@ -316,6 +321,9 @@ export interface MeaningInput {
     examples: string[];
     gameId: string | null;
     context: string | null;
+    wordClass?: WordClass | null;
+    inflections?: Inflection[];
+    register?: Register | null;
 }
 
 export const getPendingMeanings = async (): Promise<PendingMeaning[]> =>
@@ -627,11 +635,45 @@ export const getMyMeaningVotes = async (termId: string) => {
     return (response.data?.votes || {}) as Record<string, number>;
 };
 
+/* --- Origem & imagens: contribuição pública + curadoria pelo dono --- */
+
+export const proposeOrigin = async (termId: string, content: string) =>
+  (await api.post(`/terms/${termId}/origin`, { content })).data as { id: string; status: string };
+
+export const setTermOriginHidden = async (termId: string, hidden: boolean) =>
+  (await api.post(`/terms/${termId}/origin-hidden`, { hidden })).data;
+
+export const uploadTermImage = async (termId: string, file: File, caption?: string) => {
+  const form = new FormData();
+  form.append('image', file);
+  if (caption) form.append('caption', caption);
+  return (await api.post(`/terms/${termId}/images`, form, { headers: { 'Content-Type': 'multipart/form-data' } })).data as { id: string; status: string };
+};
+
+/** Curation view for one term: can the viewer curate it, and what awaits them. */
+export const getTermCuration = async (termId: string) =>
+  (await api.get(`/terms/${termId}/curation`)).data as { canCurate: boolean; pending: PendingTermMedia[] };
+
+/** Media awaiting the signed-in user's curation (their terms). */
+export const getMyPendingMedia = async () =>
+  (await api.get('/terms/media/pending/mine')).data as PendingTermMedia[];
+
+export const acceptTermMedia = async (mediaId: string) =>
+  (await api.post(`/terms/media/${mediaId}/accept`)).data;
+
+/** Report a published image/origin. Works logged in or not. */
+export const reportTermMedia = async (mediaId: string, reason: string, details?: string) =>
+  (await api.post(`/terms/media/${mediaId}/report`, { reason, details })).data;
+
+export const declineTermMedia = async (mediaId: string) =>
+  (await api.post(`/terms/media/${mediaId}/decline`)).data;
+
+/** Admin media queue (includes SafeSearch-flagged items). */
+export const getAdminPendingMedia = async () =>
+  (await api.get('/dashboard/terms/media/pending')).data as PendingTermMedia[];
+
 /** Propose a new sense for an existing word. Lands as PENDING for moderation. */
-export const proposeTermMeaning = async (
-  termId: string,
-  payload: { definition: string; examples: string[]; gameId: string | null; context: string | null },
-) => {
+export const proposeTermMeaning = async (termId: string, payload: MeaningInput) => {
   const response = await api.post(`/terms/${termId}/meanings`, payload);
   return response.data as { id: string; status: string };
 };
@@ -815,6 +857,17 @@ export const getCatalogMeta = async (): Promise<CatalogMeta> => {
 export const getLeaderboard = async (): Promise<LeaderboardEntry[]> => {
     const response = await api.get('/users/leaderboard');
     return response.data;
+};
+
+/** Public contributor profile by id. Returns null on 404 (anonymized/removed). */
+export const getPublicProfile = async (id: string): Promise<PublicProfile | null> => {
+    try {
+        const response = await api.get(`/users/${encodeURIComponent(id)}`);
+        return response.data;
+    } catch (error: any) {
+        if (error?.response?.status === 404) return null;
+        throw error;
+    }
 };
 
 export const subscribeNewsletter = async (email: string, consent: boolean, source = 'home') => {

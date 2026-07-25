@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { User, ThumbsUp, MessageSquare, Send, LogIn } from 'lucide-react';
+import { ThumbsUp, MessageSquare, Send, LogIn } from 'lucide-react';
 import { Button } from './UI';
+import { Avatar } from './Avatar';
 import { useAuth } from "../src/context/AuthContext";
 import { getComments, createComment } from "../src/services/api";
 import { Link } from 'react-router-dom';
@@ -83,13 +84,7 @@ export const CommentsSection: React.FC<{ newsId?: string }> = ({ newsId }) => {
                     ) : (
                         <form onSubmit={handleSubmit} className="mb-12 bg-dark-900 border border-dark-700 rounded-xl p-6">
                             <div className="flex gap-4">
-                                <div className="w-10 h-10 rounded-full bg-brand-500/20 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                                    {user?.avatar ? (
-                                        <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
-                                    ) : (
-                                        <User className="w-5 h-5 text-brand-500" />
-                                    )}
-                                </div>
+                                <Avatar name={user?.name || 'Você'} src={user?.avatar} size={40} className="flex-shrink-0" />
                                 <div className="flex-1">
                                     <textarea
                                         value={newComment}
@@ -126,13 +121,7 @@ export const CommentsSection: React.FC<{ newsId?: string }> = ({ newsId }) => {
                     ) : (
                         comments.map((comment) => (
                             <div key={comment.id} className="flex gap-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
-                                <div className="w-10 h-10 rounded-full bg-dark-800 border border-dark-700 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                                    {comment.user.avatar ? (
-                                        <img src={comment.user.avatar} alt={comment.user.name} className="w-full h-full object-cover" />
-                                    ) : (
-                                        <User className="w-5 h-5 text-gray-400" />
-                                    )}
-                                </div>
+                                <Avatar name={comment.user.name} src={comment.user.avatar} size={40} className="flex-shrink-0" />
 
                                 <div className="flex-1">
                                     <div className="bg-dark-900/50 border border-white/5 rounded-xl p-4 hover:border-white/10 transition-colors">

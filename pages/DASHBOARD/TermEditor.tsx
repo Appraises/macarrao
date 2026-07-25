@@ -252,6 +252,7 @@ export const TermEditor: React.FC = () => {
                     {!isNew && detail && (
                         <MeaningsEditor
                             termId={detail.id}
+                            word={detail.word}
                             meanings={detail.meanings || []}
                             games={games}
                             onChanged={load}

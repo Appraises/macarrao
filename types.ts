@@ -241,12 +241,28 @@ export interface ContributorRef {
   role?: string;
 }
 
+/** Grammatical class of a sense. A word can shift class between senses. */
+export type WordClass = 'SUBSTANTIVO' | 'VERBO' | 'ADJETIVO' | 'ADVERBIO' | 'INTERJEICAO' | 'EXPRESSAO';
+
+/** Tone of a sense, escalating. The last two carry a usage warning. */
+export type Register = 'NEUTRO' | 'INFORMAL' | 'IRONICO' | 'PEJORATIVO' | 'OFENSIVO';
+
+
+/** A labelled inflected form, e.g. { label: 'particípio', form: 'gankado' }. */
+export interface Inflection {
+  label: string;
+  form: string;
+}
+
 /** One numbered sense of a word. Ranked by score; authorship is shown per sense. */
 export interface TermMeaning {
   id: string;
   definition: string;
   examples: string[];
   context?: string | null;
+  wordClass?: WordClass | null;
+  inflections?: Inflection[];
+  register?: Register | null;
   game?: Pick<Game, 'id' | 'name' | 'slug'> | null;
   order: number;
   upvotes: number;
@@ -254,6 +270,29 @@ export interface TermMeaning {
   score: number;
   author?: ContributorRef | null;
   createdAt?: string;
+}
+
+/** An approved image attached to a term (screenshot, clip frame, map spot). */
+export interface TermImage {
+  id: string;
+  url: string;
+  content?: string | null; // caption
+  author?: { id: string; name: string; avatar?: string | null } | null;
+}
+
+/** A pending origin/image contribution awaiting the term owner's curation. */
+export interface PendingTermMedia {
+  id: string;
+  kind: 'ORIGIN' | 'IMAGE';
+  content?: string | null;
+  url?: string | null;
+  flagged: boolean;
+  flagReason?: string | null;
+  createdAt: string;
+  term: { id: string; word: string };
+  author?: ContributorRef | null;
+  /** Pending reports against an already-published item (admin queue only). */
+  reports?: Array<{ id: string; reason: string; details?: string | null; createdAt: string }>;
 }
 
 export interface Term {
@@ -266,11 +305,6 @@ export interface Term {
   pronunciationGuide?: string | null;
   examples: string[];
   relatedTerms?: string[];
-  gameSpecifics?: {
-    gameId: string;
-    gameName: string;
-    context: string;
-  }[];
   upvotes: number;
   downvotes: number;
   tags: string[];
@@ -283,7 +317,8 @@ export interface Term {
   moderatedAt?: string | null;
   archivedAt?: string | null;
   origin?: string | null;
-  images?: string[] | null;
+  originHidden?: boolean;
+  images?: TermImage[] | null;
   gameId?: string | null;
   game?: Game | null;
   createdAt?: string;
@@ -314,12 +349,37 @@ export interface LeaderboardEntry {
   terms: number;
 }
 
+/** Public contributor profile: identity plus the terms they authored. */
+export interface PublicProfile {
+  id: string;
+  name: string;
+  avatar?: string | null;
+  level: number;
+  description?: string | null;
+  createdAt: string;
+  favoriteGame?: Pick<Game, 'id' | 'name' | 'slug' | 'image'> | null;
+  terms: Term[];
+  termsCount: number;
+  commentsCount: number;
+  badges: EarnedBadge[];
+}
+
+/** A badge a user has unlocked. The visual catalog lives in components/badges.ts. */
+export interface EarnedBadge {
+  badgeId: string;
+  earnedAt: string;
+}
+
 export interface ContributionInput {
   word: string;
   definition: string;
   gameId?: string | null;
   examples: string[];
   tags: string[];
+  /** Linguistic layer, carried into the term's first sense. All optional. */
+  wordClass?: WordClass | null;
+  register?: Register | null;
+  inflections?: Inflection[];
 }
 
 export interface TermModerationEvent {
@@ -645,7 +705,8 @@ export interface User {
   avatar: string;
   level: number;
   preferences?: string | Record<string, unknown>;
-  badges?: string[];
+  description?: string | null;
+  badges?: EarnedBadge[];
   role?: string;
   token?: string;
   createdAt?: string;
@@ -656,6 +717,7 @@ export interface User {
   favoriteGame?: {
     id: string;
     name: string;
+    slug?: string;
     image: string;
   };
 }

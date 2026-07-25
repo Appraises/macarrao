@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { AlertTriangle, BookOpen, CheckSquare, Gamepad2, Save, Tags } from 'lucide-react';
-import type { ContributionInput, Game } from '../../types';
+import type { ContributionInput, Game, Inflection, Register, WordClass } from '../../types';
+import { InflectionFields } from '../InflectionFields';
 import { getGames, validateContribution } from '../../src/services/api';
 import { Button, Input } from '../UI';
 
@@ -38,6 +39,11 @@ export const ContributionForm: React.FC<ContributionFormProps> = ({
   const [gameId, setGameId] = useState(initialValue.gameId || '');
   const [examples, setExamples] = useState(initialValue.examples.join('\n'));
   const [tags, setTags] = useState<string[]>(initialValue.tags);
+  const [grammar, setGrammar] = useState<{ wordClass: WordClass | null; inflections: Inflection[]; register: Register | null }>({
+    wordClass: initialValue.wordClass ?? null,
+    inflections: initialValue.inflections ?? [],
+    register: initialValue.register ?? null,
+  });
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
 
@@ -77,6 +83,9 @@ export const ContributionForm: React.FC<ContributionFormProps> = ({
         gameId: gameId || null,
         examples: examples.split('\n').map((item) => item.trim()).filter(Boolean),
         tags,
+        wordClass: grammar.wordClass,
+        register: grammar.register,
+        inflections: grammar.inflections.filter((item) => item.form.trim()),
       });
     } catch (error: any) {
       setFeedback(error?.response?.data?.error || 'Não foi possível salvar a contribuição. Tente novamente.');
@@ -111,6 +120,23 @@ export const ContributionForm: React.FC<ContributionFormProps> = ({
             Exemplos de uso <span className="font-normal text-gray-500">(um por linha)</span>
             <textarea value={examples} onChange={(event) => setExamples(event.target.value)} rows={4} className="w-full resize-y rounded-lg border border-dark-700 bg-dark-950 px-4 py-3 text-gray-200 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20" placeholder="O jungler veio dar um gank no top." />
           </label>
+        </div>
+
+        {/* Camada linguística: tudo opcional, porque nem toda palavra tem flexão
+            e nem todo termo tem carga. */}
+        <div className="mt-6 rounded-lg border border-white/10 bg-dark-950/50 p-5">
+          <p className="mb-4 text-sm font-semibold text-gray-300">
+            Gramática e tom <span className="font-normal text-gray-500">— opcional, mas ajuda muito quem está aprendendo</span>
+          </p>
+          <InflectionFields
+            wordClass={grammar.wordClass}
+            inflections={grammar.inflections}
+            register={grammar.register}
+            onChange={setGrammar}
+            word={word}
+            inputClass="w-full rounded-lg border border-dark-700 bg-dark-950 px-3 py-2.5 text-sm text-gray-200 outline-none focus:border-brand-500"
+            labelClass="mb-1.5 block text-xs font-medium text-gray-400"
+          />
         </div>
       </section>
 

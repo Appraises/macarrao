@@ -1,11 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate, useParams, useLoaderData, useLocation, useNavigation, type LoaderFunctionArgs } from 'react-router-dom';
+import { Link, useNavigate, useParams, useLoaderData, useLocation, useNavigation, useRevalidator, type LoaderFunctionArgs } from 'react-router-dom';
 import { getTermBySlug, getTerms, recordTermView } from '../src/services/api';
 import { Button } from '../components/UI';
 import { CompactTermCard } from '../components/CompactTermCard';
-import { ArrowLeft, SearchX, Gamepad2, PlusCircle, ScrollText, Image as ImageIcon, ArrowUpRight } from 'lucide-react';
+import { ArrowLeft, SearchX, Gamepad2, PlusCircle, ArrowUpRight } from 'lucide-react';
 import { TermCard } from '../components/TermCard';
 import { AddMeaningPanel } from '../components/AddMeaningPanel';
+import { TermContributions } from '../components/term/TermContributions';
 import { Term } from '../types';
 import { Seo } from '../components/Seo';
 import { JsonLd, definedTermSchema, breadcrumbSchema } from '../components/JsonLd';
@@ -23,25 +24,13 @@ export async function termLoader({ params }: LoaderFunctionArgs): Promise<Term |
   }
 }
 
-// Small labelled panel used for the Origin / Media contribution hooks.
-const InvitePanel: React.FC<{ icon: React.ReactNode; title: string; children: React.ReactNode; cta: string; href: string }> = ({ icon, title, children, cta, href }) => (
-  <div className="rounded-xl border border-white/5 bg-dark-900 p-6">
-    <h3 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-brand-400">
-      {icon} {title}
-    </h3>
-    <p className="text-sm leading-relaxed text-gray-400">{children}</p>
-    <Link to={href} className="mt-4 inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-gray-400 transition-colors hover:text-brand-400">
-      <PlusCircle className="h-3.5 w-3.5" /> {cta}
-    </Link>
-  </div>
-);
-
 export const TermDetail: React.FC = () => {
   const term = useLoaderData() as Term | null;
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const location = useLocation();
   const navigation = useNavigation();
+  const revalidator = useRevalidator();
   const loading = navigation.state === 'loading';
   const [isKonamiActive, setIsKonamiActive] = useState(false);
   const viewedTermRef = useRef<string | null>(null);
@@ -171,37 +160,7 @@ export const TermDetail: React.FC = () => {
 
               <AddMeaningPanel term={term} />
 
-              {/* Origin */}
-              {term.origin ? (
-                <div className="rounded-xl border border-white/5 bg-dark-900 p-6">
-                  <h3 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-brand-400">
-                    <ScrollText className="h-4 w-4" /> Origem & curiosidades
-                  </h3>
-                  <p className="text-sm leading-relaxed text-gray-300">{term.origin}</p>
-                </div>
-              ) : (
-                <InvitePanel icon={<ScrollText className="h-4 w-4" />} title="Origem & curiosidades" cta="Adicionar origem" href={contributeHref}>
-                  De onde vem <span className="font-bold text-gray-200">{term.word}</span>? Uma curiosidade sobre como e onde o termo é usado ajuda a comunidade a entender a história por trás dele.
-                </InvitePanel>
-              )}
-
-              {/* Media / map */}
-              {term.images && term.images.length > 0 ? (
-                <div className="rounded-xl border border-white/5 bg-dark-900 p-6">
-                  <h3 className="mb-4 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-brand-400">
-                    <ImageIcon className="h-4 w-4" /> Imagens & referências
-                  </h3>
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                    {term.images.map((src, i) => (
-                      <img key={i} src={src} alt={`${term.word} — referência ${i + 1}`} className="aspect-video w-full rounded-lg border border-white/10 object-cover" />
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <InvitePanel icon={<ImageIcon className="h-4 w-4" />} title="Imagens & referências" cta="Enviar imagem" href={contributeHref}>
-                  Um print, um clipe ou um ponto no mapa que ilustra <span className="font-bold text-gray-200">{term.word}</span> vale mais que mil palavras. Tem um exemplo visual pra compartilhar?
-                </InvitePanel>
-              )}
+              <TermContributions term={term} onChanged={() => revalidator.revalidate()} />
             </div>
 
             {/* RIGHT ~40% */}

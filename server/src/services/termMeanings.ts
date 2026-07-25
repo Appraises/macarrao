@@ -1,4 +1,5 @@
-import { Prisma, TermStatus } from '@prisma/client';
+import { Prisma, Register, TermStatus, WordClass } from '@prisma/client';
+import { evaluateBadges } from './badges';
 import { prisma } from '../lib/prisma';
 import { cleanPlainText } from '../utils/content';
 import { normalizeTextList } from '../utils/userInput';
@@ -10,12 +11,59 @@ export class TermMeaningError extends Error {
     }
 }
 
+/** One labelled inflected form, e.g. { label: 'particípio', form: 'gankado' }. */
+export interface Inflection { label: string; form: string }
+
 export interface MeaningContent {
     definition: string;
     examples: string[];
     gameId: string | null;
     context: string | null;
+    wordClass: WordClass | null;
+    inflections: Inflection[];
+    register: Register | null;
 }
+
+const WORD_CLASSES = Object.values(WordClass) as string[];
+const REGISTERS = Object.values(Register) as string[];
+
+/** Prisma needs the Json column typed explicitly; the rest of the content passes through. */
+const toPrismaData = (content: MeaningContent) => ({
+    ...content,
+    inflections: content.inflections as unknown as Prisma.InputJsonValue,
+});
+
+// Labels we suggest per class; anything else the contributor types is kept as-is,
+// since slang morphology does not always fit a textbook table.
+const MAX_INFLECTIONS = 12;
+
+export const parseInflections = (value: unknown): Inflection[] => {
+    if (!Array.isArray(value)) return [];
+    const seen = new Set<string>();
+    const result: Inflection[] = [];
+    for (const entry of value) {
+        if (!entry || typeof entry !== 'object') continue;
+        const form = cleanPlainText((entry as any).form).slice(0, 60);
+        const label = cleanPlainText((entry as any).label).slice(0, 40);
+        if (!form) continue;
+        const key = form.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        result.push({ label: label || 'forma', form });
+        if (result.length >= MAX_INFLECTIONS) break;
+    }
+    return result;
+};
+
+export const parseWordClass = (value: unknown): WordClass | null => {
+    const raw = cleanPlainText(value).toUpperCase();
+    return WORD_CLASSES.includes(raw) ? (raw as WordClass) : null;
+};
+
+export const parseRegister = (value: unknown): Register | null => {
+    const raw = cleanPlainText(value).toUpperCase();
+    return REGISTERS.includes(raw) ? (raw as Register) : null;
+};
 
 type Tx = Prisma.TransactionClient;
 
@@ -114,7 +162,15 @@ export const parseMeaningPayload = (body: unknown): MeaningContent => {
     const context = cleanPlainText(input.context) || null;
     if (context && context.length > 60) throw new TermMeaningError(400, 'O contexto deve ter no maximo 60 caracteres.');
 
-    return { definition, examples: examples.data, gameId, context };
+    return {
+        definition,
+        examples: examples.data,
+        gameId,
+        context,
+        wordClass: parseWordClass(input.wordClass),
+        inflections: parseInflections(input.inflections),
+        register: parseRegister(input.register),
+    };
 };
 
 const ensureGame = async (gameId: string | null, tx: Tx) => {
@@ -144,7 +200,7 @@ export const proposeTermMeaning = async (termId: string, authorId: string, conte
 
         const last = await tx.termMeaning.findFirst({ where: { termId }, orderBy: { order: 'desc' }, select: { order: true } });
         const meaning = await tx.termMeaning.create({
-            data: { ...content, termId, authorId, order: (last?.order || 0) + 1, status: TermStatus.PENDING },
+            data: { ...toPrismaData(content), termId, authorId, order: (last?.order || 0) + 1, status: TermStatus.PENDING },
         });
         await syncTermFromMeanings(termId, tx);
         return meaning;
@@ -158,27 +214,33 @@ export const createTermMeaning = async (termId: string, content: MeaningContent)
         await ensureGame(content.gameId, tx);
         const last = await tx.termMeaning.findFirst({ where: { termId }, orderBy: { order: 'desc' }, select: { order: true } });
         const meaning = await tx.termMeaning.create({
-            data: { ...content, termId, order: (last?.order || 0) + 1, status: TermStatus.APPROVED },
+            data: { ...toPrismaData(content), termId, order: (last?.order || 0) + 1, status: TermStatus.APPROVED },
         });
         await syncTermFromMeanings(termId, tx);
         return meaning;
     });
 
-export const moderateTermMeaning = async (meaningId: string, status: TermStatus) =>
-    prisma.$transaction(async (tx) => {
-        const existing = await tx.termMeaning.findUnique({ where: { id: meaningId }, select: { id: true, termId: true } });
+export const moderateTermMeaning = async (meaningId: string, status: TermStatus) => {
+    const result = await prisma.$transaction(async (tx) => {
+        const existing = await tx.termMeaning.findUnique({ where: { id: meaningId }, select: { id: true, termId: true, authorId: true } });
         if (!existing) throw new TermMeaningError(404, 'Significado nao encontrado.');
         const meaning = await tx.termMeaning.update({ where: { id: meaningId }, data: { status } });
         await syncTermFromMeanings(existing.termId, tx);
-        return meaning;
+        return { meaning, authorId: existing.authorId };
     });
+    // Approving may unlock the linguistic badges (flexões, tom, novo significado).
+    if (status === TermStatus.APPROVED && result.authorId) {
+        await evaluateBadges(result.authorId).catch((error) => console.error('[badges] evaluate after meaning approval failed:', error));
+    }
+    return result.meaning;
+};
 
 export const updateTermMeaning = async (meaningId: string, content: MeaningContent) =>
     prisma.$transaction(async (tx) => {
         const existing = await tx.termMeaning.findUnique({ where: { id: meaningId }, select: { id: true, termId: true } });
         if (!existing) throw new TermMeaningError(404, 'Significado nao encontrado.');
         await ensureGame(content.gameId, tx);
-        const meaning = await tx.termMeaning.update({ where: { id: meaningId }, data: content });
+        const meaning = await tx.termMeaning.update({ where: { id: meaningId }, data: toPrismaData(content) });
         await syncTermFromMeanings(existing.termId, tx);
         return meaning;
     });

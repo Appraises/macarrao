@@ -4,12 +4,13 @@ import { useAuth } from '../src/context/AuthContext';
 import { getUserProfile, getUserActivity, updateUserProfile, getGames } from '../src/services/api';
 import { User, Term, Comment, Game } from '../types';
 import { Button } from '../components/UI';
-import { ClipboardList, Gamepad2, Trophy, Medal, Star } from 'lucide-react';
+import { ClipboardList, Gamepad2 } from 'lucide-react';
 
 // Sub-components
 import { ProfileHeader } from '../components/profile/ProfileHeader';
 import { ProfileEditForm } from '../components/profile/ProfileEditForm';
 import { ActivitySection } from '../components/profile/ActivitySection';
+import { BadgeGrid } from '../components/profile/BadgeGrid';
 
 export const Profile: React.FC = () => {
     const { user: authUser, login } = useAuth();
@@ -135,52 +136,24 @@ export const Profile: React.FC = () => {
                             <span className="text-xs text-brand-400">Acompanhar</span>
                         </Link>
 
-                        {/* Badges */}
-                        <div className="bg-dark-900 border border-dark-700 rounded-xl p-6">
-                            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center justify-between">
-                                Insígnias
-                                <span className="bg-dark-800 text-white px-2 py-0.5 rounded text-xs">3</span>
-                            </h3>
-                            <div className="grid grid-cols-4 gap-2">
-                                <div className="aspect-square bg-dark-800 rounded-lg flex items-center justify-center border border-dark-700 hover:border-brand-500/50 transition-colors group relative cursor-help">
-                                    <Trophy className="w-6 h-6 text-yellow-500" />
-                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-black text-xs text-white rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-20">
-                                        Pioneiro
-                                    </div>
-                                </div>
-                                <div className="aspect-square bg-dark-800 rounded-lg flex items-center justify-center border border-dark-700 hover:border-brand-500/50 transition-colors group relative cursor-help">
-                                    <Medal className="w-6 h-6 text-blue-500" />
-                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-black text-xs text-white rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-20">
-                                        Contribuidor
-                                    </div>
-                                </div>
-                                <div className="aspect-square bg-dark-800 rounded-lg flex items-center justify-center border border-dark-700 hover:border-brand-500/50 transition-colors group relative cursor-help">
-                                    <Star className="w-6 h-6 text-purple-500" />
-                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-black text-xs text-white rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-20">
-                                        Veterano
-                                    </div>
-                                </div>
-                                <div className="aspect-square bg-dark-800/50 rounded-lg flex items-center justify-center border border-dark-700 border-dashed text-dark-600">
-                                    <span className="text-xl">+</span>
-                                </div>
-                            </div>
-                        </div>
+                        {/* Badges — real, earned from milestones */}
+                        <BadgeGrid earned={profile.badges || []} emptyHint="Contribua com termos e comentários para desbloquear suas primeiras insígnias." />
 
                         {/* Stats */}
                         <div className="bg-dark-900 border border-dark-700 rounded-xl p-6">
                             <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Estatísticas</h3>
                             <div className="space-y-3">
-                                <div className="flex justify-between items-center p-2 hover:bg-dark-800 rounded transition-colors cursor-pointer group">
-                                    <span className="text-gray-400 group-hover:text-white transition-colors text-sm">Jogos Favoritos</span>
-                                    <span className="text-brand-500 font-bold">27</span>
+                                <div className="flex justify-between items-center p-2 rounded">
+                                    <span className="text-gray-400 text-sm">Palavras</span>
+                                    <span className="text-brand-500 font-bold">{activity.terms.length}</span>
                                 </div>
-                                <div className="flex justify-between items-center p-2 hover:bg-dark-800 rounded transition-colors cursor-pointer group">
-                                    <span className="text-gray-400 group-hover:text-white transition-colors text-sm">Avaliações</span>
-                                    <span className="text-brand-500 font-bold">12</span>
+                                <div className="flex justify-between items-center p-2 rounded">
+                                    <span className="text-gray-400 text-sm">Comentários</span>
+                                    <span className="text-brand-500 font-bold">{activity.comments.length}</span>
                                 </div>
-                                <div className="flex justify-between items-center p-2 hover:bg-dark-800 rounded transition-colors cursor-pointer group">
-                                    <span className="text-gray-400 group-hover:text-white transition-colors text-sm">Seguidores</span>
-                                    <span className="text-brand-500 font-bold">142</span>
+                                <div className="flex justify-between items-center p-2 rounded">
+                                    <span className="text-gray-400 text-sm">Insígnias</span>
+                                    <span className="text-brand-500 font-bold">{(profile.badges || []).length}</span>
                                 </div>
                             </div>
                         </div>

@@ -13,6 +13,12 @@ const mocks = vi.hoisted(() => ({
     termFindUnique: vi.fn(),
     termFindUniqueOrThrow: vi.fn(),
     termUpdateMany: vi.fn(),
+    meaningCreate: vi.fn(),
+    meaningUpdate: vi.fn(),
+    meaningUpdateMany: vi.fn(),
+    meaningFindFirst: vi.fn(),
+    meaningFindMany: vi.fn(),
+    termUpdate: vi.fn(),
     eventCreate: vi.fn(),
     notificationCreate: vi.fn(),
     notificationUpdate: vi.fn(),
@@ -22,6 +28,7 @@ const mocks = vi.hoisted(() => ({
     emitNotification: vi.fn(),
     emitQueueUpdate: vi.fn()
     ,queryRaw: vi.fn()
+    ,executeRaw: vi.fn()
 }));
 
 vi.mock('../src/lib/prisma', () => {
@@ -32,13 +39,24 @@ vi.mock('../src/lib/prisma', () => {
             findFirst: mocks.termFindFirst,
             findUnique: mocks.termFindUnique,
             findUniqueOrThrow: mocks.termFindUniqueOrThrow,
-            updateMany: mocks.termUpdateMany
+            updateMany: mocks.termUpdateMany,
+            update: mocks.termUpdate
+        },
+        // A contribution now seeds the term's first sense and moves it along with
+        // the term's moderation status.
+        termMeaning: {
+            create: mocks.meaningCreate,
+            update: mocks.meaningUpdate,
+            updateMany: mocks.meaningUpdateMany,
+            findFirst: mocks.meaningFindFirst,
+            findMany: mocks.meaningFindMany
         },
         termModerationEvent: { create: mocks.eventCreate },
         notification: { create: mocks.notificationCreate, update: mocks.notificationUpdate },
         user: { update: mocks.userUpdate },
         adminAuditLog: { create: mocks.auditCreate }
         ,$queryRaw: mocks.queryRaw
+        ,$executeRaw: mocks.executeRaw
     };
     prisma.$transaction = vi.fn(async (callback: any) => callback(prisma));
     return { prisma };
@@ -95,6 +113,13 @@ beforeEach(() => {
     mocks.notificationUpdate.mockResolvedValue({});
     mocks.sendEmail.mockResolvedValue(true);
     mocks.queryRaw.mockResolvedValue([]);
+    mocks.executeRaw.mockResolvedValue(1);
+    mocks.meaningCreate.mockResolvedValue({ id: 'meaning-1' });
+    mocks.meaningUpdate.mockResolvedValue({ id: 'meaning-1' });
+    mocks.meaningUpdateMany.mockResolvedValue({ count: 1 });
+    mocks.meaningFindFirst.mockResolvedValue({ id: 'meaning-1' });
+    mocks.meaningFindMany.mockResolvedValue([]);
+    mocks.termUpdate.mockResolvedValue({ id: 'term-1' });
 });
 
 describe('contribution lifecycle', () => {

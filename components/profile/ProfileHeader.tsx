@@ -1,35 +1,27 @@
 import React from 'react';
 import { Edit2, MapPin } from 'lucide-react';
-import { User } from '../../types';
+import { Avatar } from '../Avatar';
 
 interface ProfileHeaderProps {
-    profile: User;
+    profile: { name: string; avatar?: string | null; level: number; description?: string | null };
     isEditing: boolean;
     onEditStart: () => void;
     termsCount: number;
     commentsCount: number;
+    /** Own profile shows the edit button; a public profile does not. */
+    editable?: boolean;
     children?: React.ReactNode; // For the edit form when editing
 }
 
-export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ profile, isEditing, onEditStart, termsCount, commentsCount, children }) => {
+export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ profile, isEditing, onEditStart, termsCount, commentsCount, editable = true, children }) => {
     return (
         <div className="flex flex-col md:flex-row gap-8 mb-12 items-start">
             {/* Avatar */}
             <div className="relative group flex-shrink-0 mx-auto md:mx-0">
                 <div className="w-40 h-40 rounded-2xl overflow-hidden border-4 border-dark-800 shadow-2xl relative bg-dark-900">
-                    {profile.avatar ? (
-                        <img
-                            src={profile.avatar}
-                            alt={profile.name}
-                            className="w-full h-full object-cover"
-                        />
-                    ) : (
-                        <div className="w-full h-full bg-brand-500 flex items-center justify-center text-5xl font-bold text-white">
-                            {profile.name.charAt(0).toUpperCase()}
-                        </div>
-                    )}
+                    <Avatar name={profile.name} src={profile.avatar} size={152} square className="w-full h-full" />
                 </div>
-                {!isEditing && (
+                {editable && !isEditing && (
                     <button
                         onClick={onEditStart}
                         className="absolute bottom-2 right-2 bg-dark-900/80 p-2 rounded-lg border border-white/10 text-white hover:bg-brand-500 hover:border-brand-500 transition-all shadow-lg backdrop-blur-sm"

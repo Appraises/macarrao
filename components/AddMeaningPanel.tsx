@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CheckCircle2, Plus, X } from 'lucide-react';
 import { Button } from './UI';
-import { Game, Term } from '../types';
+import { Game, Inflection, Register, Term, WordClass } from '../types';
+import { InflectionFields } from './InflectionFields';
 import { getGames, proposeTermMeaning } from '../src/services/api';
 import { useAuth } from '../src/context/AuthContext';
 import { trackAnalyticsEvent } from '../src/lib/analytics';
@@ -22,6 +23,7 @@ export const AddMeaningPanel: React.FC<{ term: Term }> = ({ term }) => {
     const [examples, setExamples] = useState<string[]>(['']);
     const [gameId, setGameId] = useState('');
     const [context, setContext] = useState('');
+    const [grammar, setGrammar] = useState<{ wordClass: WordClass | null; inflections: Inflection[]; register: Register | null }>({ wordClass: null, inflections: [], register: null });
     const [sending, setSending] = useState(false);
     const [error, setError] = useState('');
     const [sent, setSent] = useState(false);
@@ -40,6 +42,9 @@ export const AddMeaningPanel: React.FC<{ term: Term }> = ({ term }) => {
                 examples: examples.map((e) => e.trim()).filter(Boolean),
                 gameId: gameId || null,
                 context: context.trim() || null,
+                wordClass: grammar.wordClass,
+                inflections: grammar.inflections.filter((i) => i.form.trim()),
+                register: grammar.register,
             });
             trackAnalyticsEvent('Meaning Proposed', { term: term.word });
             setSent(true);
@@ -118,6 +123,18 @@ export const AddMeaningPanel: React.FC<{ term: Term }> = ({ term }) => {
                         className={inputClass}
                     />
                 </label>
+            </div>
+
+            <div className="mt-4">
+                <InflectionFields
+                    wordClass={grammar.wordClass}
+                    inflections={grammar.inflections}
+                    register={grammar.register}
+                    onChange={setGrammar}
+                    word={term.word}
+                    inputClass={inputClass}
+                    labelClass="mb-1.5 block text-xs font-medium text-gray-400"
+                />
             </div>
 
             <div className="mt-4">

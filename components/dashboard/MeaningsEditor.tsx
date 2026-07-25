@@ -4,11 +4,13 @@ import {
     createAdminMeaning, deleteAdminMeaning, moderateMeaning, updateAdminMeaning, MeaningInput,
 } from '../../src/services/api';
 import type { AdminTermMeaning, Game } from '../../types';
+import { InflectionFields } from '../InflectionFields';
+import { wordClassShort } from '../wordClass';
 
 const inputClass = 'w-full rounded border border-white/10 bg-dark-950 px-3 py-2.5 text-sm text-white outline-none placeholder:text-gray-600 focus:border-brand-500';
 const labelClass = 'mb-1.5 block text-xs font-medium text-gray-400';
 
-const EMPTY: MeaningInput = { definition: '', examples: [''], gameId: null, context: null };
+const EMPTY: MeaningInput = { definition: '', examples: [''], gameId: null, context: null, wordClass: null, inflections: [], register: null };
 
 const clean = (values: string[]) => values.map((value) => value.trim()).filter(Boolean);
 
@@ -24,13 +26,14 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
 
 interface MeaningFormProps {
     initial: MeaningInput;
+    word: string;
     games: Game[];
     saving: boolean;
     onCancel: () => void;
     onSave: (value: MeaningInput) => void;
 }
 
-const MeaningForm: React.FC<MeaningFormProps> = ({ initial, games, saving, onCancel, onSave }) => {
+const MeaningForm: React.FC<MeaningFormProps> = ({ initial, word, games, saving, onCancel, onSave }) => {
     const [value, setValue] = useState<MeaningInput>(initial);
     const examples = value.examples.length ? value.examples : [''];
 
@@ -62,6 +65,18 @@ const MeaningForm: React.FC<MeaningFormProps> = ({ initial, games, saving, onCan
                     />
                 </label>
             </div>
+            <div className="mt-4">
+                <InflectionFields
+                    wordClass={value.wordClass ?? null}
+                    inflections={value.inflections ?? []}
+                    register={value.register ?? null}
+                    onChange={(next) => setValue({ ...value, ...next })}
+                    word={word}
+                    inputClass={inputClass}
+                    labelClass={labelClass}
+                />
+            </div>
+
             <div className="mt-4">
                 <div className="mb-2 flex items-center justify-between">
                     <span className={labelClass}>Exemplos</span>
@@ -103,6 +118,7 @@ const MeaningForm: React.FC<MeaningFormProps> = ({ initial, games, saving, onCan
 
 interface MeaningsEditorProps {
     termId: string;
+    word: string;
     meanings: AdminTermMeaning[];
     games: Game[];
     onChanged: () => void;
@@ -113,7 +129,7 @@ interface MeaningsEditorProps {
  * Manages the senses of a term. Definition, examples and game live here now —
  * the term form owns only word-level fields, since those columns are derived.
  */
-export const MeaningsEditor: React.FC<MeaningsEditorProps> = ({ termId, meanings, games, onChanged, onError }) => {
+export const MeaningsEditor: React.FC<MeaningsEditorProps> = ({ termId, word, meanings, games, onChanged, onError }) => {
     const [editing, setEditing] = useState<string | null>(null);
     const [adding, setAdding] = useState(false);
     const [busy, setBusy] = useState(false);
@@ -151,11 +167,15 @@ export const MeaningsEditor: React.FC<MeaningsEditorProps> = ({ termId, meanings
                     <div key={meaning.id} className="rounded border border-white/10 bg-dark-950/60 p-4">
                         {editing === meaning.id ? (
                             <MeaningForm
+                                word={word}
                                 initial={{
                                     definition: meaning.definition,
                                     examples: meaning.examples.length ? meaning.examples : [''],
                                     gameId: meaning.game?.id || null,
                                     context: meaning.context || null,
+                                    wordClass: meaning.wordClass ?? null,
+                                    inflections: meaning.inflections ?? [],
+                                    register: meaning.register ?? null,
                                 }}
                                 games={games}
                                 saving={busy}
@@ -167,6 +187,9 @@ export const MeaningsEditor: React.FC<MeaningsEditorProps> = ({ termId, meanings
                                 <div className="mb-2 flex flex-wrap items-center gap-2">
                                     <span className="text-sm font-bold text-gray-500">{index + 1}.</span>
                                     <StatusBadge status={meaning.status} />
+                                    {meaning.wordClass && (
+                                        <span className="font-mono text-[11px] italic text-gray-500">{wordClassShort(meaning.wordClass)}</span>
+                                    )}
                                     {meaning.game && <span className="rounded bg-brand-500/10 px-2 py-0.5 text-[11px] font-bold text-brand-300">{meaning.game.name}</span>}
                                     {meaning.context && <span className="rounded border border-white/10 px-2 py-0.5 text-[11px] text-gray-400">{meaning.context}</span>}
                                     <span className="ml-auto font-mono text-xs text-gray-500">{meaning.upvotes - meaning.downvotes > 0 ? '+' : ''}{meaning.upvotes - meaning.downvotes}</span>
@@ -209,6 +232,7 @@ export const MeaningsEditor: React.FC<MeaningsEditorProps> = ({ termId, meanings
 
                 {adding && (
                     <MeaningForm
+                        word={word}
                         initial={EMPTY}
                         games={games}
                         saving={busy}

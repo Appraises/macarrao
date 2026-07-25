@@ -17,6 +17,7 @@ import {
 import { cleanPlainText } from '../utils/content';
 import { validatePassword } from '../utils/validation';
 import { validateProfilePayload } from '../utils/userInput';
+import { getEarnedBadges } from '../services/badges';
 import { buildPaginationMeta, parsePagination } from '../utils/pagination';
 
 const router = Router();
@@ -141,8 +142,46 @@ router.get('/me', authenticateToken, async (req: any, res) => {
 
         if (!user) return res.status(404).json({ error: 'User not found' });
 
-        res.json(user);
+        const badges = await getEarnedBadges(user.id);
+        res.json({ ...user, badges });
     } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch profile' });
+    }
+});
+
+// Public contributor profile: identity + the approved terms they authored. Open to
+// anyone (this is what the leaderboard and per-sense authorship link to). Never
+// exposes email or preferences, and anonymized users (LGPD) are treated as gone.
+router.get('/:id', async (req, res) => {
+    try {
+        const user = await prisma.user.findFirst({
+            where: { id: req.params.id, anonymizedAt: null },
+            select: {
+                id: true,
+                name: true,
+                avatar: true,
+                level: true,
+                description: true,
+                createdAt: true,
+                favoriteGame: { select: { id: true, name: true, slug: true, image: true } },
+            },
+        });
+        if (!user) return res.status(404).json({ error: 'Perfil nao encontrado.' });
+
+        const [terms, commentsCount, badges] = await Promise.all([
+            prisma.term.findMany({
+                where: { authorId: user.id, status: TermStatus.APPROVED, archivedAt: null },
+                include: { game: { select: { id: true, name: true, slug: true } } },
+                orderBy: [{ upvotes: 'desc' }, { createdAt: 'desc' }],
+                take: 60,
+            }),
+            prisma.comment.count({ where: { userId: user.id } }),
+            getEarnedBadges(user.id),
+        ]);
+
+        res.json({ ...user, terms, termsCount: terms.length, commentsCount, badges });
+    } catch (error) {
+        console.error('[users] Public profile failed:', error);
         res.status(500).json({ error: 'Failed to fetch profile' });
     }
 });

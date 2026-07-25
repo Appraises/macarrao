@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => ({
     userUpdate: vi.fn(),
     voteFindMany: vi.fn(),
     voteDeleteMany: vi.fn(),
+    badgeDeleteMany: vi.fn(),
     termFindUnique: vi.fn(),
     termUpdate: vi.fn(),
     reportUpdateMany: vi.fn(),
@@ -45,6 +46,7 @@ vi.mock('../src/lib/prisma', () => {
             update: mocks.userUpdate
         },
         termVote: { findMany: mocks.voteFindMany, deleteMany: mocks.voteDeleteMany },
+        userBadge: { deleteMany: mocks.badgeDeleteMany },
         term: { findUnique: mocks.termFindUnique, update: mocks.termUpdate },
         report: { updateMany: mocks.reportUpdateMany },
         notification: { deleteMany: mocks.notificationDeleteMany },
@@ -117,6 +119,7 @@ beforeEach(() => {
     mocks.userUpdate.mockResolvedValue({});
     mocks.voteFindMany.mockResolvedValue([]);
     mocks.voteDeleteMany.mockResolvedValue({ count: 0 });
+    mocks.badgeDeleteMany.mockResolvedValue({ count: 0 });
     mocks.reportUpdateMany.mockResolvedValue({ count: 0 });
     mocks.privacyFindMany.mockResolvedValue([]);
     mocks.privacyCount.mockResolvedValue(0);

@@ -2,7 +2,7 @@ import { TermStatus } from '@prisma/client';
 import { Router } from 'express';
 import { prisma } from '../lib/prisma';
 import { buildPaginationMeta, parsePagination } from '../utils/pagination';
-import { authenticateToken, AuthRequest } from '../middleware/auth';
+import { authenticateToken, optionalAuthenticateToken, AuthRequest } from '../middleware/auth';
 import { requireAdmin } from '../middleware/roles';
 import { cleanPlainText } from '../utils/content';
 import { CatalogSort, getCatalogMeta, listCatalogTerms } from '../services/termCatalog';
@@ -10,9 +10,15 @@ import { ContributionError, createContribution } from '../services/contributions
 import { parseTermPayload } from '../utils/terms';
 import { AdminTermError, permanentlyDeleteAdminTerm, updateAdminTerm } from '../services/adminTerms';
 import { analyticsEnabled } from '../services/analytics/privacy';
+import { PUBLIC_API_URL } from '../utils/config';
 import { captureInternalSearch, recordTermViewWithSearch } from '../services/analytics/search';
 import { getMyMeaningVotes, parseMeaningPayload, proposeTermMeaning, TermMeaningError, voteOnMeaning } from '../services/termMeanings';
+import {
+    acceptMedia, declineMedia, getCurationView, listApprovedImages, listPendingForCurator,
+    proposeOrigin, reportMedia, setOriginHidden, submitImage, TermMediaError,
+} from '../services/termMedia';
 import rateLimit from 'express-rate-limit';
+import multer from 'multer';
 
 const router = Router();
 
@@ -292,6 +298,9 @@ router.get('/:idOrSlug', async (req, res) => {
                 definition: meaning.definition,
                 examples: Array.isArray(meaning.examples) ? meaning.examples : [],
                 context: meaning.context,
+                wordClass: meaning.wordClass,
+                inflections: Array.isArray(meaning.inflections) ? meaning.inflections : [],
+                register: meaning.register,
                 game: meaning.game,
                 order: meaning.order,
                 upvotes: meaning.upvotes,
@@ -302,13 +311,16 @@ router.get('/:idOrSlug', async (req, res) => {
             }))
             .sort((a, b) => b.score - a.score || a.order - b.order || a.createdAt.getTime() - b.createdAt.getTime());
 
+        const images = await listApprovedImages(term.id);
+
         res.json({
             ...term,
             tags: tags,
             keywords,
             relatedTerms: parsedRelatedTerms,
             aliases: Array.isArray(term.aliases) ? term.aliases : [],
-            meanings
+            meanings,
+            images
         });
     } catch (error) {
         res.status(500).json({ error: 'Failed to fetch term' });
@@ -326,6 +338,100 @@ router.post('/:id/meanings', meaningLimiter, authenticateToken, async (req: Auth
         if (error instanceof TermMeaningError) return res.status(error.status).json({ error: error.message });
         console.error('[terms] propose meaning:', error);
         res.status(500).json({ error: 'Nao foi possivel enviar o significado.' });
+    }
+});
+
+/* --- Origem & Imagens: contribuicao publica + curadoria pelo dono do termo --- */
+
+const mediaLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    max: 20,
+    message: { error: 'Muitas contribuicoes em pouco tempo. Tente novamente mais tarde.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+const imageUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024, files: 1 } });
+const isAdmin = (req: AuthRequest) => req.user?.role === 'ADMIN';
+const handleMediaError = (error: unknown, res: any, context: string) => {
+    if (error instanceof TermMediaError) return res.status(error.status).json({ error: error.message });
+    console.error(`[terms] ${context}:`, error);
+    res.status(500).json({ error: 'Nao foi possivel concluir a operacao.' });
+};
+
+// Propose an origin note (text). Waits for the term owner to accept.
+router.post('/:id/origin', mediaLimiter, authenticateToken, async (req: AuthRequest, res) => {
+    try {
+        const media = await proposeOrigin(req.params.id, req.user!.id, req.body?.content);
+        res.status(201).json({ id: media.id, status: media.status });
+    } catch (error) {
+        handleMediaError(error, res, 'propose origin');
+    }
+});
+
+// Owner/admin marks a term as needing no origin (or reverts it).
+router.post('/:id/origin-hidden', authenticateToken, async (req: AuthRequest, res) => {
+    try {
+        await setOriginHidden(req.params.id, req.user!.id, isAdmin(req), req.body?.hidden === true);
+        res.json({ ok: true });
+    } catch (error) {
+        handleMediaError(error, res, 'origin-hidden');
+    }
+});
+
+// Upload an image. Screened, then held pending for the term owner to accept.
+router.post('/:id/images', mediaLimiter, authenticateToken, imageUpload.single('image'), async (req: AuthRequest, res) => {
+    if (!req.file) return res.status(400).json({ error: 'Selecione uma imagem.' });
+    try {
+        const baseUrl = PUBLIC_API_URL || `${req.protocol}://${req.get('host')}`;
+        const media = await submitImage(req.params.id, req.user!.id, req.file, req.body?.caption, baseUrl);
+        res.status(201).json({ id: media.id, status: media.status });
+    } catch (error) {
+        handleMediaError(error, res, 'submit image');
+    }
+});
+
+// Curation view for one term: can the viewer curate it, and what awaits them.
+router.get('/:id/curation', authenticateToken, async (req: AuthRequest, res) => {
+    try {
+        res.json(await getCurationView(req.params.id, req.user!.id, isAdmin(req)));
+    } catch (error) {
+        handleMediaError(error, res, 'curation view');
+    }
+});
+
+// Media awaiting the signed-in user's curation (their terms only).
+router.get('/media/pending/mine', authenticateToken, async (req: AuthRequest, res) => {
+    try {
+        res.json(await listPendingForCurator(req.user!.id));
+    } catch (error) {
+        handleMediaError(error, res, 'pending mine');
+    }
+});
+
+router.post('/media/:mediaId/accept', authenticateToken, async (req: AuthRequest, res) => {
+    try {
+        res.json(await acceptMedia(req.params.mediaId, req.user!.id, isAdmin(req)));
+    } catch (error) {
+        handleMediaError(error, res, 'accept media');
+    }
+});
+
+// Report a published image/origin. Open to anyone, like reporting a term.
+router.post('/media/:mediaId/report', mediaLimiter, optionalAuthenticateToken, async (req: AuthRequest, res) => {
+    try {
+        const report = await reportMedia(req.params.mediaId, String(req.body?.reason || ''), req.body?.details, req.user?.id);
+        res.status(201).json({ id: report.id, status: report.status });
+    } catch (error) {
+        handleMediaError(error, res, 'report media');
+    }
+});
+
+router.post('/media/:mediaId/decline', authenticateToken, async (req: AuthRequest, res) => {
+    try {
+        res.json(await declineMedia(req.params.mediaId, req.user!.id, isAdmin(req)));
+    } catch (error) {
+        handleMediaError(error, res, 'decline media');
     }
 });
 
