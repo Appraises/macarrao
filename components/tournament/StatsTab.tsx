@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { esportsService } from '../../services/esportsService';
+import { Avatar } from '../Avatar';
 
 interface StatsTabProps {
     tournamentGame: string;
@@ -60,11 +61,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({ tournamentGame, tournamentId
                             <td className="p-4 font-bold text-white">
                                 <div className="flex items-center gap-3">
                                     <div className="w-8 h-8 rounded bg-dark-950 flex items-center justify-center overflow-hidden border border-dark-700">
-                                        {player.photo ? (
-                                            <img src={player.photo} className="w-full h-full object-cover" />
-                                        ) : (
-                                            <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${player.name}`} className="w-full h-full object-cover" />
-                                        )}
+                                        <Avatar name={player.name} src={player.photo} size={32} square />
                                     </div>
                                     <div className="flex flex-col">
                                         <span className="flex items-center gap-2">

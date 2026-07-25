@@ -34,16 +34,32 @@ async function seed() {
         const exists = await prisma.term.findFirst({ where: { word: { equals: t.word, mode: 'insensitive' } }, select: { id: true } });
         if (exists) continue;
         const game = findGame(t.game);
+        const authorId = authors.length ? authors[i % authors.length].id : null;
+        const upvotes = 40 + Math.floor(Math.random() * 900);
         await prisma.term.create({
             data: {
                 word: t.word,
+                // Word-level columns mirror the leading sense; the sense below is the
+                // real record. A term with no TermMeaning would lose its definition the
+                // first time syncTermFromMeanings ran over it.
                 definition: t.def,
                 status: 'APPROVED',
                 tags: t.tags,
                 examples: t.ex,
-                upvotes: 40 + Math.floor(Math.random() * 900),
+                upvotes,
                 gameId: game ? game.id : null,
-                authorId: authors.length ? authors[i % authors.length].id : null,
+                gameIds: game ? [game.id] : [],
+                authorId,
+                meanings: {
+                    create: {
+                        definition: t.def,
+                        examples: t.ex,
+                        gameId: game ? game.id : null,
+                        upvotes,
+                        status: 'APPROVED',
+                        authorId,
+                    },
+                },
             },
         });
         created++;

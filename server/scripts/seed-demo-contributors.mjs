@@ -34,7 +34,10 @@ async function seed() {
                 level: d.level,
                 xp: d.level * 100,
                 emailVerified: true,
-                avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(d.name)}`,
+                // No avatar on purpose: the UI draws its own gradient identicon from
+                // the name. Pointing at a cartoon generator here was what kept putting
+                // avataaars faces back into the site.
+                avatar: null,
             },
         });
         users.push(user);
