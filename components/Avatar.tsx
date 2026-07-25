@@ -36,6 +36,10 @@ export const Avatar: React.FC<AvatarProps> = ({ name, src, size = 32, className 
             <img
                 src={src}
                 alt={name}
+                // The avatar may point at any host the person typed in. We cannot stop
+                // that server from seeing the visitor's IP, but no-referrer keeps it from
+                // also learning which page they were on when it loaded.
+                referrerPolicy="no-referrer"
                 className={`${shape} object-cover ${className}`}
                 style={{ width: size, height: size }}
             />

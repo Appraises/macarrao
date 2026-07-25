@@ -253,13 +253,12 @@ const ACHIEVEMENT_GLYPH: Record<string, React.ReactNode> = {
     ),
     viral: (
         <g {...LINE_ART}>
-            <path d="M32 33 18 20M32 33l17-16M32 33l14 15M32 33 18 47" />
-            <circle cx="32" cy="33" r="5" />
-            <circle cx="17" cy="19" r="4" fill="currentColor" stroke="none" />
-            <circle cx="50" cy="16" r="4" fill="currentColor" stroke="none" />
-            <circle cx="47" cy="49" r="4" fill="currentColor" stroke="none" />
-            <circle cx="17" cy="48" r="4" fill="currentColor" stroke="none" />
-            <path d="M39 16h11v11" />
+            <path d="M32 51V25M24 33l8-9 8 9M25 51h14" />
+            <path d="M21 43c-5-4-7-9-7-14s2-10 7-14M43 43c5-4 7-9 7-14s-2-10-7-14" />
+            <path d="M15 49C8 44 5 37 5 29S8 14 15 9M49 49c7-5 10-12 10-20S56 14 49 9" />
+            <path d="m32 9 4.5 7-4.5 7-4.5-7Z" fill="currentColor" stroke="none" />
+            <circle cx="21" cy="15" r="2" fill="currentColor" stroke="none" />
+            <circle cx="43" cy="15" r="2" fill="currentColor" stroke="none" />
         </g>
     ),
     veterano: (
@@ -287,13 +286,11 @@ const ACHIEVEMENT_GLYPH: Record<string, React.ReactNode> = {
     ),
     lexicografo: (
         <g {...LINE_ART}>
-            <path d="M13 13h18v39H13ZM33 13h18v39H33ZM31 13h2v39h-2Z" />
-            <path d="M18 22h8M18 28h8M18 34h8" />
-            <path d="M42 40V28M37 28h10M37 28v-6M47 28v-6" />
-            <circle cx="37" cy="19" r="2.5" fill="currentColor" stroke="none" />
-            <circle cx="47" cy="19" r="2.5" fill="currentColor" stroke="none" />
-            <circle cx="42" cy="42" r="2.5" fill="currentColor" stroke="none" />
-            <path d="m32 7 4 3-4 3-4-3Z" fill="currentColor" stroke="none" />
+            <circle cx="32" cy="32" r="18" />
+            <path d="M32 8v6M45 11l-3 5M54 22l-5 3M56 37l-6-1M48 50l-4-5M32 56v-6M16 50l4-5M8 37l6-1M10 22l5 3M19 11l3 5" />
+            <path d="M18 27c6-2 11-1 14 3 3-4 8-5 14-3v17c-6-2-11-1-14 3-3-4-8-5-14-3Z" />
+            <path d="M32 30v17M23 33h5M23 38h6M36 33h5M35 38h6" />
+            <path d="m32 19 3.5 4.5L32 28l-3.5-4.5Z" fill="currentColor" stroke="none" />
         </g>
     ),
     lenda: (
