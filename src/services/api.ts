@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { type InternalAxiosRequestConfig } from 'axios';
 import type {
     CatalogMeta,
     LeaderboardEntry,
@@ -58,6 +58,10 @@ const api = axios.create({
     baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3001',
 });
 
+type RetryableRequestConfig = InternalAxiosRequestConfig & {
+    __networkRetryCount?: number;
+};
+
 // Add request interceptor to include token.
 // Guarded for non-browser environments (build-time prerender loaders run in Node).
 api.interceptors.request.use((config) => {
@@ -79,7 +83,20 @@ api.interceptors.request.use((config) => {
 // Add response interceptor to handle auth errors
 api.interceptors.response.use(
     (response) => response,
-    (error) => {
+    async (error) => {
+        const config = error.config as RetryableRequestConfig | undefined;
+        const isCancelled = error.code === 'ERR_CANCELED' || axios.isCancel(error);
+        const isTransientNetworkError = !error.response && !isCancelled;
+        const retryCount = config?.__networkRetryCount ?? 0;
+
+        // The local API can briefly be unavailable while nodemon recompiles. Retry
+        // reads only; mutations must never be repeated automatically.
+        if (config && config.method?.toLowerCase() === 'get' && isTransientNetworkError && retryCount < 2) {
+            config.__networkRetryCount = retryCount + 1;
+            await new Promise((resolve) => setTimeout(resolve, 400 * (retryCount + 1)));
+            return api.request(config);
+        }
+
         if (typeof window !== 'undefined' && error.response && (error.response.status === 401 || error.response.status === 403)) {
             localStorage.removeItem('token');
             localStorage.removeItem('user');

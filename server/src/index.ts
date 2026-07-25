@@ -38,19 +38,25 @@ const httpServer = createServer(app);
 // Security Middleware
 app.use(helmet());
 
-const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // Limit each IP to 100 requests per windowMs
-    message: 'Too many requests from this IP, please try again later.'
-});
-app.use(limiter);
-
+// Keep CORS ahead of the limiter so the browser can read 429 responses instead
+// of turning them into a misleading generic network error.
 app.use(cors({
     origin: CORS_ORIGINS,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Analytics-Enabled', 'X-Search-Origin'],
     exposedHeaders: ['Content-Disposition']
 }));
+
+const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    // The SPA loads independent widgets and uses polling. Sensitive operations
+    // retain their stricter route-specific limits.
+    max: process.env.NODE_ENV === 'production' ? 600 : 5000,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Muitas requisições. Aguarde alguns minutos e tente novamente.' }
+});
+app.use(limiter);
 
 // Body parser — BEFORE all routes
 app.use(express.json({ limit: '1mb' }));

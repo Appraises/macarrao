@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import * as Sentry from '@sentry/node';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
@@ -25,13 +26,30 @@ const emailActionLimiter = rateLimit({
  * traffic while still leaving an attacker plenty of password guesses. Counting only
  * failures means someone signing in normally never hits this.
  */
+/** Never log the address itself — enough to correlate attempts, not to build a list. */
+const maskEmail = (email: unknown): string => {
+    if (typeof email !== 'string' || !email.includes('@')) return '(invalido)';
+    const [local, domain] = email.split('@');
+    return `${local.slice(0, 2)}***@${domain}`;
+};
+
 const loginLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     limit: 10,
     skipSuccessfulRequests: true,
     standardHeaders: 'draft-7',
     legacyHeaders: false,
-    message: { error: 'Muitas tentativas de login. Aguarde alguns minutos e tente novamente.' }
+    // Hitting this limit is the moment an attack becomes visible, so it raises a real
+    // signal instead of quietly returning 429 into the void.
+    handler: (req, res) => {
+        console.warn(`[auth] limite de login atingido ip=${req.ip} email=${maskEmail(req.body?.email)}`);
+        Sentry.captureMessage('Limite de tentativas de login atingido', {
+            level: 'warning',
+            tags: { area: 'auth' },
+            extra: { ip: req.ip, email: maskEmail(req.body?.email) }
+        });
+        res.status(429).json({ error: 'Muitas tentativas de login. Aguarde alguns minutos e tente novamente.' });
+    }
 });
 
 const registerLimiter = rateLimit({
@@ -87,7 +105,13 @@ router.post('/login', loginLimiter, async (req, res) => {
         // Always spend the bcrypt time, even with no account, so the response takes the
         // same shape whether or not the email exists.
         const passwordMatches = await bcrypt.compare(password, user?.password ?? TIMING_EQUALIZER_HASH);
-        if (!user || !passwordMatches) {
+        // An account erased under LGPD must not authenticate at all. The token middleware
+        // already refuses these, so a login here handed back a working-looking session
+        // plus the account record, and only the next request revealed it was dead.
+        if (!user || !passwordMatches || user.anonymizedAt) {
+            // Without this line a credential-stuffing run leaves no trace at all: only
+            // successful logins were ever recorded, so nobody could see 500 failures.
+            console.warn(`[auth] login falhou ip=${req.ip} email=${maskEmail(email)}`);
             return res.status(401).json({ error: 'Credenciais invalidas.' });
         }
 

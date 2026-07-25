@@ -20,14 +20,22 @@ describe('validateEmail', () => {
 
 describe('validatePassword', () => {
     it('should accept valid passwords', () => {
-        expect(validatePassword('123456').valid).toBe(true);
         expect(validatePassword('strongPassword!').valid).toBe(true);
+        // Length alone is enough — no symbol or uppercase is demanded.
+        expect(validatePassword('cavalobateriagrampo').valid).toBe(true);
     });
 
     it('should reject passwords that are too short', () => {
-        const result = validatePassword('12345');
+        const result = validatePassword('1234567');
         expect(result.valid).toBe(false);
-        expect(result.message).toContain('6');
+        expect(result.message).toContain('8');
+    });
+
+    it('should reject the passwords every attacker tries first', () => {
+        // These clear the length rule, which is exactly why length alone is not enough.
+        for (const weak of ['12345678', 'password', 'senha123', 'valorant', 'PASSWORD']) {
+            expect(validatePassword(weak).valid, weak).toBe(false);
+        }
     });
 
     it('should reject passwords that are too long', () => {

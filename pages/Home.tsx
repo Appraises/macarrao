@@ -49,12 +49,16 @@ export const Home: React.FC = () => {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [termsData, gamesData] = await Promise.all([
+                const [termsResult, gamesResult] = await Promise.allSettled([
                     getTrendingTerms(),
                     getGames()
                 ]);
-                setTerms(termsData);
-                setGames(gamesData);
+
+                if (termsResult.status === 'fulfilled') setTerms(termsResult.value);
+                else console.error('Failed to fetch trending terms', termsResult.reason);
+
+                if (gamesResult.status === 'fulfilled') setGames(gamesResult.value);
+                else console.error('Failed to fetch games', gamesResult.reason);
             } catch (error) {
                 console.error("Failed to fetch home data", error);
             } finally {

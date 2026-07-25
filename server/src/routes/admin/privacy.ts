@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import { Prisma, PrivacyRequestStatus, PrivacyRequestType } from '@prisma/client';
 import { Router } from 'express';
 import { prisma } from '../../lib/prisma';
@@ -256,7 +257,10 @@ router.post('/:id/complete', async (req: AuthRequest, res) => {
         }
 
         const completedAt = new Date();
-        const replacementPassword = await bcrypt.hash(`${existing.protocol}-${Date.now()}-${Math.random()}`, 12);
+        // The erased account must become unreachable, so the replacement has to be
+        // unguessable. Math.random is predictable by design and has no business
+        // standing between an anonymized account and whoever wants back into it.
+        const replacementPassword = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 12);
         const recipientEmail = existing.requesterEmail;
         const recipientName = existing.user?.name || 'usuario';
         const anonymize = anonymizingTypes.includes(existing.type);
