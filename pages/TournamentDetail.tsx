@@ -1,335 +1,152 @@
-import React, { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { Trophy, Crosshair, Info, Save } from 'lucide-react';
-import { Button } from '../components/UI';
-import { TournamentDetail as TournamentDetailType } from '../types';
-import { esportsService } from '../services/esportsService';
-
-// Sub-components
-import { BracketMatchNode } from '../components/tournament/BracketMatchNode';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { CalendarDays, Check, ExternalLink, Loader2, Lock, MapPin, Radio, Swords, Trophy } from 'lucide-react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { OverviewTab } from '../components/tournament/OverviewTab';
 import { MatchesTab } from '../components/tournament/MatchesTab';
 import { StatsTab } from '../components/tournament/StatsTab';
 import { NewsTab } from '../components/tournament/NewsTab';
+import { Seo } from '../components/Seo';
+import { esportsService } from '../services/esportsService';
+import { useAuth } from '../src/context/AuthContext';
+import type { PickemEntry, PickemLeaderboardRow, TournamentDetail as TournamentDetailType } from '../types';
+
+type Tab = 'Overview' | 'Matches' | 'Pickem' | 'Stats' | 'News';
 
 export const TournamentDetail: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
-    const [mainTab, setMainTab] = useState<'Overview' | 'Matches' | 'Pickem' | 'Stats' | 'Agents' | 'News'>('Overview');
-    const [subTab, setSubTab] = useState<'YourPick' | 'Leaderboard' | 'Group'>('YourPick');
-
-    // Data State
+    const { isAuthenticated } = useAuth();
+    const [tab, setTab] = useState<Tab>('Overview');
     const [tournament, setTournament] = useState<TournamentDetailType | null>(null);
+    const [leaderboard, setLeaderboard] = useState<PickemLeaderboardRow[]>([]);
+    const [entry, setEntry] = useState<PickemEntry | null>(null);
     const [loading, setLoading] = useState(true);
-    const [leaderboard, setLeaderboard] = useState<any[]>([]);
+    const [savingMatch, setSavingMatch] = useState('');
+    const [notice, setNotice] = useState('');
 
-    // Pick'em State
-    const [userPicks, setUserPicks] = useState<Record<string, string>>({});
-    const [saved, setSaved] = useState(false);
+    const load = useCallback(async (silent = false) => {
+        if (!id) return;
+        if (!silent) setLoading(true);
+        try {
+            const [detail, board, mine] = await Promise.all([
+                esportsService.getTournamentDetails(id),
+                esportsService.getPickemLeaderboard(id),
+                isAuthenticated ? esportsService.getMyPickem(id) : Promise.resolve(null),
+            ]);
+            setTournament(detail);
+            setLeaderboard(board);
+            setEntry(mine);
+        } finally {
+            if (!silent) setLoading(false);
+        }
+    }, [id, isAuthenticated]);
 
-    React.useEffect(() => {
-        const fetchDetails = async () => {
-            if (!id) return;
-            setLoading(true);
-            const data = await esportsService.getTournamentDetails(id);
-            setTournament(data);
+    useEffect(() => {
+        void load();
+        const timer = window.setInterval(() => void load(true), 30_000);
+        return () => window.clearInterval(timer);
+    }, [load]);
 
-            // Fetch Leaderboard
-            const lbData = await esportsService.getPickemLeaderboard();
-            setLeaderboard(lbData);
+    const selected = useMemo(() => new Map((entry?.predictions || []).map((prediction) => [prediction.matchId, prediction.predictedTeamId])), [entry]);
 
-            setLoading(false);
-        };
-        fetchDetails();
-    }, [id]);
-
-    if (loading) {
-        return (
-            <div className="min-h-screen bg-dark-950 flex items-center justify-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-500"></div>
-            </div>
-        );
-    }
-
-    if (!tournament) {
-        return <div className="min-h-screen bg-dark-950 flex items-center justify-center text-gray-500">Tournament not found</div>;
-    }
-
-    const getMatch = (matchId: string) => tournament?.bracket?.find(m => m.id === matchId);
-
-    const handlePick = (matchId: string, teamName: string) => {
-        setUserPicks(prev => ({
-            ...prev,
-            [matchId]: teamName
-        }));
-        setSaved(false);
+    const pick = async (matchId: string, teamId?: string | null) => {
+        if (!id || !teamId) return;
+        if (!isAuthenticated) { navigate('/login'); return; }
+        setSavingMatch(matchId);
+        setNotice('');
+        try {
+            await esportsService.savePickemPrediction(id, matchId, teamId);
+            await load(true);
+            setNotice('Palpite salvo. Voce pode altera-lo ate o inicio da partida.');
+        } catch (error: any) {
+            setNotice(error?.response?.data?.error || 'Nao foi possivel salvar o palpite.');
+        } finally {
+            setSavingMatch('');
+        }
     };
 
-    const savePicks = () => {
-        setSaved(true);
-        setTimeout(() => setSaved(false), 3000);
-    }
+    if (loading) return <div className="flex min-h-screen items-center justify-center bg-dark-950"><Loader2 className="h-10 w-10 animate-spin text-brand-500" /></div>;
+    if (!tournament) return <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-dark-950 text-gray-400"><Trophy className="h-10 w-10" /><p>Campeonato nao encontrado.</p><button onClick={() => navigate('/esports')} className="text-brand-400">Voltar para e-sports</button></div>;
 
-    // --- Dynamic Pick'em Logic ---
-    const qf1 = getMatch('qf1');
-    const qf2 = getMatch('qf2');
-    const sf2 = getMatch('sf2') || { id: 'sf2', teamA: { name: 'Winthrop', score: null }, teamB: { name: 'Team Solid', score: null } };
-
-    const sf1Projected = {
-        id: 'sf1',
-        teamA: { name: userPicks['qf1'] || 'TBD', score: null, isWinner: false },
-        teamB: { name: userPicks['qf2'] || 'TBD', score: null, isWinner: false }
-    };
-
-    const lf1Projected = {
-        id: 'lf1',
-        teamA: { name: userPicks['sf2'] || 'TBD', score: null, isWinner: false },
-        teamB: { name: 'TSM', score: null, isWinner: false }
-    };
-
-    const gfProjected = {
-        id: 'gf',
-        teamA: { name: userPicks['sf1'] || 'TBD', score: null, isWinner: false },
-        teamB: { name: userPicks['lf1'] || 'TBD', score: null, isWinner: false }
-    };
-
+    const tabs: Tab[] = ['Overview', 'Matches', 'Pickem', ...(tournament.stats?.length ? ['Stats' as Tab] : []), ...(tournament.news?.length ? ['News' as Tab] : [])];
+    const tabLabels: Record<Tab, string> = { Overview: 'Visao geral', Matches: 'Partidas', Pickem: "Pick'em", Stats: 'Estatisticas', News: 'Noticias' };
 
     return (
-        <div className="min-h-screen bg-dark-950 text-[#e5e5e5] font-sans pb-12">
-
-            {/* 1. HEADER SECTION */}
-            <div className="bg-dark-900 border-b border-dark-800">
-                <div className="max-w-[1400px] mx-auto px-6 py-6 flex flex-col md:flex-row gap-6 items-start md:items-center">
-                    <div className="w-24 h-24 bg-dark-950 flex items-center justify-center border border-[#333] shadow-lg shrink-0 overflow-hidden p-2">
-                        {tournament.logo ? <img src={tournament.logo} alt={tournament.name} className="w-full h-full object-contain" /> : <Trophy className="w-12 h-12 text-brand-500" />}
+        <div className="min-h-screen bg-dark-950 pb-16 text-gray-200">
+            <Seo title={`${tournament.name}: partidas, chaveamento e Pick'em`} description={tournament.description || `Acompanhe ${tournament.name} no Dicionario Gamer.`} path={`/esports/tournament/${tournament.slug || tournament.id}`} />
+            <header className="border-b border-dark-800 bg-dark-900">
+                <div className="mx-auto flex max-w-[1400px] flex-col gap-6 px-5 py-7 md:flex-row md:items-center">
+                    <div className="flex h-20 w-20 shrink-0 items-center justify-center border border-dark-700 bg-dark-950 p-2">
+                        {tournament.logo ? <img src={tournament.logo} alt="" className="h-full w-full object-contain" /> : <Trophy className="h-8 w-8 text-brand-500" />}
                     </div>
-
-                    <div className="flex-1">
-                        <div className="flex items-center gap-2 text-xs text-brand-500 font-bold uppercase tracking-wider mb-1">
-                            <span className="cursor-pointer hover:underline" onClick={() => navigate('/esports')}>Esports</span>
-                            <span className="text-gray-600">/</span>
-                            <span>{tournament.game}</span>
-                            <span className="text-gray-600">/</span>
-                            <span>{tournament.name}</span>
-                        </div>
-                        <h1 className="text-3xl md:text-4xl font-black text-white uppercase tracking-tight mb-4">
-                            {tournament.name}: Season 2025
-                        </h1>
-
-                        <div className="flex gap-12 text-sm">
-                            <div>
-                                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Dates</p>
-                                <p className="text-gray-300 font-medium">{tournament.dates}</p>
-                            </div>
-                            <div>
-                                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Prize</p>
-                                <p className="text-brand-400 font-medium">{tournament.prizePool}</p>
-                            </div>
-                            <div>
-                                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Location</p>
-                                <p className="flex items-center gap-1.5 text-gray-300 font-medium">
-                                    <img src={`https://flagcdn.com/w20/${tournament.location.length === 2 ? tournament.location.toLowerCase() : 'xx'}.png`} className="w-4 h-3 rounded-sm opacity-80" alt="Location" />
-                                    {tournament.location}
-                                </p>
-                            </div>
-                            <div>
-                                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Format</p>
-                                <p className="text-gray-300 font-medium">{tournament.format}</p>
-                            </div>
+                    <div className="min-w-0 flex-1">
+                        <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px] font-bold uppercase text-brand-400"><span>{tournament.game}</span><span className="text-gray-700">/</span><span className={tournament.status === 'Live' ? 'text-red-400' : 'text-gray-500'}>{tournament.status}</span></div>
+                        <h1 className="text-2xl font-black text-white md:text-4xl">{tournament.name}</h1>
+                        <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-xs text-gray-500">
+                            <span className="flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5" /> {tournament.dates}</span>
+                            <span className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" /> {tournament.location || 'Online'}</span>
+                            {tournament.provider === 'LIQUIPEDIA' && <span className="flex items-center gap-1.5 text-green-400"><Radio className="h-3.5 w-3.5" /> Atualizacao automatica</span>}
                         </div>
                     </div>
+                    {tournament.sourceUrl && <a href={tournament.sourceUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2 border border-dark-700 px-3 py-2 text-xs text-gray-400 hover:border-brand-500 hover:text-white">Fonte <ExternalLink className="h-3.5 w-3.5" /></a>}
                 </div>
+                <nav className="mx-auto flex max-w-[1400px] overflow-x-auto px-5">
+                    {tabs.map((item) => <button key={item} onClick={() => setTab(item)} className={`shrink-0 border-b-2 px-4 py-3 text-xs font-bold ${tab === item ? 'border-brand-500 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}>{tabLabels[item]}</button>)}
+                </nav>
+            </header>
 
-                {/* 2. NAVIGATION TABS */}
-                <div className="max-w-[1400px] mx-auto px-6 mt-6">
-                    <div className="flex gap-8 border-b border-dark-800 overflow-x-auto">
-                        {['Overview', 'Matches', 'Pick\'em', 'Stats', 'Agents', 'News'].map((tab) => {
-                            const cleanTab = tab.replace('\'', '') as any;
-                            const displayTab = tab === 'Matches' ? 'Matches (19)' : tab === 'News' ? 'News (3)' : tab;
+            <main className="mx-auto max-w-[1400px] px-5 py-8">
+                {tab === 'Overview' && <OverviewTab tournament={tournament} />}
+                {tab === 'Matches' && <MatchesTab matches={tournament.matches || []} />}
+                {tab === 'Stats' && <StatsTab tournamentGame={tournament.game} tournamentId={tournament.id} />}
+                {tab === 'News' && <NewsTab news={tournament.news || []} />}
 
-                            return (
-                                <button
-                                    key={tab}
-                                    onClick={() => setMainTab(cleanTab)}
-                                    className={`pb-4 text-sm font-bold uppercase tracking-wider border-b-[3px] transition-colors whitespace-nowrap ${mainTab === cleanTab ? 'border-brand-500 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
-                                >
-                                    {displayTab}
-                                </button>
-                            )
-                        })}
-                    </div>
-                </div>
-            </div>
+                {tab === 'Pickem' && (
+                    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+                        <section>
+                            <div className="mb-5">
+                                <h2 className="text-xl font-black text-white">Seus palpites</h2>
+                                <p className="mt-1 text-sm text-gray-500">Escolha o vencedor antes do horario marcado. Cada acerto vale 10 pontos.</p>
+                            </div>
+                            {notice && <p className="mb-4 border border-brand-500/20 bg-brand-500/5 p-3 text-sm text-brand-300">{notice}</p>}
+                            <div className="space-y-3">
+                                {(tournament.matches || []).length ? tournament.matches!.map((match) => {
+                                    const locked = match.status !== 'SCHEDULED' || !match.scheduledAt || new Date(match.scheduledAt) <= new Date();
+                                    const current = selected.get(match.id);
+                                    return (
+                                        <div key={match.id} className="border border-dark-800 bg-dark-900 p-4">
+                                            <div className="mb-3 flex items-center justify-between gap-3 text-[11px] text-gray-500"><span>{match.round || match.stage || match.competition}</span><span className="flex items-center gap-1">{locked && <Lock className="h-3 w-3" />}{match.date} {match.time}</span></div>
+                                            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+                                                {[match.teamA, match.teamB].map((team, index) => (
+                                                    <React.Fragment key={team.id || team.name}>
+                                                        {index === 1 && <span className="text-xs font-bold text-gray-700">VS</span>}
+                                                        <button disabled={locked || savingMatch === match.id || !team.id} onClick={() => void pick(match.id, team.id)} className={`flex min-h-14 items-center justify-center gap-2 border px-3 text-sm font-bold transition-colors disabled:cursor-not-allowed ${current === team.id ? 'border-brand-500 bg-brand-500/10 text-white' : 'border-dark-700 bg-dark-950 text-gray-400 hover:border-dark-500 hover:text-white'} ${locked && current !== team.id ? 'opacity-50' : ''}`}>
+                                                            {team.logo && <img src={team.logo} alt="" className="h-7 w-7 object-contain" />}{team.name}{current === team.id && <Check className="h-4 w-4 text-brand-400" />}
+                                                        </button>
+                                                    </React.Fragment>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    );
+                                }) : <div className="border border-dark-800 bg-dark-900 p-10 text-center text-sm text-gray-500">Ainda nao ha partidas abertas para palpites.</div>}
+                            </div>
+                        </section>
 
-            {/* 3. SUB-NAVIGATION */}
-            {mainTab === 'Pickem' && (
-                <div className="bg-dark-900 border-b border-dark-800 animate-in slide-in-from-top-1">
-                    <div className="max-w-[1400px] mx-auto px-6">
-                        <div className="flex gap-8">
-                            {['Your Pick\'em', 'Leaderboard', 'Group'].map((tab) => {
-                                const cleanSub = tab.split(' ')[0] as any;
-                                return (
-                                    <button
-                                        key={tab}
-                                        onClick={() => setSubTab(cleanSub)}
-                                        className={`py-4 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors ${subTab === cleanSub ? 'border-brand-500 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
-                                    >
-                                        {tab}
-                                    </button>
-                                )
-                            })}
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* 4. MAIN CONTENT AREA */}
-            <div className="max-w-[1400px] mx-auto px-6 py-8">
-
-                {mainTab === 'Overview' && <OverviewTab tournament={tournament as TournamentDetailType} />}
-                {mainTab === 'Matches' && <MatchesTab matches={tournament.matches} />}
-                {mainTab === 'Stats' && <StatsTab tournamentGame={tournament.game} tournamentId={tournament.id} />}
-                {mainTab === 'News' && <NewsTab />}
-
-                {mainTab === 'Agents' && (
-                    <div className="flex flex-col items-center justify-center py-20 bg-dark-900 border border-dark-800 rounded-lg">
-                        <Crosshair className="w-12 h-12 text-[#333] mb-4" />
-                        <h3 className="text-gray-400 font-bold mb-2">Agent Statistics</h3>
-                        <p className="text-gray-600 text-sm">Most picked and banned agents data will appear here.</p>
+                        <aside className="border border-dark-800 bg-dark-900 p-4 self-start">
+                            <h2 className="mb-4 flex items-center gap-2 font-bold text-white"><Trophy className="h-4 w-4 text-brand-500" /> Ranking do Pick'em</h2>
+                            {entry && <div className="mb-4 grid grid-cols-3 border border-dark-700 bg-dark-950 p-3 text-center"><div><b className="block text-white">{entry.score}</b><span className="text-[10px] text-gray-500">pontos</span></div><div><b className="block text-white">{entry.correctPicks}</b><span className="text-[10px] text-gray-500">acertos</span></div><div><b className="block text-white">{entry.totalPicks}</b><span className="text-[10px] text-gray-500">palpites</span></div></div>}
+                            <div className="divide-y divide-dark-800">
+                                {leaderboard.length ? leaderboard.map((row) => <div key={row.user.id} className="flex items-center gap-3 py-3"><span className="w-7 font-mono text-xs text-brand-400">#{row.rank}</span><span className="min-w-0 flex-1 truncate text-sm font-bold text-gray-300">{row.user.name}</span><span className="text-xs font-mono text-gray-500">{row.points} pts</span></div>) : <p className="py-8 text-center text-xs text-gray-500">O ranking comeca com o primeiro palpite.</p>}
+                            </div>
+                            {!isAuthenticated && <button onClick={() => navigate('/login')} className="mt-4 w-full border border-brand-500 px-4 py-2 text-sm font-bold text-brand-400 hover:bg-brand-500 hover:text-dark-950">Entrar para participar</button>}
+                        </aside>
                     </div>
                 )}
 
-                {mainTab === 'Pickem' && (
-                    <>
-                        <div className="flex items-center justify-between mb-6">
-                            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-brand-500">
-                                <span>Playoffs:</span>
-                                <span className="text-gray-400">Bracket Prediction</span>
-                            </div>
-                            {Object.keys(userPicks).length > 0 && (
-                                <div className="flex items-center gap-2 animate-in fade-in">
-                                    {saved && <span className="text-green-500 text-xs font-bold mr-2">Picks Saved!</span>}
-                                    <Button variant="primary" onClick={savePicks} className="h-8 text-xs">
-                                        <Save className="w-4 h-4" /> Save Picks
-                                    </Button>
-                                </div>
-                            )}
-                        </div>
+                {tab === 'News' && <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">{(tournament.news || []).map((item) => <button key={item.id} onClick={() => navigate(`/news/${item.slug || item.id}`)} className="overflow-hidden border border-dark-800 bg-dark-900 text-left hover:border-brand-500/50">{item.image && <img src={item.image} alt="" className="aspect-video w-full object-cover" />}<div className="p-4"><span className="text-[10px] font-bold uppercase text-brand-400">{item.timeAgo}</span><h3 className="mt-2 font-bold text-white">{item.headline}</h3></div></button>)}</div>}
 
-                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                            {/* LEFT SIDE: BRACKET */}
-                            <div className="lg:col-span-8 bg-dark-900 border border-dark-800 p-6 rounded min-h-[600px] overflow-x-auto relative">
-                                {!Object.keys(userPicks).length && (
-                                    <div className="absolute top-4 right-4 z-20 bg-brand-500/10 border border-brand-500/30 text-brand-400 p-3 rounded text-xs flex items-center gap-2">
-                                        <Info className="w-4 h-4" />
-                                        Click on a team to make your prediction!
-                                    </div>
-                                )}
-
-                                {/* UPPER BRACKET */}
-                                <div className="flex gap-16 mb-12">
-                                    <div className="flex flex-col gap-8 justify-center">
-                                        <BracketMatchNode
-                                            title="Upper Semifinals"
-                                            match={qf1}
-                                            hasLineRight
-                                            hasLineBottom
-                                            lineHeight="h-[150%]"
-                                            onPick={handlePick}
-                                            userPick={userPicks['qf1']}
-                                        />
-                                        <div className="h-8"></div>
-                                        <BracketMatchNode
-                                            match={qf2}
-                                            hasLineRight
-                                            hasLineBottom
-                                            lineHeight="h-[-50%] top-[-50%]"
-                                            onPick={handlePick}
-                                            userPick={userPicks['qf2']}
-                                        />
-                                    </div>
-
-                                    <div className="flex flex-col justify-center">
-                                        <BracketMatchNode
-                                            title="Upper Final"
-                                            match={sf1Projected}
-                                            hasLineRight
-                                            onPick={handlePick}
-                                            userPick={userPicks['sf1']}
-                                        />
-                                    </div>
-
-                                    <div className="flex flex-col justify-center">
-                                        <BracketMatchNode
-                                            title="Grand Final"
-                                            match={gfProjected}
-                                            isGrandFinal
-                                            onPick={handlePick}
-                                            userPick={userPicks['gf']}
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* LOWER BRACKET */}
-                                <div className="pt-8 border-t border-dark-800 relative">
-                                    <span className="absolute -top-3 left-0 bg-dark-900 px-2 text-[10px] font-bold text-gray-500 uppercase">Lower Bracket</span>
-
-                                    <div className="flex gap-16 mt-4">
-                                        <div className="flex flex-col gap-4">
-                                            <BracketMatchNode
-                                                title="Lower Round 1"
-                                                match={sf2}
-                                                hasLineRight
-                                                onPick={handlePick}
-                                                userPick={userPicks['sf2']}
-                                            />
-                                        </div>
-                                        <div className="flex flex-col justify-center">
-                                            <BracketMatchNode
-                                                title="Lower Final"
-                                                match={lf1Projected}
-                                                onPick={handlePick}
-                                                userPick={userPicks['lf1']}
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* RIGHT SIDE: LEADERBOARD */}
-                            <div className="lg:col-span-4 space-y-4">
-                                <div className="flex justify-between items-center text-xs uppercase font-bold text-brand-500 mb-2">
-                                    <span>Leaderboard</span>
-                                    <span className="text-gray-500">Top Pick'ems</span>
-                                </div>
-
-                                <div className="flex flex-col gap-2">
-                                    {leaderboard.map((entry) => (
-                                        <div key={entry.rank} className="bg-dark-900 border border-dark-800 p-4 flex items-center justify-between hover:bg-dark-800 transition-colors cursor-pointer group">
-                                            <div className="flex items-center gap-4">
-                                                <div className="flex flex-col">
-                                                    <span className="text-xl font-bold text-white group-hover:text-brand-500 transition-colors">{entry.points} <span className="text-sm font-normal text-gray-500">points</span></span>
-                                                    <span className="text-[10px] text-gray-500 uppercase">{entry.percentile} / {entry.rank} Users</span>
-                                                </div>
-                                            </div>
-                                            <div className="text-right">
-                                                <span className="block text-sm font-bold text-gray-300">{entry.user}</span>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-
-                                <div className="mt-8 bg-dark-900 border border-dark-800 p-6 text-center">
-                                    <Trophy className="w-12 h-12 text-brand-500 mx-auto mb-4 opacity-20" />
-                                    <h3 className="text-white font-bold mb-2">Join the Pick'em</h3>
-                                    <p className="text-sm text-gray-500 mb-4">Predict the winners and earn exclusive badges.</p>
-                                    <Button variant="outline" className="w-full justify-center">Create Picks</Button>
-                                </div>
-                            </div>
-                        </div>
-                    </>
-                )}
-            </div>
+                {tournament.attribution && <p className="mt-8 text-xs text-gray-600">Dados por <a href={tournament.attribution.url} target="_blank" rel="noreferrer" className="text-gray-400">{tournament.attribution.provider}</a>, {tournament.attribution.license}.</p>}
+            </main>
         </div>
     );
 };

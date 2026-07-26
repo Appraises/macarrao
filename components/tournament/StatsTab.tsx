@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { esportsService } from '../../services/esportsService';
+import { Avatar } from '../Avatar';
 
 interface StatsTabProps {
     tournamentGame: string;
@@ -16,7 +17,8 @@ export const StatsTab: React.FC<StatsTabProps> = ({ tournamentGame, tournamentId
             setLoading(true);
             const data = await esportsService.getTournamentStats(tournamentId, tournamentGame);
             setStats(data.players);
-            setColumns(data.columns);
+            // Rank/Player/Team are fixed columns of this table; keep only stat columns.
+            setColumns(data.columns.filter((c: any) => c.type !== 'player'));
             setLoading(false);
         };
         if (tournamentId) fetchStats();
@@ -26,6 +28,15 @@ export const StatsTab: React.FC<StatsTabProps> = ({ tournamentGame, tournamentId
         return (
             <div className="p-12 flex justify-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-brand-500"></div>
+            </div>
+        );
+    }
+
+    if (stats.length === 0) {
+        return (
+            <div className="flex flex-col items-center justify-center py-20 bg-dark-900 border border-dark-800 rounded-lg">
+                <h3 className="text-gray-400 font-bold mb-2">Estatísticas indisponíveis</h3>
+                <p className="text-gray-600 text-sm">Ainda não há estatísticas de jogadores para este torneio.</p>
             </div>
         );
     }
@@ -50,11 +61,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({ tournamentGame, tournamentId
                             <td className="p-4 font-bold text-white">
                                 <div className="flex items-center gap-3">
                                     <div className="w-8 h-8 rounded bg-dark-950 flex items-center justify-center overflow-hidden border border-dark-700">
-                                        {player.photo ? (
-                                            <img src={player.photo} className="w-full h-full object-cover" />
-                                        ) : (
-                                            <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${player.name}`} className="w-full h-full object-cover" />
-                                        )}
+                                        <Avatar name={player.name} src={player.photo} size={32} square />
                                     </div>
                                     <div className="flex flex-col">
                                         <span className="flex items-center gap-2">
@@ -73,7 +80,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({ tournamentGame, tournamentId
                             {columns.map(col => (
                                 <td key={col.key} className="p-4 text-center">
                                     <span className={`font-mono ${col.primary ? 'font-bold text-brand-400 bg-brand-500/10 px-2 py-1 rounded' : 'text-gray-400'}`}>
-                                        {player.stats[col.key]}
+                                        {player.stats?.[col.key] ?? '—'}
                                     </span>
                                 </td>
                             ))}

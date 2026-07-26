@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 
 const XP_TABLE = [
@@ -13,17 +14,21 @@ const XP_TABLE = [
     4500    // Level 10
 ];
 
-const BADGES = [
-    { level: 3, name: 'Iniciado', icon: 'Star' },
-    { level: 5, name: 'Veterano', icon: 'Medal' },
-    { level: 10, name: 'Lenda', icon: 'Trophy' }
-];
+// Badges moved to their own system (services/badges.ts) — awardXp only handles XP
+// and level now. Call evaluateBadges after the milestone event to grant badges.
 
-export const awardXp = async (userId: string, amount: number) => {
-    const user = await prisma.user.findUnique({ where: { id: userId } });
+export const awardXp = async (
+    userId: string,
+    amount: number,
+    client: Pick<Prisma.TransactionClient, 'user'> | typeof prisma = prisma
+) => {
+    const user = await client.user.update({
+        where: { id: userId },
+        data: { xp: { increment: amount } }
+    });
     if (!user) return;
 
-    let newXp = (user.xp || 0) + amount;
+    const newXp = user.xp || 0;
     let newLevel = user.level;
 
     // Check for level up
@@ -43,23 +48,9 @@ export const awardXp = async (userId: string, amount: number) => {
         }
     }
 
-    // Check for new badges
-    const currentBadges: string[] = Array.isArray(user.badges) ? user.badges as string[] : [];
-
-    const newBadges = [...currentBadges];
-    BADGES.forEach(badge => {
-        if (newLevel >= badge.level && !newBadges.includes(badge.name)) {
-            newBadges.push(badge.name);
-        }
-    });
-
-    await prisma.user.update({
+    await client.user.update({
         where: { id: userId },
-        data: {
-            xp: newXp,
-            level: newLevel,
-            badges: newBadges
-        }
+        data: { level: newLevel }
     });
 
     return { newLevel, newXp, leveledUp: newLevel > user.level };

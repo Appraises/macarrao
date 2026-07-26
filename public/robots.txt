@@ -1,0 +1,14 @@
+# Este arquivo e sobrescrito no build (vite.config.ts) com o dominio real de
+# VITE_SITE_URL. Editar aqui nao tem efeito na producao — ajuste a variavel.
+User-agent: *
+Allow: /
+
+# Rotas privadas / sem valor de SEO
+Disallow: /dashboard
+Disallow: /login
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /verify-email
+Disallow: /settings
+Disallow: /perfil
+Disallow: /contribuir

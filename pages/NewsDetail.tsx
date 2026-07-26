@@ -4,6 +4,8 @@ import { getNewsById, getNews } from '../src/services/api';
 import { Calendar, User, ArrowLeft, Share2, MessageSquare, Clock } from 'lucide-react';
 import { Badge, Button } from '../components/UI';
 import { CommentsSection } from '../components/CommentsSection';
+import { Seo } from '../components/Seo';
+import { JsonLd, articleSchema, breadcrumbSchema } from '../components/JsonLd';
 
 export const NewsDetail: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -22,8 +24,8 @@ export const NewsDetail: React.FC = () => {
 
                 // Fetch related news (simple implementation: fetch all and filter)
                 // In a real app, backend should provide related news
-                const allNews = await getNews();
-                setRelatedNews(allNews.filter((n: any) => n.id !== id).slice(0, 4));
+                const allNews = await getNews({ page: 1, pageSize: 5 });
+                setRelatedNews(allNews.items.filter((news) => news.id !== id).slice(0, 4));
             } catch (error) {
                 console.error("Failed to fetch news", error);
             } finally {
@@ -52,6 +54,23 @@ export const NewsDetail: React.FC = () => {
 
     return (
         <div className="min-h-screen bg-[#0a0b10] text-gray-200 font-sans pb-20 pt-24">
+            <Seo
+                title={newsItem.headline}
+                description={
+                    (newsItem.content
+                        ? String(newsItem.content).replace(/<[^>]*>/g, '')
+                        : newsItem.headline) || newsItem.headline
+                }
+                image={newsItem.image}
+                path={`/news/${id}`}
+                type="article"
+            />
+            <JsonLd data={articleSchema({ ...newsItem, id: id || newsItem.id })} />
+            <JsonLd data={breadcrumbSchema([
+                { name: 'Início', path: '/' },
+                { name: 'Notícias', path: '/news' },
+                { name: newsItem.headline, path: `/news/${id}` },
+            ])} />
 
             {/* Progress Bar (Optional visual flair) */}
             <div className="fixed top-0 left-0 w-full h-1 bg-dark-800 z-50">

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { validateEmail, validatePassword, validateName } from '../src/utils/validation';
+import { validateTermContent } from '../src/utils/validator';
 
 describe('validateEmail', () => {
     it('should accept valid email formats', () => {
@@ -19,14 +20,22 @@ describe('validateEmail', () => {
 
 describe('validatePassword', () => {
     it('should accept valid passwords', () => {
-        expect(validatePassword('123456').valid).toBe(true);
         expect(validatePassword('strongPassword!').valid).toBe(true);
+        // Length alone is enough — no symbol or uppercase is demanded.
+        expect(validatePassword('cavalobateriagrampo').valid).toBe(true);
     });
 
     it('should reject passwords that are too short', () => {
-        const result = validatePassword('12345');
+        const result = validatePassword('1234567');
         expect(result.valid).toBe(false);
-        expect(result.message).toContain('6');
+        expect(result.message).toContain('8');
+    });
+
+    it('should reject the passwords every attacker tries first', () => {
+        // These clear the length rule, which is exactly why length alone is not enough.
+        for (const weak of ['12345678', 'password', 'senha123', 'valorant', 'PASSWORD']) {
+            expect(validatePassword(weak).valid, weak).toBe(false);
+        }
     });
 
     it('should reject passwords that are too long', () => {
@@ -60,5 +69,21 @@ describe('validateName', () => {
     it('should reject non-string values', () => {
         expect(validateName(null as any).valid).toBe(false);
         expect(validateName(undefined as any).valid).toBe(false);
+    });
+});
+
+describe('validateTermContent', () => {
+    it('does not treat a blocked sequence inside a legitimate word as profanity', () => {
+        expect(validateTermContent(
+            'Controle de ritmo',
+            'Uma estrategia usada para controlar o ritmo de uma partida competitiva.'
+        ).isValid).toBe(true);
+    });
+
+    it('still rejects a blocked term as a complete word', () => {
+        expect(validateTermContent(
+            'Termo ofensivo',
+            'Esta definicao inclui merda como uma palavra isolada.'
+        ).isValid).toBe(false);
     });
 });

@@ -1,28 +1,45 @@
 import React, { useEffect, useState } from 'react';
 import { getUsers, registerUser } from '../../src/services/api';
-import { User } from '../../types';
-import { Shield, User as UserIcon, Search, Plus, X } from 'lucide-react';
+import { User, PaginationMeta } from '../../types';
+import { Shield, Search, Plus, X } from 'lucide-react';
 import { Badge, Button } from '../../components/UI';
+import { Avatar } from '../../components/Avatar';
+import { PaginationControls } from '../../components/PaginationControls';
+import { usePaginatedListQuery } from '../../src/hooks/usePaginatedListQuery';
+
+const EMPTY_PAGINATION: PaginationMeta = {
+    page: 1,
+    pageSize: 20,
+    total: 0,
+    totalPages: 0,
+    hasNext: false,
+    hasPrevious: false
+};
 
 export const UsersList: React.FC = () => {
     const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
-    const [searchTerm, setSearchTerm] = useState('');
+    const { page, pageSize, search, setPage, setPageSize, setSearch } = usePaginatedListQuery(20);
+    const [pagination, setPagination] = useState<PaginationMeta>(EMPTY_PAGINATION);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [newUser, setNewUser] = useState({ name: '', email: '', password: '' });
     const [registerError, setRegisterError] = useState('');
 
     const fetchUsers = () => {
         setLoading(true);
-        getUsers()
-            .then(setUsers)
+        getUsers({ page, pageSize, search })
+            .then((result) => {
+                setUsers(result.items);
+                setPagination(result.pagination);
+            })
             .catch(console.error)
             .finally(() => setLoading(false));
     };
 
     useEffect(() => {
-        fetchUsers();
-    }, []);
+        const timeout = window.setTimeout(fetchUsers, 250);
+        return () => window.clearTimeout(timeout);
+    }, [page, pageSize, search]);
 
     const handleRegister = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -37,11 +54,6 @@ export const UsersList: React.FC = () => {
         }
     };
 
-    const filteredUsers = users.filter(user =>
-        user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.email?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-
     return (
         <div className="space-y-6 animate-in fade-in duration-500 relative">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -55,8 +67,8 @@ export const UsersList: React.FC = () => {
                         <input
                             type="text"
                             placeholder="Buscar usuário..."
-                            value={searchTerm}
-                            onChange={e => setSearchTerm(e.target.value)}
+                            value={search}
+                            onChange={e => setSearch(e.target.value)}
                             className="bg-dark-900 border border-white/10 rounded-lg pl-10 pr-4 py-2 text-sm text-white focus:outline-none focus:border-brand-500 w-full md:w-64"
                         />
                     </div>
@@ -84,22 +96,16 @@ export const UsersList: React.FC = () => {
                                 <tr>
                                     <td colSpan={5} className="p-8 text-center text-gray-500">Carregando usuários...</td>
                                 </tr>
-                            ) : filteredUsers.length === 0 ? (
+                            ) : users.length === 0 ? (
                                 <tr>
                                     <td colSpan={5} className="p-8 text-center text-gray-500">Nenhum usuário encontrado.</td>
                                 </tr>
                             ) : (
-                                filteredUsers.map(user => (
+                                users.map(user => (
                                     <tr key={user.id} className="hover:bg-white/5 transition-colors">
                                         <td className="p-4">
                                             <div className="flex items-center gap-3">
-                                                {user.avatar ? (
-                                                    <img src={user.avatar} alt={user.name} className="w-10 h-10 rounded-full object-cover border border-dark-700" />
-                                                ) : (
-                                                    <div className="w-10 h-10 rounded-full bg-dark-800 flex items-center justify-center border border-dark-700">
-                                                        <UserIcon className="w-5 h-5 text-gray-500" />
-                                                    </div>
-                                                )}
+                                                <Avatar name={user.name} src={user.avatar} size={40} className="flex-shrink-0" />
                                                 <span className="font-bold text-white">{user.name}</span>
                                             </div>
                                         </td>
@@ -125,6 +131,12 @@ export const UsersList: React.FC = () => {
                         </tbody>
                     </table>
                 </div>
+                <PaginationControls
+                    pagination={pagination}
+                    onPageChange={setPage}
+                    onPageSizeChange={setPageSize}
+                    disabled={loading}
+                />
             </div>
 
             {/* Modal */}

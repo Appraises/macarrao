@@ -1,118 +1,66 @@
 import { Router } from 'express';
-import { GoogleGenAI, Type } from '@google/genai';
 import { authenticateToken } from '../middleware/auth';
+import { cleanPlainText } from '../utils/content';
+import { validateTermContent } from '../utils/validator';
 
 const router = Router();
 
-const getClient = () => {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-        console.warn('GEMINI_API_KEY not set — AI features disabled');
-        return null;
+/**
+ * Pre-submit quality check for a contribution.
+ *
+ * This used to call Gemini. It was dropped for three reasons: it put a paid external
+ * dependency on the critical contribution path, it degraded to "always valid" whenever
+ * the key was absent (so in practice it did nothing), and the local validator already
+ * catches what actually matters — spam, links, HTML, gibberish, caps and profanity.
+ * What remains are quality heuristics that give the contributor specific feedback.
+ *
+ * The route path is unchanged so existing clients keep working.
+ */
+
+interface QualityHint {
+    /** Blocks submission when false. */
+    isValid: boolean;
+    feedback?: string;
+}
+
+const wordCount = (text: string) => text.trim().split(/\s+/).filter(Boolean).length;
+
+const qualityCheck = (word: string, definition: string): QualityHint => {
+    const lowerWord = word.toLowerCase().trim();
+    const lowerDefinition = definition.toLowerCase().trim();
+
+    // A definition that is just the word again teaches nothing.
+    if (lowerDefinition.replace(/[^a-zà-ÿ\s]/gi, '').trim() === lowerWord) {
+        return { isValid: false, feedback: 'A definicao nao pode ser apenas a repeticao do termo. Explique o que ele significa.' };
     }
-    return new GoogleGenAI({ apiKey });
+
+    // Circular: "gank e gank", "rush significa rush".
+    const escaped = lowerWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    if (escaped && new RegExp(`^${escaped}\\s+(e|eh|é|significa|quer dizer)\\s+${escaped}\\b`).test(lowerDefinition)) {
+        return { isValid: false, feedback: 'A definicao esta circular. Descreva o significado sem repetir o proprio termo.' };
+    }
+
+    if (wordCount(definition) < 4) {
+        return { isValid: false, feedback: 'A definicao esta curta demais. Explique em pelo menos uma frase completa.' };
+    }
+
+    // Soft hints: accepted, but nudge toward a better entry.
+    if (wordCount(definition) < 8) {
+        return { isValid: true, feedback: 'Dica: definicoes com mais contexto (quando e como o termo e usado) sao aprovadas mais rapido.' };
+    }
+
+    return { isValid: true };
 };
 
-// Generate a term definition using Gemini
-router.post('/generate-definition', authenticateToken, async (req: any, res: any) => {
-    const { term } = req.body;
-
-    if (!term || typeof term !== 'string' || term.trim().length === 0) {
-        return res.status(400).json({ error: 'O campo "term" é obrigatório.' });
-    }
-
-    const ai = getClient();
-    if (!ai) {
-        return res.status(503).json({ error: 'Serviço de IA indisponível. GEMINI_API_KEY não configurada.' });
-    }
-
-    try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: `Define the gaming term "${term}" in Portuguese (Brazil). If the term has multiple meanings in different games, explain the most common one but mention context. Provide pronunciation, examples, and related terms.`,
-            config: {
-                systemInstruction: 'You are a specialized dictionary editor for video games and esports in Brazil. Your tone is professional yet accessible to gamers. You prefer Brazilian Portuguese gaming slang conventions.',
-                responseMimeType: 'application/json',
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        word: { type: Type.STRING },
-                        definition: { type: Type.STRING, description: 'Concise definition in PT-BR' },
-                        phonetic: { type: Type.STRING, description: 'IPA notation' },
-                        pronunciationGuide: { type: Type.STRING, description: 'Simplified phonetic reading for Brazilians' },
-                        examples: {
-                            type: Type.ARRAY,
-                            items: { type: Type.STRING },
-                            description: '2-3 usage examples in sentences'
-                        },
-                        relatedTerms: {
-                            type: Type.ARRAY,
-                            items: { type: Type.STRING }
-                        },
-                        tags: {
-                            type: Type.ARRAY,
-                            items: { type: Type.STRING }
-                        }
-                    },
-                    required: ['word', 'definition', 'examples', 'relatedTerms', 'tags']
-                }
-            }
-        });
-
-        const text = response.text;
-        if (!text) {
-            return res.status(500).json({ error: 'Resposta vazia da IA.' });
-        }
-
-        const data = JSON.parse(text);
-        res.json({
-            ...data,
-            id: `gen-${Date.now()}`,
-            upvotes: 0,
-            downvotes: 0,
-            verified: false
-        });
-    } catch (error) {
-        console.error('Error generating term definition:', error);
-        res.status(500).json({ error: 'Falha ao gerar definição.' });
-    }
-});
-
-// Validate a user contribution using Gemini
 router.post('/validate-contribution', authenticateToken, async (req: any, res: any) => {
-    const { word, definition } = req.body;
+    const word = cleanPlainText(req.body?.word);
+    const definition = cleanPlainText(req.body?.definition);
 
-    if (!word || !definition) {
-        return res.status(400).json({ error: '"word" e "definition" são obrigatórios.' });
-    }
+    // Hard rules first: length, links, HTML, gibberish, caps, blocked words.
+    const validation = validateTermContent(word, definition);
+    if (!validation.isValid) return res.status(400).json({ error: validation.error });
 
-    const ai = getClient();
-    if (!ai) {
-        return res.json({ isValid: true, feedback: 'API indisponível, submissão aceita preliminarmente.' });
-    }
-
-    try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: `Analyze this user submission for a gaming dictionary. Word: "${word}". Definition: "${definition}". Is this a valid gaming term and is the definition accurate/appropriate?`,
-            config: {
-                responseMimeType: 'application/json',
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        isValid: { type: Type.BOOLEAN },
-                        feedback: { type: Type.STRING, description: 'Short reason in PT-BR' }
-                    }
-                }
-            }
-        });
-
-        const text = response.text;
-        res.json(text ? JSON.parse(text) : { isValid: false, feedback: 'Erro na validação.' });
-    } catch (error) {
-        console.error('Error validating contribution:', error);
-        res.json({ isValid: true, feedback: 'Erro de conexão, salvo para revisão manual.' });
-    }
+    res.json(qualityCheck(word, definition));
 });
 
 export default router;

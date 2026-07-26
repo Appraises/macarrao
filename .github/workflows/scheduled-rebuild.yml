@@ -1,0 +1,59 @@
+name: Scheduled rebuild
+
+# Reconstrói/republica o site periodicamente para que termos novos ou editados
+# no banco (via dashboard) entrem no prerender, sitemap e nas og:images.
+# O conteúdo vive no banco, então uma mudança lá NÃO dispara build sozinha —
+# este agendamento fecha esse descompasso.
+
+on:
+  # Todo dia às 06:00 UTC (~03:00 no horário de Brasília).
+  # Ajuste o cron conforme necessário: https://crontab.guru
+  schedule:
+    - cron: '0 6 * * *'
+  # Permite disparar manualmente pela aba "Actions" do GitHub (rebuild sob demanda,
+  # ex.: depois de aprovar uma leva de termos).
+  workflow_dispatch:
+
+jobs:
+  trigger-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      # Caminho recomendado (Vercel/Netlify): a plataforma já tem o build + envs
+      # configurados; aqui só "cutucamos" o deploy hook dela.
+      #
+      # Como obter a URL do hook:
+      #   • Vercel:  Project → Settings → Git → Deploy Hooks → criar → copiar URL
+      #   • Netlify: Site settings → Build & deploy → Build hooks → adicionar → copiar URL
+      # Depois, no GitHub: Settings → Secrets and variables → Actions →
+      #   New repository secret → nome: DEPLOY_HOOK_URL, valor: a URL copiada.
+      - name: Trigger deploy hook
+        run: |
+          if [ -z "${{ secrets.DEPLOY_HOOK_URL }}" ]; then
+            echo "::error::Secret DEPLOY_HOOK_URL não configurado. Veja os comentários deste workflow."
+            exit 1
+          fi
+          echo "Disparando rebuild via deploy hook…"
+          curl -fsS -X POST "${{ secrets.DEPLOY_HOOK_URL }}"
+          echo "Rebuild disparado. A plataforma fará o build e o deploy."
+
+# ---------------------------------------------------------------------------
+# ALTERNATIVA — host próprio / deploy manual (VPS, S3, etc.)
+# Se você NÃO usa Vercel/Netlify, remova o job acima e use um que builda e
+# publica aqui mesmo. Esboço:
+#
+#   build-and-deploy:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v4
+#       - uses: actions/setup-node@v4
+#         with: { node-version: 20, cache: npm }
+#       - run: npm ci --legacy-peer-deps
+#       # O backend precisa estar acessível publicamente neste momento, pois o
+#       # build busca os termos para prerender + og:images.
+#       - run: npm run build
+#         env:
+#           VITE_API_URL: ${{ secrets.VITE_API_URL }}    # ex.: https://api.seusite.com
+#           VITE_SITE_URL: ${{ secrets.VITE_SITE_URL }}  # ex.: https://seusite.com
+#       - name: Deploy
+#         run: echo "Publique a pasta dist/ aqui (rsync, aws s3 sync, CLI do host, etc.)"
+# ---------------------------------------------------------------------------

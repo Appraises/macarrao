@@ -3,19 +3,28 @@ import { useNavigate } from 'react-router-dom';
 import { Lock, User } from 'lucide-react';
 import { Button } from '../../components/UI';
 import { login } from '../../src/services/api';
+import { useAuth } from '../../src/context/AuthContext';
 
 export const DashboardLogin: React.FC = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const navigate = useNavigate();
+    const { login: setAuthenticatedUser } = useAuth();
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
             const response = await login({ email, password });
-            localStorage.setItem('dashboard_auth', response.token);
-            localStorage.setItem('dashboard_user', JSON.stringify(response.user));
+            if (response.user?.role !== 'ADMIN') {
+                setError('Esta conta nao possui acesso administrativo.');
+                return;
+            }
+            localStorage.setItem('token', response.token);
+            localStorage.setItem('user', JSON.stringify(response.user));
+            localStorage.removeItem('dashboard_auth');
+            localStorage.removeItem('dashboard_user');
+            setAuthenticatedUser(response.user);
             navigate('/dashboard/overview');
         } catch (err) {
             setError('Credenciais inválidas');

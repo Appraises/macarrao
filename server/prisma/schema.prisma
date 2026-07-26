@@ -10,56 +10,271 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum ContentStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum NewsStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHED
+  ARCHIVED
+}
+
+enum MatchStatus {
+  SCHEDULED
+  LIVE
+  FINISHED
+  CANCELED
+}
+
+enum EsportsProvider {
+  MANUAL
+  LIQUIPEDIA
+}
+
+enum EsportsSyncStatus {
+  RUNNING
+  SUCCEEDED
+  FAILED
+  SKIPPED
+}
+
+enum PrivacyRequestType {
+  EXPORT
+  DELETE
+  CORRECTION
+  ANONYMIZATION
+}
+
+enum PrivacyRequestStatus {
+  REQUESTED
+  CONFIRMED
+  IN_REVIEW
+  PROCESSING
+  COMPLETED
+  REJECTED
+  CANCELED
+}
+
+enum TermStatus {
+  PENDING
+  CHANGES_REQUESTED
+  APPROVED
+  REJECTED
+}
+
+/// Grammatical class of a single sense. A word can change class between senses -
+/// "noob" is a noun in "ele e um noob" and an adjective in "jogada noob" - so this
+/// belongs to the meaning, never to the term.
+enum WordClass {
+  SUBSTANTIVO
+  VERBO
+  ADJETIVO
+  ADVERBIO
+  INTERJEICAO
+  EXPRESSAO
+}
+
+/// How a sense lands on the person hearing it. Escalating scale, so the UI can warn
+/// on the last two. Per sense, not per term: "bot" is technical in one sense and an
+/// insult in another.
+enum Register {
+  NEUTRO // descritivo, sem carga
+  INFORMAL // giria casual, tranquilo entre amigos
+  IRONICO // quase sempre sarcastico
+  PEJORATIVO // deprecia quem recebe
+  OFENSIVO // xingamento; pode render report ou ban
+}
+
+enum TermMediaKind {
+  ORIGIN // a narrative note about where the term comes from
+  IMAGE // a screenshot, clip frame or map spot that illustrates the term
+}
+
+enum TermModerationEventType {
+  SUBMITTED
+  AUTHOR_UPDATED
+  CHANGES_REQUESTED
+  RESUBMITTED
+  APPROVED
+  REJECTED
+  MIGRATED
+}
+
+enum ContributionRejectionReason {
+  DUPLICATE
+  INACCURATE
+  OUT_OF_SCOPE
+  INSUFFICIENT_DETAIL
+  INAPPROPRIATE
+  SPAM
+  OTHER
+}
+
+enum NotificationType {
+  CONTRIBUTION_APPROVED
+  CONTRIBUTION_REJECTED
+  CONTRIBUTION_CHANGES_REQUESTED
+}
+
+enum NotificationEmailStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED
+}
+
+enum AnalyticsProvider {
+  PLAUSIBLE
+  SEARCH_CONSOLE
+  SENTRY
+  CRUX
+  PAGESPEED
+}
+
+enum AnalyticsSyncStatus {
+  RUNNING
+  SUCCEEDED
+  PARTIAL
+  FAILED
+  SKIPPED
+}
+
+enum AnalyticsSyncTrigger {
+  SCHEDULED
+  MANUAL
+  STARTUP
+}
+
+enum TrafficDimensionKind {
+  CHANNEL
+  SOURCE
+  REFERRER
+  ENTRY_PAGE
+  EXIT_PAGE
+  PAGE
+  COUNTRY
+  DEVICE
+  BROWSER
+  OPERATING_SYSTEM
+  CAMPAIGN
+  EVENT
+}
+
+enum SearchConsoleDimensionKind {
+  QUERY
+  PAGE
+  DEVICE
+  COUNTRY
+}
+
+enum SearchOrigin {
+  HOME
+  CATALOG
+  GAME
+  NOT_FOUND
+  UNKNOWN
+}
+
+enum TermViewSource {
+  DIRECT
+  SEARCH_RESULT
+  SEARCH_SUGGESTION
+  RELATED_TERM
+  TRENDING
+  GAME_GLOSSARY
+  UNKNOWN
+}
+
 model User {
-  id        String   @id @default(uuid())
-  name      String
-  email     String   @unique
-  password  String
-  role      String   @default("USER") // ADMIN, USER
-  level     Int      @default(1)
-  xp        Int      @default(0)
-  badges    Json     @default("[]")
-  avatar    String?
-  emailVerified Boolean @default(false)
-  verificationToken String?
-  preferences Json   @default("{}")
-  resetPasswordToken String?
-  resetPasswordExpires DateTime?
-  description String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  comments  Comment[]
-  terms     Term[]
-  contributions Contribution[]
-  favoriteGameId String?
-  favoriteGame Game? @relation(fields: [favoriteGameId], references: [id])
+  id                       String                @id @default(uuid())
+  name                     String
+  email                    String                @unique
+  password                 String
+  role                     String                @default("USER") // ADMIN, USER
+  level                    Int                   @default(1)
+  xp                       Int                   @default(0)
+  badges                   Json                  @default("[]")
+  avatar                   String?
+  emailVerified            Boolean               @default(false)
+  verificationToken        String?
+  verificationTokenExpires DateTime?
+  preferences              Json                  @default("{}")
+  resetPasswordToken       String?
+  resetPasswordExpires     DateTime?
+  termsAcceptedAt          DateTime?
+  termsVersion             String?
+  privacyAcknowledgedAt    DateTime?
+  privacyVersion           String?
+  description              String?
+  sessionVersion           Int                   @default(0)
+  anonymizedAt             DateTime?
+  createdAt                DateTime              @default(now())
+  updatedAt                DateTime              @updatedAt
+  comments                 Comment[]
+  terms                    Term[]
+  termMeanings             TermMeaning[]
+  termMedia                TermMedia[]
+  badgesEarned             UserBadge[]
+  termVotes                TermVote[]
+  termModerationEvents     TermModerationEvent[] @relation("TermModerationActor")
+  notifications            Notification[]
+  favoriteGameId           String?
+  favoriteGame             Game?                 @relation(fields: [favoriteGameId], references: [id])
+  createdNews              News[]                @relation("NewsCreator")
+  adminAuditLogs           AdminAuditLog[]       @relation("AdminAuditActor")
+  privacyRequests          PrivacyRequest[]      @relation("PrivacyRequestOwner")
+  assignedPrivacyRequests  PrivacyRequest[]      @relation("PrivacyRequestAssignee")
+  privacyRequestEvents     PrivacyRequestEvent[] @relation("PrivacyRequestEventActor")
+  pickemEntries            EsportsPickemEntry[]
+  brickBreakerBestScore    BrickBreakerBestScore?
+  brickBreakerRuns         BrickBreakerRun[]
+  activityDays             UserActivityDay[]
+  analyticsSyncRuns        AnalyticsSyncRun[]    @relation("AnalyticsSyncActor")
+
+  @@index([createdAt])
+  @@index([role, createdAt])
 }
 
 model Game {
-  id        String   @id @default(uuid())
-  name      String
-  slug      String   @unique
-  genre     String
-  image     String
-  terms     Term[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  maps      GameMap[]
-  favoritedBy User[]
+  id             String         @id @default(uuid())
+  name           String
+  slug           String         @unique
+  genre          String
+  image          String
+  description    String?
+  status         ContentStatus  @default(PUBLISHED)
+  archivedAt     DateTime?
+  terms          Term[]
+  termMeanings   TermMeaning[]
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  maps           GameMap[]
+  favoritedBy    User[]
+  tournaments    Tournament[]
+  esportsMatches EsportsMatch[]
+  teamRankings   TeamRanking[]
 }
 
 model GameMap {
-  id            String       @id @default(uuid())
+  id            String        @id @default(uuid())
   gameId        String
-  game          Game         @relation(fields: [gameId], references: [id])
+  game          Game          @relation(fields: [gameId], references: [id])
   name          String
   image         String
   tacticalImage String?
+  status        ContentStatus @default(PUBLISHED)
+  archivedAt    DateTime?
   callouts      MapCallout[]
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
+  @@unique([gameId, name])
   @@index([gameId])
+  @@index([status, createdAt])
 }
 
 model MapCallout {
@@ -70,7 +285,7 @@ model MapCallout {
   description String?
   x           Float
   y           Float
-  type        String   // Site, Spawn, Callout, Objective, Item
+  type        String // Site, Spawn, Callout, Objective, Item
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -78,68 +293,464 @@ model MapCallout {
 }
 
 model Term {
-  id                 String   @id @default(uuid())
+  id                 String                @id @default(uuid())
   word               String
   definition         String
   phonetic           String?
   pronunciationGuide String?
-  examples           Json     @default("[]")
+  examples           Json                  @default("[]")
   relatedTerms       Json?
+  aliases            Json                  @default("[]") // alternate spellings/forms; findability + SEO
+  meanings           TermMeaning[]
+  media              TermMedia[]
+  // Denormalized approved origin note, so meta/prerender stay cheap. originHidden marks
+  // terms that plainly need no origin (e.g. abbreviations like GF): panel disappears.
+  origin             String?
+  originHidden       Boolean               @default(false)
+  // Denormalized from meanings so catalog cards, raw-SQL search and OG images stay cheap:
+  // definition mirrors the top-voted meaning, gameIds lists every game across meanings.
+  gameIds            Json                  @default("[]")
   gameId             String?
-  game               Game?    @relation(fields: [gameId], references: [id])
-  upvotes            Int      @default(0)
-  downvotes          Int      @default(0)
-  tags               Json     @default("[]")
-  verified           Boolean  @default(false)
+  game               Game?                 @relation(fields: [gameId], references: [id])
+  upvotes            Int                   @default(0)
+  downvotes          Int                   @default(0)
+  tags               Json                  @default("[]")
+  status             TermStatus            @default(PENDING)
+  revision           Int                   @default(1)
+  moderatedAt        DateTime?
+  archivedAt         DateTime?
   views              TermView[]
+  votes              TermVote[]
+  reports            Report[]
+  moderationEvents   TermModerationEvent[]
+  notifications      Notification[]
+  openedBySearches   InternalSearchEvent[]
   authorId           String?
-  author             User?    @relation(fields: [authorId], references: [id])
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  author             User?                 @relation(fields: [authorId], references: [id])
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
 
   @@index([word])
   @@index([gameId])
-  @@index([verified])
+  @@index([status])
   @@index([authorId])
   @@index([createdAt])
+  @@index([status, createdAt])
+  @@index([status, upvotes])
+  @@index([status, archivedAt, word])
+}
+
+/// One numbered sense of a word, like a dictionary entry. A term holds the word
+/// (spelling, phonetics, aliases, tags); each meaning holds a definition bound to a
+/// game or context. Ordering is by score; moderation and authorship are per meaning,
+/// so a pending new sense never takes the whole term off the air.
+model TermMeaning {
+  id         String     @id @default(uuid())
+  termId     String
+  term       Term       @relation(fields: [termId], references: [id], onDelete: Cascade)
+  definition String
+  examples   Json       @default("[]")
+  // Optional on purpose: plenty of entries have no useful inflection (interjections
+  // like "gg", expressions), and legacy senses start without a class.
+  wordClass  WordClass?
+  // Tone/charge of this sense. Optional: unset reads as neutral and shows no badge.
+  register   Register?
+  // Labelled forms: [{ label: "particípio", form: "gankado" }]. A loose list beats a
+  // rigid conjugation table for slang, and each class uses the labels that fit it.
+  inflections Json      @default("[]")
+  gameId     String?
+  game       Game?      @relation(fields: [gameId], references: [id], onDelete: SetNull)
+  context    String? // free label when the sense is not game-bound: "competitivo", "streaming"
+  order      Int        @default(1)
+  upvotes    Int        @default(0)
+  downvotes  Int        @default(0)
+  status     TermStatus @default(PENDING)
+  authorId   String?
+  author     User?      @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  votes      TermVote[]
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  @@index([termId, order])
+  @@index([termId, status])
+  @@index([gameId])
+  @@index([authorId])
+}
+
+/// Community-contributed context on a term: origin notes and images. Curated by the
+/// term's owners (term author + approved-meaning authors), with admin as backstop.
+/// Stays PENDING and invisible until accepted, so nothing unreviewed is ever shown.
+/// A badge a user has earned. The catalog (name, icon, how it's earned) lives in
+/// code (services/badges.ts); only the fact that a user unlocked one is stored here.
+model UserBadge {
+  id       String   @id @default(uuid())
+  userId   String
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badgeId  String // slug from the code catalog
+  earnedAt DateTime @default(now())
+
+  @@unique([userId, badgeId])
+  @@index([userId])
+}
+
+model TermMedia {
+  id        String        @id @default(uuid())
+  termId    String
+  term      Term          @relation(fields: [termId], references: [id], onDelete: Cascade)
+  kind      TermMediaKind
+  content   String? // origin text, or an image caption
+  url       String? // set for IMAGE
+  order     Int           @default(0)
+  status    TermStatus    @default(PENDING)
+  // Set when an automated pre-screen (SafeSearch) flags an image for review.
+  flagged   Boolean       @default(false)
+  flagReason String?
+  authorId  String?
+  author    User?         @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  reports   Report[]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@index([termId, kind, status])
+  @@index([status])
+  @@index([authorId])
+}
+
+model TermModerationEvent {
+  id              String                       @id @default(uuid())
+  termId          String
+  term            Term                         @relation(fields: [termId], references: [id], onDelete: Cascade)
+  actorId         String?
+  actor           User?                        @relation("TermModerationActor", fields: [actorId], references: [id], onDelete: SetNull)
+  type            TermModerationEventType
+  fromStatus      TermStatus?
+  toStatus        TermStatus
+  revision        Int
+  authorMessage   String?
+  internalNote    String?
+  rejectionReason ContributionRejectionReason?
+  snapshot        Json?
+  createdAt       DateTime                     @default(now())
+
+  @@index([termId, createdAt])
+  @@index([actorId, createdAt])
+  @@index([type, createdAt])
+}
+
+model Notification {
+  id          String                  @id @default(uuid())
+  userId      String
+  user        User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  termId      String?
+  term        Term?                   @relation(fields: [termId], references: [id], onDelete: SetNull)
+  type        NotificationType
+  title       String
+  message     String
+  link        String
+  data        Json?
+  readAt      DateTime?
+  clickedAt   DateTime?
+  emailStatus NotificationEmailStatus @default(SKIPPED)
+  emailSentAt DateTime?
+  emailError  String?
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+
+  @@index([userId, readAt, createdAt])
+  @@index([userId, createdAt])
+  @@index([emailStatus, createdAt])
+  @@index([termId])
 }
 
 model TermView {
+  id            String               @id @default(uuid())
+  termId        String
+  term          Term                 @relation(fields: [termId], references: [id], onDelete: Cascade)
+  source        TermViewSource       @default(UNKNOWN)
+  searchEventId String?
+  searchEvent   InternalSearchEvent? @relation(fields: [searchEventId], references: [id], onDelete: SetNull)
+  createdAt     DateTime             @default(now())
+
+  @@index([termId, createdAt])
+  @@index([source, createdAt])
+  @@index([searchEventId])
+}
+
+model InternalSearchEvent {
+  id              String       @id @default(uuid())
+  queryHash       String
+  normalizedQuery String?
+  origin          SearchOrigin @default(UNKNOWN)
+  gameId          String?
+  tag             String?
+  letter          String?
+  sort            String?
+  resultCount     Int
+  openedTermId    String?
+  openedTerm      Term?        @relation(fields: [openedTermId], references: [id], onDelete: SetNull)
+  openedPosition  Int?
+  openedAt        DateTime?
+  expiresAt       DateTime
+  createdAt       DateTime     @default(now())
+  termViews       TermView[]
+
+  @@index([createdAt])
+  @@index([queryHash, createdAt])
+  @@index([origin, createdAt])
+  @@index([openedAt, createdAt])
+  @@index([openedTermId, createdAt])
+}
+
+model UserActivityDay {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date         DateTime @db.Date
+  firstSeenAt  DateTime @default(now())
+  lastSeenAt   DateTime @default(now())
+  loginCount   Int      @default(0)
+  requestCount Int      @default(0)
+
+  @@unique([userId, date])
+  @@index([date])
+  @@index([userId, lastSeenAt])
+}
+
+model AnalyticsSyncRun {
+  id            String               @id @default(uuid())
+  provider      AnalyticsProvider
+  status        AnalyticsSyncStatus  @default(RUNNING)
+  trigger       AnalyticsSyncTrigger @default(SCHEDULED)
+  actorId       String?
+  actor         User?                @relation("AnalyticsSyncActor", fields: [actorId], references: [id], onDelete: SetNull)
+  rangeStart    DateTime?            @db.Date
+  rangeEnd      DateTime?            @db.Date
+  rowsProcessed Int                  @default(0)
+  error         String?
+  startedAt     DateTime             @default(now())
+  finishedAt    DateTime?
+
+  @@index([provider, startedAt])
+  @@index([status, startedAt])
+  @@index([actorId, startedAt])
+}
+
+model TrafficDailyMetric {
+  id               String   @id @default(uuid())
+  date             DateTime @unique @db.Date
+  visitors         Int      @default(0)
+  visits           Int      @default(0)
+  pageviews        Int      @default(0)
+  bounceRate       Float?
+  visitDurationSec Float?
+  newVisits        Int      @default(0)
+  returningVisits  Int      @default(0)
+  updatedAt        DateTime @updatedAt
+
+  @@index([date])
+}
+
+model TrafficDimensionDaily {
+  id               String               @id @default(uuid())
+  date             DateTime             @db.Date
+  kind             TrafficDimensionKind
+  value            String
+  visitors         Int                  @default(0)
+  visits           Int                  @default(0)
+  pageviews        Int                  @default(0)
+  bounceRate       Float?
+  visitDurationSec Float?
+  updatedAt        DateTime             @updatedAt
+
+  @@unique([date, kind, value])
+  @@index([kind, date])
+}
+
+model SearchConsoleDailyMetric {
+  id          String   @id @default(uuid())
+  date        DateTime @unique @db.Date
+  clicks      Float    @default(0)
+  impressions Float    @default(0)
+  ctr         Float    @default(0)
+  position    Float    @default(0)
+  updatedAt   DateTime @updatedAt
+
+  @@index([date])
+}
+
+model SearchConsoleDimensionDaily {
+  id          String                     @id @default(uuid())
+  date        DateTime                   @db.Date
+  kind        SearchConsoleDimensionKind
+  value       String
+  clicks      Float                      @default(0)
+  impressions Float                      @default(0)
+  ctr         Float                      @default(0)
+  position    Float                      @default(0)
+  updatedAt   DateTime                   @updatedAt
+
+  @@unique([date, kind, value])
+  @@index([kind, date])
+}
+
+model UrlInspectionSnapshot {
+  id             String    @id @default(uuid())
+  url            String
+  inspectionDate DateTime  @db.Date
+  verdict        String
+  coverageState  String?
+  indexingState  String?
+  robotsTxtState String?
+  pageFetchState String?
+  lastCrawlTime  DateTime?
+  issues         Json      @default("[]")
+  inspectedAt    DateTime  @default(now())
+
+  @@unique([url, inspectionDate])
+  @@index([verdict, inspectedAt])
+  @@index([inspectedAt])
+}
+
+model TechnicalMetricSnapshot {
+  id        String            @id @default(uuid())
+  provider  AnalyticsProvider
+  date      DateTime          @db.Date
+  kind      String
+  key       String            @default("site")
+  device    String            @default("ALL")
+  value     Float
+  unit      String?
+  metadata  Json?
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  @@unique([provider, date, kind, key, device])
+  @@index([provider, kind, date])
+}
+
+model TermVote {
   id        String   @id @default(uuid())
   termId    String
   term      Term     @relation(fields: [termId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-
-  @@index([termId, createdAt])
-}
-
-model News {
-  id        String   @id @default(uuid())
-  headline  String
-  category  String
-  image     String?
-  content   String?
-  author    String?
+  // Votes belong to a single sense - that is what ranks the meanings.
+  meaningId String
+  meaning   TermMeaning @relation(fields: [meaningId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  value     Int // +1 = upvote, -1 = downvote
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([category])
+  @@unique([meaningId, userId]) // one vote per user per sense
+  @@index([termId])
+  @@index([meaningId])
 }
 
-
-model Contribution {
+model Report {
   id         String   @id @default(uuid())
-  word       String
-  definition String
-  gameId     String?
-  authorId   String?
-  author     User?    @relation(fields: [authorId], references: [id])
-  status     String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  termId     String
+  term       Term     @relation(fields: [termId], references: [id], onDelete: Cascade)
+  // Set when the report targets a published image/origin rather than the term itself.
+  mediaId    String?
+  media      TermMedia? @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  reason     String // incorreto, ofensivo, spam, duplicado, outro
+  details    String?
+  reporterId String? // user id when logged in, null for anonymous
+  status     String   @default("PENDING") // PENDING, RESOLVED, DISMISSED
   createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
 
   @@index([status])
-  @@index([authorId])
+  @@index([termId])
+  @@index([mediaId])
+}
+
+model News {
+  id             String      @id @default(uuid())
+  headline       String
+  slug           String      @unique
+  category       String
+  image          String?
+  content        String?
+  author         String?
+  status         NewsStatus  @default(DRAFT)
+  publishedAt    DateTime?
+  scheduledAt    DateTime?
+  archivedAt     DateTime?
+  seoTitle       String?
+  seoDescription String?
+  createdById    String?
+  createdBy      User?       @relation("NewsCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  tournamentId   String?
+  tournament     Tournament? @relation(fields: [tournamentId], references: [id], onDelete: SetNull)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  @@index([category])
+  @@index([createdAt])
+  @@index([category, createdAt])
+  @@index([status, publishedAt])
+  @@index([createdById])
+  @@index([tournamentId, publishedAt])
+}
+
+model AdminAuditLog {
+  id         String   @id @default(uuid())
+  actorId    String?
+  actor      User?    @relation("AdminAuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+  action     String
+  entityType String
+  entityId   String
+  before     Json?
+  after      Json?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([actorId, createdAt])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}
+
+model PrivacyRequest {
+  id                    String                @id @default(uuid())
+  protocol              String                @unique
+  type                  PrivacyRequestType
+  status                PrivacyRequestStatus  @default(REQUESTED)
+  userId                String?
+  user                  User?                 @relation("PrivacyRequestOwner", fields: [userId], references: [id], onDelete: SetNull)
+  requesterEmail        String
+  requestNote           String?
+  confirmationToken     String?               @unique
+  confirmationExpiresAt DateTime?
+  confirmedAt           DateTime?
+  dueAt                 DateTime
+  assignedToId          String?
+  assignedTo            User?                 @relation("PrivacyRequestAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  resolutionNote        String?
+  completedAt           DateTime?
+  canceledAt            DateTime?
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+  events                PrivacyRequestEvent[]
+
+  @@index([userId, createdAt])
+  @@index([status, dueAt])
+  @@index([type, createdAt])
+  @@index([assignedToId, status])
+}
+
+model PrivacyRequestEvent {
+  id        String         @id @default(uuid())
+  requestId String
+  request   PrivacyRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  actorId   String?
+  actor     User?          @relation("PrivacyRequestEventActor", fields: [actorId], references: [id], onDelete: SetNull)
+  eventType String
+  message   String
+  metadata  Json?
+  createdAt DateTime       @default(now())
+
+  @@index([requestId, createdAt])
+  @@index([actorId, createdAt])
 }
 
 model Comment {
@@ -158,141 +769,355 @@ model Comment {
 // ==================== ESPORTS MODELS ====================
 
 model Tournament {
-  id          String   @id @default(uuid())
-  name        String
-  game        String
-  logo        String?
-  status      String   @default("Upcoming") // Live, Playoffs, Group Stage, Upcoming, Finished
-  dates       String?
-  prizePool   String?
-  image       String?
-  description String?
-  organizer   String?
-  location    String?
-  format      String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                String          @id @default(uuid())
+  name              String
+  slug              String          @unique
+  gameId            String?
+  gameRecord        Game?           @relation(fields: [gameId], references: [id], onDelete: SetNull)
+  game              String
+  provider          EsportsProvider @default(MANUAL)
+  externalId        String?
+  sourceUrl         String?
+  region            String          @default("GLOBAL")
+  country           String          @default("xx")
+  isBrazilFocused   Boolean         @default(false)
+  logo              String?
+  status            String          @default("Upcoming") // Live, Playoffs, Group Stage, Upcoming, Finished
+  dates             String?
+  startAt           DateTime?
+  endAt             DateTime?
+  publicationStatus ContentStatus   @default(PUBLISHED)
+  archivedAt        DateTime?
+  prizePool         String?
+  image             String?
+  description       String?
+  organizer         String?
+  location          String?
+  format            String?
+  lastSyncedAt      DateTime?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
 
-  teams      TournamentTeam[]
-  standings  TournamentStanding[]
-  bracket    BracketMatch[]
+  teams         TournamentTeam[]
+  standings     TournamentStanding[]
+  bracket       BracketMatch[]
+  stats         PlayerStat[]
+  matches       EsportsMatch[]
+  news          News[]
+  pickemEntries EsportsPickemEntry[]
+
+  @@unique([provider, externalId])
+  @@index([game])
+  @@index([gameId])
+  @@index([status])
+  @@index([publicationStatus, startAt])
+  @@index([isBrazilFocused, startAt])
+}
+
+model EsportsTeam {
+  id                String                    @id @default(uuid())
+  name              String
+  slug              String                    @unique
+  country           String                    @default("xx")
+  provider          EsportsProvider           @default(MANUAL)
+  externalId        String?
+  sourceUrl         String?
+  isBrazilian       Boolean                   @default(false)
+  logo              String?
+  status            ContentStatus             @default(PUBLISHED)
+  archivedAt        DateTime?
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+  tournamentEntries TournamentTeam[]
+  standings         TournamentStanding[]
+  bracketAsTeamA    BracketMatch[]            @relation("BracketTeamA")
+  bracketAsTeamB    BracketMatch[]            @relation("BracketTeamB")
+  matchesAsTeamA    EsportsMatch[]            @relation("MatchTeamA")
+  matchesAsTeamB    EsportsMatch[]            @relation("MatchTeamB")
+  players           EsportsPlayer[]
+  rankings          TeamRanking[]
+  pickemPredictions EsportsPickemPrediction[]
+
+  @@unique([provider, externalId])
+  @@index([status, name])
+  @@index([isBrazilian, name])
+}
+
+model EsportsPlayer {
+  id         String          @id @default(uuid())
+  teamId     String?
+  team       EsportsTeam?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  name       String
+  nickname   String
+  slug       String          @unique
+  provider   EsportsProvider @default(MANUAL)
+  externalId String?
+  sourceUrl  String?
+  country    String          @default("xx")
+  role       String?
+  photo      String?
+  status     ContentStatus   @default(PUBLISHED)
+  archivedAt DateTime?
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
   stats      PlayerStat[]
 
-  @@index([game])
-  @@index([status])
+  @@unique([provider, externalId])
+  @@index([teamId])
+  @@index([status, nickname])
 }
 
 model TournamentTeam {
-  id           String     @id @default(uuid())
+  id           String       @id @default(uuid())
   tournamentId String
-  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  tournament   Tournament   @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  teamId       String?
+  team         EsportsTeam? @relation(fields: [teamId], references: [id], onDelete: SetNull)
   name         String
-  country      String     @default("xx")
+  country      String       @default("xx")
 
+  @@unique([tournamentId, name])
   @@index([tournamentId])
+  @@index([teamId])
 }
 
 model TournamentStanding {
-  id           String     @id @default(uuid())
+  id           String       @id @default(uuid())
   tournamentId String
-  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  tournament   Tournament   @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  teamId       String?
+  teamRecord   EsportsTeam? @relation(fields: [teamId], references: [id], onDelete: SetNull)
   rank         Int
   teamName     String
-  teamCountry  String     @default("xx")
+  teamCountry  String       @default("xx")
   teamLogo     String?
-  played       Int        @default(0)
-  wins         Int        @default(0)
-  losses       Int        @default(0)
-  points       Int        @default(0)
-  diff         Int        @default(0)
+  played       Int          @default(0)
+  wins         Int          @default(0)
+  losses       Int          @default(0)
+  points       Int          @default(0)
+  diff         Int          @default(0)
   streak       String?
 
+  @@unique([tournamentId, rank])
   @@index([tournamentId])
+  @@index([teamId])
 }
 
 model BracketMatch {
-  id           String     @id @default(uuid())
-  tournamentId String
-  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
-  matchKey     String     // e.g. qf1, sf1, gf
-  round        String     // Quarterfinals, Semifinals, Grand Final
-  teamAName    String
-  teamAScore   Int?
-  teamAWinner  Boolean    @default(false)
-  teamBName    String
-  teamBScore   Int?
-  teamBWinner  Boolean    @default(false)
-  date         String?
-  status       String     @default("Scheduled") // Scheduled, Live, Finished
+  id             String        @id @default(uuid())
+  tournamentId   String
+  tournament     Tournament    @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  esportsMatchId String?       @unique
+  esportsMatch   EsportsMatch? @relation(fields: [esportsMatchId], references: [id], onDelete: SetNull)
+  teamAId        String?
+  teamARecord    EsportsTeam?  @relation("BracketTeamA", fields: [teamAId], references: [id], onDelete: SetNull)
+  matchKey       String // e.g. qf1, sf1, gf
+  round          String // Quarterfinals, Semifinals, Grand Final
+  teamAName      String
+  teamAScore     Int?
+  teamAWinner    Boolean       @default(false)
+  teamBName      String
+  teamBId        String?
+  teamBRecord    EsportsTeam?  @relation("BracketTeamB", fields: [teamBId], references: [id], onDelete: SetNull)
+  teamBScore     Int?
+  teamBWinner    Boolean       @default(false)
+  date           String?
+  status         String        @default("Scheduled") // Scheduled, Live, Finished
 
+  @@unique([tournamentId, matchKey])
   @@index([tournamentId])
+  @@index([teamAId])
+  @@index([teamBId])
+  @@index([esportsMatchId])
 }
 
 model EsportsMatch {
-  id           String   @id @default(uuid())
-  game         String
-  competition  String
-  teamAName    String
-  teamACountry String   @default("xx")
-  teamALogo    String?
-  teamBName    String
-  teamBCountry String   @default("xx")
-  teamBLogo    String?
-  time         String?
-  date         String?
-  isLive       Boolean  @default(false)
-  scoreA       Int?
-  scoreB       Int?
-  oddsA        Float?
-  oddsB        Float?
-  createdAt    DateTime @default(now())
+  id                String                    @id @default(uuid())
+  gameId            String?
+  gameRecord        Game?                     @relation(fields: [gameId], references: [id], onDelete: SetNull)
+  tournamentId      String?
+  tournament        Tournament?               @relation(fields: [tournamentId], references: [id], onDelete: SetNull)
+  provider          EsportsProvider           @default(MANUAL)
+  externalId        String?
+  sourceUrl         String?
+  game              String
+  competition       String
+  stage             String?
+  round             String?
+  region            String                    @default("GLOBAL")
+  isBrazilFocused   Boolean                   @default(false)
+  teamAId           String?
+  teamA             EsportsTeam?              @relation("MatchTeamA", fields: [teamAId], references: [id], onDelete: SetNull)
+  teamAName         String
+  teamACountry      String                    @default("xx")
+  teamALogo         String?
+  teamBName         String
+  teamBId           String?
+  teamB             EsportsTeam?              @relation("MatchTeamB", fields: [teamBId], references: [id], onDelete: SetNull)
+  teamBCountry      String                    @default("xx")
+  teamBLogo         String?
+  time              String?
+  date              String?
+  scheduledAt       DateTime?
+  bestOf            Int?
+  streamUrl         String?
+  vodUrl            String?
+  status            MatchStatus               @default(SCHEDULED)
+  publicationStatus ContentStatus             @default(PUBLISHED)
+  archivedAt        DateTime?
+  isLive            Boolean                   @default(false)
+  scoreA            Int?
+  scoreB            Int?
+  oddsA             Float?
+  oddsB             Float?
+  lastSyncedAt      DateTime?
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+  bracketNode       BracketMatch?
+  pickemPredictions EsportsPickemPrediction[]
 
+  @@unique([provider, externalId])
   @@index([game])
+  @@index([gameId])
+  @@index([tournamentId])
+  @@index([teamAId])
+  @@index([teamBId])
   @@index([isLive])
-}
-
-model EsportsNews {
-  id        String   @id @default(uuid())
-  headline  String
-  category  String
-  timeAgo   String?
-  image     String?
-  author    String?
-  createdAt DateTime @default(now())
-
-  @@index([category])
+  @@index([publicationStatus, scheduledAt])
+  @@index([isBrazilFocused, scheduledAt])
 }
 
 model TeamRanking {
-  id          String @id @default(uuid())
+  id          String       @id @default(uuid())
+  gameId      String?
+  gameRecord  Game?        @relation(fields: [gameId], references: [id], onDelete: SetNull)
+  teamId      String?
+  teamRecord  EsportsTeam? @relation(fields: [teamId], references: [id], onDelete: SetNull)
   rank        Int
   teamName    String
-  teamCountry String @default("xx")
-  points      Int    @default(0)
-  trend       String @default("stable") // up, down, stable
+  teamCountry String       @default("xx")
+  points      Int          @default(0)
+  trend       String       @default("stable") // up, down, stable
   game        String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 
+  @@unique([gameId, rank])
+  @@unique([gameId, teamId])
   @@index([game])
+  @@index([gameId])
+  @@index([teamId])
 }
 
-model PickemUser {
-  id         String @id @default(uuid())
-  rank       Int
-  username   String
-  points     Int    @default(0)
-  percentile String @default("0%")
+model EsportsPickemEntry {
+  id           String                    @id @default(uuid())
+  userId       String
+  user         User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tournamentId String
+  tournament   Tournament                @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  score        Int                       @default(0)
+  correctPicks Int                       @default(0)
+  totalPicks   Int                       @default(0)
+  predictions  EsportsPickemPrediction[]
+  createdAt    DateTime                  @default(now())
+  updatedAt    DateTime                  @updatedAt
+
+  @@unique([userId, tournamentId])
+  @@index([tournamentId, score])
+}
+
+model EsportsPickemPrediction {
+  id                String             @id @default(uuid())
+  entryId           String
+  entry             EsportsPickemEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  matchId           String
+  match             EsportsMatch       @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  predictedTeamId   String?
+  predictedTeam     EsportsTeam?       @relation(fields: [predictedTeamId], references: [id], onDelete: SetNull)
+  predictedTeamName String
+  points            Int                @default(0)
+  settledAt         DateTime?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@unique([entryId, matchId])
+  @@index([matchId])
+  @@index([predictedTeamId])
+}
+
+model EsportsSyncRun {
+  id                  String            @id @default(uuid())
+  provider            EsportsProvider
+  status              EsportsSyncStatus @default(RUNNING)
+  games               Json              @default("[]")
+  fetched             Int               @default(0)
+  accepted            Int               @default(0)
+  tournamentsUpserted Int               @default(0)
+  teamsUpserted       Int               @default(0)
+  matchesUpserted     Int               @default(0)
+  error               String?
+  startedAt           DateTime          @default(now())
+  finishedAt          DateTime?
+
+  @@index([provider, startedAt])
+  @@index([status, startedAt])
 }
 
 model PlayerStat {
-  id           String      @id @default(uuid())
+  id           String         @id @default(uuid())
   tournamentId String?
-  tournament   Tournament? @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  tournament   Tournament?    @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  playerId     String?
+  player       EsportsPlayer? @relation(fields: [playerId], references: [id], onDelete: SetNull)
   name         String
   team         String
-  country      String      @default("xx")
+  country      String         @default("xx")
   role         String?
   photo        String?
-  stats        Json        @default("{}")
+  stats        Json           @default("{}")
 
   @@index([tournamentId])
+  @@index([playerId])
+}
+
+model NewsletterSubscriber {
+  id             String    @id @default(uuid())
+  email          String    @unique
+  source         String?   // where the signup happened, e.g. "home"
+  consentAt      DateTime  @default(now())
+  unsubscribedAt DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@index([createdAt])
+}
+
+model BrickBreakerBestScore {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  score           Int
+  bricksDestroyed Int
+  level           Int
+  durationMs      Int
+  achievedAt      DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([score, bricksDestroyed, durationMs, achievedAt])
+}
+
+model BrickBreakerRun {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  startedAt       DateTime @default(now())
+  expiresAt       DateTime
+  completedAt     DateTime?
+  score           Int?
+  bricksDestroyed Int?
+  level           Int?
+  durationMs      Int?
+
+  @@index([userId, startedAt])
+  @@index([expiresAt])
 }

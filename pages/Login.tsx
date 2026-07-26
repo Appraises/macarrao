@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { Gamepad2, Twitch, Mail, User as UserIcon, Lock, ArrowRight, AlertCircle } from 'lucide-react';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
+import { Mail, User as UserIcon, Lock, ArrowRight, AlertCircle, RefreshCw, Gamepad2 } from 'lucide-react';
 import { Button } from '../components/UI';
-import { User } from '../types';
-import { login, registerUser } from '../src/services/api';
+import { login, registerUser, resendVerificationEmail } from '../src/services/api';
+import { trackAnalyticsEvent } from '../src/lib/analytics';
 
 import { useAuth } from '../src/context/AuthContext';
 
 export const Login: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { login: authLogin } = useAuth();
   const [isRegistering, setIsRegistering] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -20,6 +21,10 @@ export const Login: React.FC = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
+  const [registrationEmailSent, setRegistrationEmailSent] = useState(true);
+  const [resending, setResending] = useState(false);
+  const [resendMessage, setResendMessage] = useState('');
+  const [acceptedLegal, setAcceptedLegal] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,7 +37,9 @@ export const Login: React.FC = () => {
         if (password !== confirmPassword) {
           throw { response: { data: { error: 'As senhas não coincidem.' } } };
         }
-        response = await registerUser({ name, email, password });
+        response = await registerUser({ name, email, password, acceptTerms: acceptedLegal });
+        trackAnalyticsEvent('Account Created', { method: 'email' });
+        setRegistrationEmailSent(response.emailSent !== false);
         setRegistrationSuccess(true);
         setLoading(false);
         return; // Stop here to show success message
@@ -44,7 +51,12 @@ export const Login: React.FC = () => {
         localStorage.setItem('token', response.token);
         localStorage.setItem('user', JSON.stringify(response.user));
         authLogin(response.user);
-        navigate('/');
+        trackAnalyticsEvent('Login Completed', { method: 'email' });
+        const requestedReturn = searchParams.get('returnTo');
+        const returnTo = requestedReturn?.startsWith('/') && !requestedReturn.startsWith('//')
+          ? requestedReturn
+          : '/';
+        navigate(returnTo);
       }
     } catch (err: any) {
       console.error(err);
@@ -54,20 +66,18 @@ export const Login: React.FC = () => {
     }
   };
 
-  const handleMockLogin = () => {
-    // Simulating a login response
-    const mockUser: User = {
-      id: 'u1',
-      name: 'PlayerOne',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix',
-      level: 12,
-      role: 'USER',
-      email: 'mock@example.com',
-      createdAt: new Date().toISOString(),
-      badges: ['Beta Tester', 'Contributor']
-    };
-    authLogin(mockUser);
-    navigate('/contribuir'); // Redirect back to contribute or home
+  const handleResendVerification = async () => {
+    setResending(true);
+    setResendMessage('');
+    try {
+      const response = await resendVerificationEmail(email);
+      setRegistrationEmailSent(true);
+      setResendMessage(response.message);
+    } catch (err: any) {
+      setResendMessage(err.response?.data?.error || 'Nao foi possivel reenviar agora.');
+    } finally {
+      setResending(false);
+    }
   };
 
   if (registrationSuccess) {
@@ -79,12 +89,19 @@ export const Login: React.FC = () => {
           </div>
           <h2 className="text-2xl font-bold text-white mb-4">Verifique seu Email</h2>
           <p className="text-gray-400 mb-6">
-            Enviamos um link de confirmação para <strong>{email}</strong>.
-            Por favor, verifique sua caixa de entrada (e spam) para ativar sua conta.
+            {registrationEmailSent
+              ? <>Enviamos um link de confirmacao para <strong>{email}</strong>. Verifique sua caixa de entrada e o spam.</>
+              : <>Sua conta foi criada, mas o email nao pode ser enviado agora. Use o botao abaixo para tentar novamente.</>}
           </p>
-          <Button onClick={() => { setIsRegistering(false); setRegistrationSuccess(false); }}>
-            Voltar para Login
-          </Button>
+          {resendMessage && <p className="text-sm text-brand-300 mb-4">{resendMessage}</p>}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Button variant="outline" disabled={resending} onClick={handleResendVerification}>
+              <RefreshCw className="w-4 h-4" /> Reenviar
+            </Button>
+            <Button onClick={() => { setIsRegistering(false); setRegistrationSuccess(false); }}>
+              Voltar ao login
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -184,6 +201,22 @@ export const Login: React.FC = () => {
             </div>
           )}
 
+          {isRegistering && (
+            <label className="flex items-start gap-3 p-3 bg-dark-950/60 border border-dark-700 rounded-lg cursor-pointer">
+              <input
+                type="checkbox"
+                required
+                checked={acceptedLegal}
+                onChange={(event) => setAcceptedLegal(event.target.checked)}
+                className="mt-0.5 w-4 h-4 accent-sky-500 flex-shrink-0"
+              />
+              <span className="text-xs text-gray-400 leading-relaxed">
+                Li e aceito os <Link to="/termos" target="_blank" className="text-brand-400 hover:text-brand-300">Termos de Uso</Link>{' '}
+                e confirmo que li a <Link to="/privacidade" target="_blank" className="text-brand-400 hover:text-brand-300">Política de Privacidade</Link>.
+              </span>
+            </label>
+          )}
+
           {!isRegistering && (
             <div className="flex justify-end">
               <Link to="/forgot-password" className="text-xs font-bold text-brand-400 hover:text-brand-300 transition-colors">
@@ -195,7 +228,7 @@ export const Login: React.FC = () => {
           <Button
             type="submit"
             className="w-full h-12 text-base mt-2"
-            disabled={loading}
+            disabled={loading || (isRegistering && !acceptedLegal)}
           >
             {loading ? 'Processando...' : (isRegistering ? 'Criar Conta' : 'Entrar')}
             {!loading && <ArrowRight className="w-4 h-4 ml-2" />}
@@ -214,32 +247,6 @@ export const Login: React.FC = () => {
           </p>
         </div>
 
-        <div className="relative py-6">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-dark-700"></div>
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-dark-900 px-2 text-gray-500">Ou entre com</span>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <button
-            onClick={handleMockLogin}
-            className="py-2.5 px-4 bg-[#5865F2]/10 border border-[#5865F2]/20 hover:bg-[#5865F2]/20 text-[#5865F2] rounded-lg font-bold transition-all flex items-center justify-center gap-2 text-sm"
-          >
-            <Gamepad2 className="w-4 h-4" />
-            Discord
-          </button>
-
-          <button
-            onClick={handleMockLogin}
-            className="py-2.5 px-4 bg-[#9146FF]/10 border border-[#9146FF]/20 hover:bg-[#9146FF]/20 text-[#9146FF] rounded-lg font-bold transition-all flex items-center justify-center gap-2 text-sm"
-          >
-            <Twitch className="w-4 h-4" />
-            Twitch
-          </button>
-        </div>
       </div>
     </div>
   );

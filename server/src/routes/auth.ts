@@ -1,190 +1,296 @@
 import { Router } from 'express';
+import * as Sentry from '@sentry/node';
 import crypto from 'crypto';
-import { prisma } from '../lib/prisma';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { JWT_SECRET } from '../utils/config';
+import rateLimit from 'express-rate-limit';
+import { prisma } from '../lib/prisma';
+import { JWT_SECRET, PRIVACY_VERSION, TERMS_VERSION } from '../utils/config';
 import { validateEmail, validatePassword, validateName } from '../utils/validation';
+import { sendPasswordResetEmail, sendVerificationEmail } from '../services/email';
+import { recordUserActivity } from '../services/analytics/activity';
 
 const router = Router();
 
-// Login
-router.post('/login', async (req, res) => {
-    const { email, password } = req.body;
+const emailActionLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 5,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    message: { error: 'Muitas tentativas. Aguarde alguns minutos e tente novamente.' }
+});
 
-    if (!email || !password) {
-        return res.status(400).json({ error: 'Email e senha são obrigatórios.' });
-    }
+/**
+ * Credential endpoints get their own budget. The global limiter is 100 requests per
+ * 15 minutes across the whole API, which a normal page load spends on legitimate
+ * traffic while still leaving an attacker plenty of password guesses. Counting only
+ * failures means someone signing in normally never hits this.
+ */
+/** Never log the address itself — enough to correlate attempts, not to build a list. */
+const maskEmail = (email: unknown): string => {
+    if (typeof email !== 'string' || !email.includes('@')) return '(invalido)';
+    const [local, domain] = email.split('@');
+    return `${local.slice(0, 2)}***@${domain}`;
+};
 
-    if (!validateEmail(email)) {
-        return res.status(400).json({ error: 'Formato de email inválido.' });
-    }
-
-    try {
-        const user = await prisma.user.findUnique({ where: { email } });
-        if (!user) {
-            return res.status(401).json({ error: 'Invalid credentials' });
-        }
-
-        const isValid = await bcrypt.compare(password, user.password);
-        if (!isValid) {
-            return res.status(401).json({ error: 'Invalid credentials' });
-        }
-
-        const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, { expiresIn: '1d' });
-
-        // Return user info without password
-        const { password: _, ...userInfo } = user;
-        res.json({ token, user: userInfo });
-    } catch (error) {
-        res.status(500).json({ error: 'Login failed' });
+const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 10,
+    skipSuccessfulRequests: true,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    // Hitting this limit is the moment an attack becomes visible, so it raises a real
+    // signal instead of quietly returning 429 into the void.
+    handler: (req, res) => {
+        console.warn(`[auth] limite de login atingido ip=${req.ip} email=${maskEmail(req.body?.email)}`);
+        Sentry.captureMessage('Limite de tentativas de login atingido', {
+            level: 'warning',
+            tags: { area: 'auth' },
+            extra: { ip: req.ip, email: maskEmail(req.body?.email) }
+        });
+        res.status(429).json({ error: 'Muitas tentativas de login. Aguarde alguns minutos e tente novamente.' });
     }
 });
 
-// Register
-router.post('/register', async (req, res) => {
-    const { name, email, password } = req.body;
+const registerLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    limit: 5,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    message: { error: 'Muitas contas criadas a partir deste endereco. Tente novamente mais tarde.' }
+});
 
-    // Input validation
-    const nameCheck = validateName(name);
-    if (!nameCheck.valid) {
-        return res.status(400).json({ error: nameCheck.message });
+/**
+ * A dummy hash to compare against when the email has no account. Without it the
+ * request returns before bcrypt ever runs, and the ~100ms difference tells an
+ * attacker which emails are registered even though both answers say the same thing.
+ */
+const TIMING_EQUALIZER_HASH = bcrypt.hashSync('timing-equalizer-not-a-real-password', 10);
+
+const hashToken = (token: string): string => crypto.createHash('sha256').update(token).digest('hex');
+const newToken = (lifetimeMs: number) => {
+    const token = crypto.randomBytes(32).toString('hex');
+    return {
+        token,
+        hash: hashToken(token),
+        expiresAt: new Date(Date.now() + lifetimeMs)
+    };
+};
+
+const normalizeEmail = (email: string): string => email.trim().toLowerCase();
+const publicUser = <T extends Record<string, any>>(user: T) => {
+    const {
+        password: _password,
+        verificationToken: _verificationToken,
+        verificationTokenExpires: _verificationTokenExpires,
+        resetPasswordToken: _resetPasswordToken,
+        resetPasswordExpires: _resetPasswordExpires,
+        sessionVersion: _sessionVersion,
+        ...safeUser
+    } = user;
+    return safeUser;
+};
+
+router.post('/login', loginLimiter, async (req, res) => {
+    const { email, password } = req.body;
+    if (!email || !password) {
+        return res.status(400).json({ error: 'Email e senha sao obrigatorios.' });
+    }
+    if (typeof email !== 'string' || !validateEmail(email)) {
+        return res.status(400).json({ error: 'Formato de email invalido.' });
     }
 
-    if (!email || !validateEmail(email)) {
-        return res.status(400).json({ error: 'Formato de email inválido.' });
+    try {
+        const user = await prisma.user.findUnique({ where: { email: normalizeEmail(email) } });
+        // Always spend the bcrypt time, even with no account, so the response takes the
+        // same shape whether or not the email exists.
+        const passwordMatches = await bcrypt.compare(password, user?.password ?? TIMING_EQUALIZER_HASH);
+        // An account erased under LGPD must not authenticate at all. The token middleware
+        // already refuses these, so a login here handed back a working-looking session
+        // plus the account record, and only the next request revealed it was dead.
+        if (!user || !passwordMatches || user.anonymizedAt) {
+            // Without this line a credential-stuffing run leaves no trace at all: only
+            // successful logins were ever recorded, so nobody could see 500 failures.
+            console.warn(`[auth] login falhou ip=${req.ip} email=${maskEmail(email)}`);
+            return res.status(401).json({ error: 'Credenciais invalidas.' });
+        }
+
+        const token = jwt.sign({ userId: user.id, role: user.role, sessionVersion: user.sessionVersion }, JWT_SECRET, { expiresIn: '1d' });
+        await recordUserActivity(user.id, 'LOGIN');
+        res.json({ token, user: publicUser(user) });
+    } catch {
+        res.status(500).json({ error: 'Falha ao fazer login.' });
+    }
+});
+
+router.post('/register', registerLimiter, async (req, res) => {
+    const { name, email, password, acceptTerms } = req.body;
+    const nameCheck = validateName(name);
+    if (!nameCheck.valid) return res.status(400).json({ error: nameCheck.message });
+    if (typeof email !== 'string' || !validateEmail(email)) {
+        return res.status(400).json({ error: 'Formato de email invalido.' });
     }
 
     const passwordCheck = validatePassword(password);
-    if (!passwordCheck.valid) {
-        return res.status(400).json({ error: passwordCheck.message });
+    if (!passwordCheck.valid) return res.status(400).json({ error: passwordCheck.message });
+    if (acceptTerms !== true) {
+        return res.status(400).json({ error: 'Voce precisa aceitar os Termos de Uso e confirmar a leitura da Politica de Privacidade.' });
     }
 
     try {
-        const hashedPassword = await bcrypt.hash(password, 10);
-        const verificationToken = crypto.randomBytes(32).toString('hex');
-
+        const verification = newToken(24 * 60 * 60 * 1000);
+        const acceptedAt = new Date();
         const user = await prisma.user.create({
             data: {
                 name: name.trim(),
-                email,
-                password: hashedPassword,
-                avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(name.trim())}&background=random`,
-                verificationToken
+                email: normalizeEmail(email),
+                password: await bcrypt.hash(password, 10),
+                // No avatar: the UI draws a gradient identicon from the name locally.
+                // The old default embedded the person's real name in a third-party URL,
+                // so every render would have announced them to ui-avatars.com.
+                avatar: null,
+                verificationToken: verification.hash,
+                verificationTokenExpires: verification.expiresAt,
+                termsAcceptedAt: acceptedAt,
+                termsVersion: TERMS_VERSION,
+                privacyAcknowledgedAt: acceptedAt,
+                privacyVersion: PRIVACY_VERSION
             }
         });
 
-        console.log(`\n\n[EMAIL SIMULATION] Verify your email here: http://localhost:5173/verify-email?token=${verificationToken}\n\n`);
-
-        const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, { expiresIn: '1d' });
-        const { password: _, ...userInfo } = user;
-        res.json({ token, user: userInfo });
-    } catch (error) {
-        res.status(400).json({ error: 'Registration failed (Email might be taken)' });
+        const emailSent = await sendVerificationEmail(user.email, user.name, verification.token);
+        const token = jwt.sign({ userId: user.id, role: user.role, sessionVersion: user.sessionVersion }, JWT_SECRET, { expiresIn: '1d' });
+        res.status(201).json({ token, user: publicUser(user), emailSent });
+    } catch (error: any) {
+        if (error?.code === 'P2002') {
+            return res.status(409).json({ error: 'Este email ja esta cadastrado.' });
+        }
+        console.error('[auth] Registration failed:', error?.message || error);
+        res.status(500).json({ error: 'Falha ao criar a conta.' });
     }
 });
 
-// Verify Email
+router.post('/resend-verification', emailActionLimiter, async (req, res) => {
+    const { email } = req.body;
+    if (typeof email !== 'string' || !validateEmail(email)) {
+        return res.status(400).json({ error: 'Formato de email invalido.' });
+    }
+
+    const genericResponse = { message: 'Se a conta existir e ainda nao estiver verificada, enviaremos um novo link.' };
+    try {
+        const user = await prisma.user.findUnique({ where: { email: normalizeEmail(email) } });
+        if (!user || user.emailVerified) return res.json(genericResponse);
+
+        const verification = newToken(24 * 60 * 60 * 1000);
+        await prisma.user.update({
+            where: { id: user.id },
+            data: {
+                verificationToken: verification.hash,
+                verificationTokenExpires: verification.expiresAt
+            }
+        });
+        // Mesmo raciocinio do reset: resposta generica para nao permitir enumerar contas.
+        const delivered = await sendVerificationEmail(user.email, user.name, verification.token);
+        if (!delivered) console.error('[auth] Reenvio de verificacao: email nao entregue.');
+        res.json(genericResponse);
+    } catch (error) {
+        console.error('[auth] Verification resend failed:', error);
+        res.status(500).json({ error: 'Nao foi possivel processar a solicitacao.' });
+    }
+});
+
 router.post('/verify-email', async (req, res) => {
     const { token } = req.body;
-
     if (!token || typeof token !== 'string') {
-        return res.status(400).json({ error: 'Token é obrigatório.' });
-    }
-
-    try {
-        const user = await prisma.user.findFirst({ where: { verificationToken: token } });
-        if (!user) return res.status(400).json({ error: 'Invalid token' });
-
-        await prisma.user.update({
-            where: { id: user.id },
-            data: {
-                emailVerified: true,
-                verificationToken: null
-            }
-        });
-
-        res.json({ message: 'Email verified successfully' });
-    } catch (error) {
-        res.status(500).json({ error: 'Verification failed' });
-    }
-});
-
-// Forgot Password
-router.post('/forgot-password', async (req, res) => {
-    const { email } = req.body;
-
-    if (!email || !validateEmail(email)) {
-        return res.status(400).json({ error: 'Formato de email inválido.' });
-    }
-
-    try {
-        const user = await prisma.user.findUnique({ where: { email } });
-        if (!user) {
-            // Security: Don't reveal if user exists
-            return res.json({ message: 'If an account exists, a reset link has been sent.' });
-        }
-
-        // Generate cryptographically secure token (valid for 1 hour)
-        const resetToken = crypto.randomBytes(32).toString('hex');
-        const expires = new Date(Date.now() + 3600000); // 1 hour
-
-        await prisma.user.update({
-            where: { id: user.id },
-            data: {
-                resetPasswordToken: resetToken,
-                resetPasswordExpires: expires
-            }
-        });
-
-        // SIMULATION: Log to console
-        console.log(`\n\n[EMAIL SIMULATION] Reset Password Link: http://localhost:5173/reset-password?token=${resetToken}\n\n`);
-
-        res.json({ message: 'If an account exists, a reset link has been sent.' });
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to process request' });
-    }
-});
-
-// Reset Password
-router.post('/reset-password', async (req, res) => {
-    const { token, newPassword } = req.body;
-
-    if (!token || typeof token !== 'string') {
-        return res.status(400).json({ error: 'Token é obrigatório.' });
-    }
-
-    const passwordCheck = validatePassword(newPassword);
-    if (!passwordCheck.valid) {
-        return res.status(400).json({ error: passwordCheck.message });
+        return res.status(400).json({ error: 'Token e obrigatorio.' });
     }
 
     try {
         const user = await prisma.user.findFirst({
             where: {
-                resetPasswordToken: token,
-                resetPasswordExpires: { gt: new Date() }
+                verificationToken: { in: [hashToken(token), token] },
+                OR: [
+                    { verificationTokenExpires: null },
+                    { verificationTokenExpires: { gt: new Date() } }
+                ]
             }
         });
-
-        if (!user) {
-            return res.status(400).json({ error: 'Invalid or expired token' });
-        }
-
-        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        if (!user) return res.status(400).json({ error: 'Link invalido ou expirado.' });
 
         await prisma.user.update({
             where: { id: user.id },
             data: {
-                password: hashedPassword,
-                resetPasswordToken: null,
-                resetPasswordExpires: null
+                emailVerified: true,
+                verificationToken: null,
+                verificationTokenExpires: null
             }
         });
+        res.json({ message: 'Email confirmado com sucesso.' });
+    } catch {
+        res.status(500).json({ error: 'Falha ao confirmar o email.' });
+    }
+});
 
-        res.json({ message: 'Password reset successfully' });
+router.post('/forgot-password', emailActionLimiter, async (req, res) => {
+    const { email } = req.body;
+    if (typeof email !== 'string' || !validateEmail(email)) {
+        return res.status(400).json({ error: 'Formato de email invalido.' });
+    }
+
+    const genericResponse = { message: 'Se a conta existir, enviaremos um link de redefinicao.' };
+    try {
+        const user = await prisma.user.findUnique({ where: { email: normalizeEmail(email) } });
+        if (!user) return res.json(genericResponse);
+
+        const reset = newToken(60 * 60 * 1000);
+        await prisma.user.update({
+            where: { id: user.id },
+            data: {
+                resetPasswordToken: reset.hash,
+                resetPasswordExpires: reset.expiresAt
+            }
+        });
+        // A resposta continua generica de proposito: dizer ao cliente que o envio falhou
+        // revelaria que a conta existe. A falha vira sinal no servidor (log + Sentry).
+        const delivered = await sendPasswordResetEmail(user.email, user.name, reset.token);
+        if (!delivered) console.error('[auth] Reset de senha: token gerado, mas o email nao foi entregue.');
+        res.json(genericResponse);
     } catch (error) {
-        res.status(500).json({ error: 'Failed to reset password' });
+        console.error('[auth] Password reset email failed:', error);
+        res.status(500).json({ error: 'Nao foi possivel processar a solicitacao.' });
+    }
+});
+
+router.post('/reset-password', emailActionLimiter, async (req, res) => {
+    const { token, newPassword } = req.body;
+    if (!token || typeof token !== 'string') {
+        return res.status(400).json({ error: 'Token e obrigatorio.' });
+    }
+
+    const passwordCheck = validatePassword(newPassword);
+    if (!passwordCheck.valid) return res.status(400).json({ error: passwordCheck.message });
+
+    try {
+        const user = await prisma.user.findFirst({
+            where: {
+                resetPasswordToken: { in: [hashToken(token), token] },
+                resetPasswordExpires: { gt: new Date() }
+            }
+        });
+        if (!user) return res.status(400).json({ error: 'Link invalido ou expirado.' });
+
+        await prisma.user.update({
+            where: { id: user.id },
+            data: {
+                password: await bcrypt.hash(newPassword, 10),
+                resetPasswordToken: null,
+                resetPasswordExpires: null,
+                sessionVersion: { increment: 1 }
+            }
+        });
+        res.json({ message: 'Senha redefinida com sucesso.' });
+    } catch {
+        res.status(500).json({ error: 'Falha ao redefinir a senha.' });
     }
 });
 

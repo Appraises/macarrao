@@ -1,14 +1,13 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Trophy } from 'lucide-react';
 import { TournamentDetail as TournamentDetailType } from '../../types';
+import { BracketView } from './BracketView';
 
 interface OverviewTabProps {
     tournament: TournamentDetailType;
 }
 
 export const OverviewTab: React.FC<OverviewTabProps> = ({ tournament }) => {
-    const getMatch = (matchId: string) => tournament?.bracket?.find(m => m.id === matchId);
-
     return (
         <div className="space-y-6">
             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
@@ -104,11 +103,10 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ tournament }) => {
                 {tournament.bracket && tournament.bracket.length > 0 && (
                     <div>
                         <div className="flex items-center gap-2 mb-4 text-xs font-bold text-brand-500 uppercase tracking-widest">
+                            <span className="w-1 h-4 bg-brand-500 inline-block rounded-sm"></span>
                             <span className="text-gray-500">Playoffs:</span> Bracket
                         </div>
-                        <div className="bg-dark-900 border border-dark-800 p-8 rounded-lg overflow-x-auto">
-                            <p className="text-gray-500 text-sm">Bracket view coming soon.</p>
-                        </div>
+                        <BracketView bracket={tournament.bracket} />
                     </div>
                 )}
             </div>

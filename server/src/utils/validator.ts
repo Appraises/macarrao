@@ -118,15 +118,15 @@ export const validateTermContent = (word: string, definition: string): { isValid
     const containsBlockedWord = (text: string) => {
         const lower = text.toLowerCase();
         const normalized = normalizeText(lower);
+        const matchesWholeTerm = (value: string, blocked: string) => {
+            const escaped = blocked.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            return new RegExp(`(^|[^\\p{L}\\p{N}])${escaped}(?=$|[^\\p{L}\\p{N}])`, 'iu').test(value);
+        };
 
-        // Check both original and normalized versions
         return blockedWords.some(bad => {
-            // Use word boundary for short words
-            if (bad.length <= 3) {
-                const regex = new RegExp(`\\b${bad}\\b`, 'i');
-                return regex.test(lower) || regex.test(normalized);
-            }
-            return lower.includes(bad) || normalized.includes(bad);
+            const blocked = bad.toLowerCase();
+            return matchesWholeTerm(lower, blocked)
+                || matchesWholeTerm(normalized, normalizeText(blocked));
         });
     };
 

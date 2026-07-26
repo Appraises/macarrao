@@ -97,7 +97,7 @@ var TERMS = [
         upvotes: 1250,
         downvotes: 12,
         tags: 'Estratégia,MOBA,General',
-        verified: true
+        status: 'APPROVED'
     },
     {
         word: 'Nerf',
@@ -109,7 +109,7 @@ var TERMS = [
         upvotes: 890,
         downvotes: 5,
         tags: 'Balanceamento,Geral,General',
-        verified: true
+        status: 'APPROVED'
     },
     {
         word: 'Spike',
@@ -121,7 +121,7 @@ var TERMS = [
         upvotes: 1100,
         downvotes: 25,
         tags: 'Objetivo,FPS',
-        verified: true
+        status: 'APPROVED'
     },
     {
         word: 'Eco Round',
@@ -133,7 +133,7 @@ var TERMS = [
         upvotes: 1500,
         downvotes: 5,
         tags: 'Economia,FPS',
-        verified: true
+        status: 'APPROVED'
     }
 ];
 var NEWS = [
@@ -151,13 +151,14 @@ function main() {
                     password = _c.sent();
                     return [4 /*yield*/, prisma.user.upsert({
                             where: { email: 'admin@dicionariogamer.com' },
-                            update: {},
+                            update: { emailVerified: true },
                             create: {
                                 name: 'Admin',
                                 email: 'admin@dicionariogamer.com',
                                 password: password,
                                 role: 'ADMIN',
                                 level: 99,
+                                emailVerified: true,
                                 avatar: 'https://github.com/shadcn.png'
                             },
                         })];

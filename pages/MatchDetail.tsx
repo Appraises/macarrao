@@ -12,14 +12,18 @@ export const MatchDetail: React.FC = () => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const fetchMatch = async () => {
+        const fetchMatch = async (showLoading = false) => {
             if (!id) return;
-            setLoading(true);
-            const data = await esportsService.getMatchDetails(id);
-            setMatch(data);
-            setLoading(false);
+            if (showLoading) setLoading(true);
+            try {
+                setMatch(await esportsService.getMatchDetails(id));
+            } finally {
+                if (showLoading) setLoading(false);
+            }
         };
-        fetchMatch();
+        void fetchMatch(true);
+        const timer = window.setInterval(() => void fetchMatch(), 20_000);
+        return () => window.clearInterval(timer);
     }, [id]);
 
     if (loading) {
@@ -42,8 +46,24 @@ export const MatchDetail: React.FC = () => {
         );
     }
 
-    const isLive = match.isLive;
-    const streamUrl = match.stream?.replace('twitch.tv/', 'player.twitch.tv/?channel=') + '&parent=' + window.location.hostname;
+    const isLive = match.status === 'LIVE';
+    const hasScore = isLive || match.status === 'FINISHED';
+    const embedUrl = (() => {
+        if (!match.streamUrl) return null;
+        try {
+            const parsed = new URL(match.streamUrl);
+            if (parsed.hostname.includes('twitch.tv')) {
+                const channel = parsed.pathname.split('/').filter(Boolean)[0];
+                return channel ? `https://player.twitch.tv/?channel=${encodeURIComponent(channel)}&parent=${window.location.hostname || 'localhost'}` : null;
+            }
+            if (parsed.hostname.includes('youtube.com')) {
+                const video = parsed.searchParams.get('v');
+                return video ? `https://www.youtube.com/embed/${encodeURIComponent(video)}` : null;
+            }
+            if (parsed.hostname === 'youtu.be') return `https://www.youtube.com/embed/${encodeURIComponent(parsed.pathname.slice(1))}`;
+        } catch { return null; }
+        return null;
+    })();
 
     return (
         <div className="min-h-screen bg-dark-950 text-gray-100 font-sans pb-20">
@@ -76,15 +96,15 @@ export const MatchDetail: React.FC = () => {
 
                         {/* Score / VS */}
                         <div className="flex flex-col items-center justify-center min-w-[200px]">
-                            {isLive ? (
+                            {hasScore ? (
                                 <div className="flex flex-col items-center gap-2">
-                                    <Badge color="brand" className="animate-pulse">AO VIVO</Badge>
+                                    <Badge color="brand" className={isLive ? 'animate-pulse' : ''}>{isLive ? 'AO VIVO' : 'ENCERRADA'}</Badge>
                                     <div className="text-5xl md:text-7xl font-mono font-black text-white flex items-center gap-4 drop-shadow-[0_0_20px_rgba(59,130,246,0.5)]">
                                         <span className="text-brand-500">{match.scoreA}</span>
                                         <span className="text-gray-700 text-3xl">:</span>
                                         <span className="text-brand-500">{match.scoreB}</span>
                                     </div>
-                                    <span className="text-green-400 font-bold text-sm uppercase tracking-widest animate-pulse">Em Andamento</span>
+                                    <span className={`font-bold text-sm uppercase tracking-widest ${isLive ? 'text-green-400 animate-pulse' : 'text-gray-500'}`}>{isLive ? 'Em andamento' : 'Resultado final'}</span>
                                 </div>
                             ) : (
                                 <div className="flex flex-col items-center gap-2">
@@ -131,9 +151,9 @@ export const MatchDetail: React.FC = () => {
                             </span>}
                         </div>
                         <div className="aspect-video bg-black flex items-center justify-center relative">
-                            {match.stream ? (
+                            {embedUrl ? (
                                 <iframe
-                                    src={`${match.stream.replace('twitch.tv/', 'player.twitch.tv/?channel=')}&parent=${window.location.hostname || 'localhost'}`}
+                                    src={embedUrl}
                                     height="100%"
                                     width="100%"
                                     allowFullScreen
@@ -185,7 +205,7 @@ export const MatchDetail: React.FC = () => {
                             </div>
                         </div>
 
-                        <Button className="w-full mt-6" variant="outline">
+                        <Button className="w-full mt-6" variant="outline" disabled={!match.tournamentId} onClick={() => match.tournamentSlug || match.tournamentId ? navigate(`/esports/tournament/${match.tournamentSlug || match.tournamentId}`) : undefined}>
                             Ver Chaveamento Completo
                         </Button>
                     </div>

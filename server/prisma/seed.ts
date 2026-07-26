@@ -1,7 +1,9 @@
-import { PrismaClient } from '@prisma/client';
+import { NewsStatus, PrismaClient, TermStatus } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 
 const prisma = new PrismaClient();
+const seedSlug = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
 // ==================== GAMES ====================
 const GAMES = [
@@ -251,34 +253,30 @@ const TERMS = [
         word: 'Gank', definition: 'Ato de emboscar um inimigo, geralmente aparecendo de surpresa em sua rota para criar vantagem numérica.',
         phonetic: '/ɡæŋk/', pronunciationGuide: 'Guen-k',
         examples: ['O jungler veio dar um gank no top.', 'Cuidado com o gank, o mid sumiu.'],
-        gameSlug: 'lol', upvotes: 1250, downvotes: 12, tags: ['Estratégia', 'MOBA', 'General'], verified: true
+        gameSlug: 'lol', upvotes: 1250, downvotes: 12, tags: ['Estratégia', 'MOBA', 'General']
     },
     {
         word: 'Nerf', definition: 'Enfraquecimento de um personagem, item ou habilidade pelos desenvolvedores para balancear o jogo.',
         phonetic: '/nɜːrf/', pronunciationGuide: 'Nêrf',
         examples: ['A Jett tomou um nerf pesado no último patch.', 'Precisam nerfar essa arma, está muito forte.'],
-        gameSlug: null, upvotes: 890, downvotes: 5, tags: ['Balanceamento', 'Geral', 'General'], verified: true
+        gameSlug: null, upvotes: 890, downvotes: 5, tags: ['Balanceamento', 'Geral', 'General']
     },
     {
         word: 'Spike', definition: 'O dispositivo explosivo que os atacantes devem plantar em um dos sites (A, B ou C). Equivalente à bomba (C4) do CS.',
         phonetic: '/spaɪk/', pronunciationGuide: 'Spai-que',
         examples: ['A Spike está caída no meio.', 'Planta a Spike logo!'],
-        gameSlug: 'valorant', upvotes: 1100, downvotes: 25, tags: ['Objetivo', 'FPS'], verified: true
+        gameSlug: 'valorant', upvotes: 1100, downvotes: 25, tags: ['Objetivo', 'FPS']
     },
     {
         word: 'Eco Round', definition: 'Rodada em que o time compra pouco ou nenhum equipamento para economizar dinheiro para o próximo round.',
         phonetic: '/ˈiː.koʊ/', pronunciationGuide: 'É-co',
         examples: ['Estamos sem grana, vamos fazer um eco.', 'Eles ganharam o eco round apenas com pistolas.'],
-        gameSlug: 'cs2', upvotes: 1500, downvotes: 5, tags: ['Economia', 'FPS'], verified: true
+        gameSlug: 'cs2', upvotes: 1500, downvotes: 5, tags: ['Economia', 'FPS']
     }
 ];
 
 // ==================== NEWS (Full articles) ====================
-const NEWS = [
-    { headline: 'FalleN confirma aposentadoria após Major do Rio', category: 'CS2', image: 'https://images.unsplash.com/photo-1552820728-8b83bb6b773f?q=80&w=400&auto=format&fit=crop', author: 'Dust2' },
-    { headline: 'Arcane Season 2 quebra recordes de audiência na Twitch', category: 'LoL', image: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=400&auto=format&fit=crop', author: 'Riot' },
-    { headline: 'Novo agente do Valorant "Smoke" é revelado com habilidades de teleporte', category: 'Valorant', image: 'https://images.unsplash.com/photo-1624138784181-dc7f5b75e52e?q=80&w=400&auto=format&fit=crop', author: 'ValorantZone' },
-];
+const NEWS: Array<{ headline: string; category: string; image: string; author: string; content: string }> = [];
 
 const FULL_NEWS = [
     {
@@ -346,64 +344,6 @@ const FULL_NEWS = [
     },
 ];
 
-// ==================== ESPORTS ====================
-const ESPORTS_NEWS = [
-    { headline: 'FalleN confirma aposentadoria após Major do Rio', category: 'CS2', timeAgo: '2h', image: 'https://images.unsplash.com/photo-1552820728-8b83bb6b773f?q=80&w=400&auto=format&fit=crop', author: 'Dust2' },
-    { headline: 'Arcane Season 2 quebra recordes de audiência na Twitch', category: 'LoL', timeAgo: '4h', image: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=400&auto=format&fit=crop', author: 'Riot' },
-    { headline: 'Novo agente do Valorant "Smoke" é revelado com habilidades de teleporte', category: 'Valorant', timeAgo: '6h', image: 'https://images.unsplash.com/photo-1624138784181-dc7f5b75e52e?q=80&w=400&auto=format&fit=crop', author: 'ValorantZone' },
-    { headline: 'LOUD anuncia line-up inclusiva para o Game Changers', category: 'Geral', timeAgo: '1d', image: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?q=80&w=400&auto=format&fit=crop', author: 'Globo' },
-    { headline: 'Valve anuncia mudanças na economia do CS2 para o próximo patch', category: 'CS2', timeAgo: '1d', image: 'https://images.unsplash.com/photo-1600861194942-f883de0dfe96?q=80&w=400&auto=format&fit=crop', author: 'HLTV' },
-];
-
-const ESPORTS_MATCHES = [
-    { game: 'League of Legends', competition: 'CBLOL Split 2', teamAName: 'LOUD', teamACountry: 'br', teamBName: 'paiN', teamBCountry: 'br', time: 'Live', date: 'Hoje', isLive: true, scoreA: 2, scoreB: 1, oddsA: 1.45, oddsB: 2.55 },
-    { game: 'CS2', competition: 'IEM Cologne', teamAName: 'FURIA', teamACountry: 'br', teamBName: 'FaZe', teamBCountry: 'us', time: 'Live', date: 'Hoje', isLive: true, scoreA: 11, scoreB: 9, oddsA: 2.10, oddsB: 1.65 },
-    { game: 'Valorant', competition: 'VCT Americas', teamAName: 'Sentinels', teamACountry: 'us', teamBName: 'LOUD', teamBCountry: 'br', time: '18:00', date: 'Hoje' },
-    { game: 'Dota 2', competition: 'The International', teamAName: 'Spirit', teamACountry: 'ru', teamBName: 'Gaimin', teamBCountry: 'ca', time: '20:00', date: 'Hoje' },
-    { game: 'CS2', competition: 'IEM Cologne', teamAName: 'Vitality', teamACountry: 'fr', teamBName: 'G2', teamBCountry: 'eu', time: '09:00', date: 'Amanhã' },
-    { game: 'League of Legends', competition: 'LCK Summer', teamAName: 'T1', teamACountry: 'kr', teamBName: 'DK', teamBCountry: 'kr', time: '05:00', date: 'Amanhã' },
-    { game: 'Valorant', competition: 'VCT EMEA', teamAName: 'Fnatic', teamACountry: 'gb', teamBName: 'NAVI', teamBCountry: 'ua', time: '13:00', date: 'Amanhã' },
-    { game: 'Rocket League', competition: 'RLCS Major', teamAName: 'Vitality', teamACountry: 'fr', teamBName: 'BDS', teamBCountry: 'ch', time: '15:30', date: 'Amanhã' },
-    { game: 'League of Legends', competition: 'LPL Summer', teamAName: 'JDG', teamACountry: 'cn', teamBName: 'BLG', teamBCountry: 'cn', time: '06:00', date: '15/08' },
-    { game: 'CS2', competition: 'ESL Pro League', teamAName: 'MIBR', teamACountry: 'br', teamBName: 'Big', teamBCountry: 'de', time: '14:00', date: '15/08' },
-];
-
-const TOURNAMENT_MATCHES = [
-    { game: 'League of Legends', competition: 'CBLOL Playoffs', teamAName: 'LOUD', teamACountry: 'br', teamBName: 'paiN', teamBCountry: 'br', time: 'Completed', date: '24 Ago', scoreA: 3, scoreB: 1 },
-    { game: 'League of Legends', competition: 'CBLOL Playoffs', teamAName: 'paiN', teamACountry: 'br', teamBName: 'Vivo Keyd', teamBCountry: 'br', time: 'Completed', date: '18 Ago', scoreA: 3, scoreB: 2 },
-    { game: 'League of Legends', competition: 'CBLOL Playoffs', teamAName: 'LOUD', teamACountry: 'br', teamBName: 'RED Canids', teamBCountry: 'br', time: 'Completed', date: '17 Ago', scoreA: 3, scoreB: 0 },
-    { game: 'League of Legends', competition: 'CBLOL Playoffs', teamAName: 'Vivo Keyd', teamACountry: 'br', teamBName: 'Fluxo', teamBCountry: 'br', time: 'Completed', date: '10 Ago', scoreA: 3, scoreB: 2 },
-    { game: 'League of Legends', competition: 'CBLOL Playoffs', teamAName: 'RED Canids', teamACountry: 'br', teamBName: 'FURIA', teamBCountry: 'br', time: 'Completed', date: '09 Ago', scoreA: 3, scoreB: 1 },
-];
-
-const GLOBAL_RANKINGS = [
-    { rank: 1, teamName: 'Gen.G', teamCountry: 'kr', points: 1540, trend: 'stable', game: 'LoL' },
-    { rank: 2, teamName: 'BLG', teamCountry: 'cn', points: 1480, trend: 'up', game: 'LoL' },
-    { rank: 3, teamName: 'T1', teamCountry: 'kr', points: 1420, trend: 'down', game: 'LoL' },
-    { rank: 1, teamName: 'Team Spirit', teamCountry: 'ru', points: 1800, trend: 'stable', game: 'CS2' },
-    { rank: 2, teamName: 'FaZe Clan', teamCountry: 'us', points: 1750, trend: 'up', game: 'CS2' },
-    { rank: 3, teamName: 'MOUZ', teamCountry: 'de', points: 1600, trend: 'down', game: 'CS2' },
-    { rank: 1, teamName: 'Fnatic', teamCountry: 'eu', points: 2100, trend: 'up', game: 'Valorant' },
-    { rank: 2, teamName: 'Paper Rex', teamCountry: 'sg', points: 1950, trend: 'stable', game: 'Valorant' },
-];
-
-const PICKEM_LEADERBOARD = [
-    { rank: 1, username: 'xX_Slayer_Xx', points: 135, percentile: '0%' },
-    { rank: 2, username: 'ProGamer123', points: 130, percentile: '0.1%' },
-    { rank: 3, username: 'JettMain', points: 125, percentile: '0.2%' },
-    { rank: 4, username: 'NoobMaster69', points: 120, percentile: '0.1%' },
-    { rank: 5, username: 'FalleN_Fan', points: 115, percentile: '0.3%' },
-    { rank: 6, username: 'LOUD_Lover', points: 110, percentile: '0.3%' },
-];
-
-const PLAYER_STATS = [
-    { name: 'Aspas', team: 'Leviatán', country: 'br', role: 'Duelist', stats: { rating: 1.25, kda: '1.45', acs: 265, maps: 15 } },
-    { name: 'Less', team: 'LOUD', country: 'br', role: 'Sentinel', stats: { rating: 1.18, kda: '1.30', acs: 210, maps: 15 } },
-    { name: 'Saadhak', team: 'LOUD', country: 'ar', role: 'Initiator', stats: { rating: 1.05, kda: '1.10', acs: 195, maps: 15 } },
-    { name: 'Zekken', team: 'Sentinels', country: 'us', role: 'Duelist', stats: { rating: 1.22, kda: '1.35', acs: 255, maps: 12 } },
-    { name: 'Boaster', team: 'Fnatic', country: 'gb', role: 'Controller', stats: { rating: 0.95, kda: '0.90', acs: 180, maps: 10 } },
-];
-
 // ==================== MAIN SEED FUNCTION ====================
 async function main() {
     console.log('🌱 Starting seed...');
@@ -412,10 +352,31 @@ async function main() {
     const password = await bcrypt.hash('admin', 10);
     await prisma.user.upsert({
         where: { email: 'admin@dicionariogamer.com' },
-        update: {},
-        create: { name: 'Admin', email: 'admin@dicionariogamer.com', password, role: 'ADMIN', level: 99, avatar: 'https://github.com/shadcn.png' },
+        update: { emailVerified: true },
+        create: { name: 'Admin', email: 'admin@dicionariogamer.com', password, role: 'ADMIN', level: 99, emailVerified: true, avatar: 'https://github.com/shadcn.png' },
     });
     console.log('✅ Admin user created');
+
+    const appraisesPassword = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 12);
+    const appraises = await prisma.user.upsert({
+        where: { email: 'appraises@system.dicionariogamer.invalid' },
+        update: {
+            name: 'Appraises',
+            description: 'Jogos também são palavras. Às vezes, portas.',
+            emailVerified: true,
+            preferences: { emailNotifications: false }
+        },
+        create: {
+            name: 'Appraises',
+            email: 'appraises@system.dicionariogamer.invalid',
+            password: appraisesPassword,
+            role: 'USER',
+            emailVerified: true,
+            description: 'Jogos também são palavras. Às vezes, portas.',
+            preferences: { emailNotifications: false }
+        }
+    });
+    console.log('✅ Appraises editorial profile created');
 
     // 2. Games
     const gameMap: Record<string, string> = {}; // slug -> id
@@ -458,6 +419,11 @@ async function main() {
     // 4. Terms
     for (const term of TERMS) {
         const gameId = term.gameSlug ? gameMap[term.gameSlug] : null;
+        const existing = await prisma.term.findFirst({
+            where: { word: { equals: term.word, mode: 'insensitive' } },
+            select: { id: true }
+        });
+        if (existing) continue;
         await prisma.term.create({
             data: {
                 word: term.word,
@@ -469,99 +435,93 @@ async function main() {
                 upvotes: term.upvotes,
                 downvotes: term.downvotes,
                 tags: term.tags,
-                verified: term.verified,
+                status: TermStatus.APPROVED,
             },
         });
     }
     console.log(`✅ ${TERMS.length} terms seeded`);
 
+    const jogoDefinition = 'Experiência interativa organizada por regras, objetivos e escolhas, criada para desafiar, divertir, competir, cooperar ou explorar possibilidades.';
+    const jogoExamples = ['Alguns jogos só começam quando a sequência certa é descoberta.'];
+    const existingJogo = await prisma.term.findFirst({
+        where: { word: { equals: 'Jogo', mode: 'insensitive' } },
+        orderBy: { createdAt: 'asc' }
+    });
+    const jogo = existingJogo
+        ? await prisma.term.update({
+            where: { id: existingJogo.id },
+            data: {
+                word: 'Jogo',
+                definition: jogoDefinition,
+                phonetic: '/ˈʒo.gu/',
+                pronunciationGuide: 'JÔ-go',
+                examples: jogoExamples,
+                tags: ['Geral', 'Cultura Gamer', 'Conceito'],
+                gameId: null,
+                gameIds: [],
+                authorId: appraises.id,
+                status: TermStatus.APPROVED,
+                archivedAt: null,
+                moderatedAt: new Date()
+            }
+        })
+        : await prisma.term.create({
+            data: {
+                word: 'Jogo',
+                definition: jogoDefinition,
+                phonetic: '/ˈʒo.gu/',
+                pronunciationGuide: 'JÔ-go',
+                examples: jogoExamples,
+                tags: ['Geral', 'Cultura Gamer', 'Conceito'],
+                gameIds: [],
+                authorId: appraises.id,
+                status: TermStatus.APPROVED,
+                moderatedAt: new Date()
+            }
+        });
+    const existingJogoMeaning = await prisma.termMeaning.findFirst({
+        where: { termId: jogo.id },
+        orderBy: [{ order: 'asc' }, { createdAt: 'asc' }]
+    });
+    if (existingJogoMeaning) {
+        await prisma.termMeaning.update({
+            where: { id: existingJogoMeaning.id },
+            data: {
+                definition: jogoDefinition,
+                examples: jogoExamples,
+                context: 'Cultura gamer',
+                gameId: null,
+                authorId: appraises.id,
+                status: TermStatus.APPROVED,
+                order: 1
+            }
+        });
+    } else {
+        await prisma.termMeaning.create({
+            data: {
+                termId: jogo.id,
+                definition: jogoDefinition,
+                examples: jogoExamples,
+                context: 'Cultura gamer',
+                authorId: appraises.id,
+                status: TermStatus.APPROVED,
+                order: 1
+            }
+        });
+    }
+    console.log('✅ Jogo easter-egg term seeded');
+
     // 5. News (short + full articles)
     for (const news of NEWS) {
-        await prisma.news.create({ data: news });
+        const slug = seedSlug(news.headline);
+        await prisma.news.upsert({ where: { slug }, update: {}, create: { ...news, slug, status: NewsStatus.PUBLISHED, publishedAt: new Date() } });
     }
     for (const news of FULL_NEWS) {
-        await prisma.news.create({ data: news });
+        const slug = seedSlug(news.headline);
+        await prisma.news.upsert({ where: { slug }, update: {}, create: { ...news, slug, status: NewsStatus.PUBLISHED, publishedAt: new Date() } });
     }
     console.log(`✅ ${NEWS.length + FULL_NEWS.length} news articles seeded`);
 
-    // 6. Tournaments (with teams, standings, bracket)
-    const cblol = await prisma.tournament.create({
-        data: {
-            name: 'CBLOL Split 2',
-            game: 'LoL',
-            logo: 'L',
-            status: 'Playoffs',
-            dates: 'Jun 01 - Aug 24',
-            prizePool: 'R$ 400.000',
-            image: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=600&auto=format&fit=crop',
-            description: 'O Campeonato Brasileiro de League of Legends (CBLOL) é a competição oficial do jogo no Brasil, administrada pela Riot Games. O vencedor garante vaga no Mundial.',
-            organizer: 'Riot Games Brasil',
-            location: 'Arena CBLOL, São Paulo',
-            format: 'Double Elimination',
-            teams: {
-                create: [
-                    { name: 'LOUD', country: 'br' }, { name: 'paiN Gaming', country: 'br' },
-                    { name: 'RED Canids', country: 'br' }, { name: 'Vivo Keyd Stars', country: 'br' },
-                    { name: 'Fluxo', country: 'br' }, { name: 'FURIA', country: 'br' },
-                    { name: 'INTZ', country: 'br' }, { name: 'KaBuM!', country: 'br' },
-                    { name: 'Los Grandes', country: 'br' }, { name: 'Liberty', country: 'br' }
-                ]
-            },
-            standings: {
-                create: [
-                    { rank: 1, teamName: 'LOUD', teamCountry: 'br', played: 18, wins: 14, losses: 4, points: 14, diff: 10, streak: 'W3' },
-                    { rank: 2, teamName: 'paiN Gaming', teamCountry: 'br', played: 18, wins: 13, losses: 5, points: 13, diff: 8, streak: 'W1' },
-                    { rank: 3, teamName: 'RED Canids', teamCountry: 'br', played: 18, wins: 11, losses: 7, points: 11, diff: 4, streak: 'L1' },
-                    { rank: 4, teamName: 'Vivo Keyd', teamCountry: 'br', played: 18, wins: 10, losses: 8, points: 10, diff: 2, streak: 'W2' },
-                    { rank: 5, teamName: 'Fluxo', teamCountry: 'br', played: 18, wins: 9, losses: 9, points: 9, diff: 0, streak: 'L2' },
-                    { rank: 6, teamName: 'FURIA', teamCountry: 'br', played: 18, wins: 8, losses: 10, points: 8, diff: -2, streak: 'W1' },
-                ]
-            },
-            bracket: {
-                create: [
-                    { matchKey: 'qf1', round: 'Quarterfinals', teamAName: 'RED Canids', teamAScore: 3, teamAWinner: true, teamBName: 'FURIA', teamBScore: 1, date: '09/08', status: 'Finished' },
-                    { matchKey: 'qf2', round: 'Quarterfinals', teamAName: 'Vivo Keyd', teamAScore: 3, teamAWinner: true, teamBName: 'Fluxo', teamBScore: 2, date: '10/08', status: 'Finished' },
-                    { matchKey: 'sf1', round: 'Semifinals', teamAName: 'LOUD', teamBName: 'RED Canids', date: '17/08', status: 'Scheduled' },
-                    { matchKey: 'sf2', round: 'Semifinals', teamAName: 'paiN Gaming', teamBName: 'Vivo Keyd', date: '18/08', status: 'Scheduled' },
-                    { matchKey: 'gf', round: 'Grand Final', teamAName: 'TBD', teamBName: 'TBD', date: '24/08', status: 'Scheduled' },
-                ]
-            }
-        }
-    });
-
-    // Additional tournaments
-    await prisma.tournament.createMany({
-        data: [
-            { name: 'VCT Americas', game: 'Valorant', logo: 'V', status: 'Group Stage', dates: 'Jul 10 - Sep 02', prizePool: '$ 250.000', image: 'https://images.unsplash.com/photo-1624138784181-dc7f5b75e52e?q=80&w=600&auto=format&fit=crop' },
-            { name: 'IEM Cologne', game: 'CS2', logo: 'C', status: 'Live', dates: 'Aug 04 - Aug 16', prizePool: '$ 1.000.000', image: 'https://images.unsplash.com/photo-1552820728-8b83bb6b773f?q=80&w=600&auto=format&fit=crop' },
-            { name: 'EVO 2024', game: 'Fighting', logo: 'E', status: 'Upcoming', dates: 'Aug 20 - Aug 22', prizePool: '$ 50.000', image: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?q=80&w=600&auto=format&fit=crop' },
-        ]
-    });
-    console.log('✅ 4 tournaments seeded');
-
-    // 7. Esports Matches
-    await prisma.esportsMatch.createMany({ data: [...ESPORTS_MATCHES, ...TOURNAMENT_MATCHES] as any });
-    console.log(`✅ ${ESPORTS_MATCHES.length + TOURNAMENT_MATCHES.length} esports matches seeded`);
-
-    // 8. Esports News
-    await prisma.esportsNews.createMany({ data: ESPORTS_NEWS });
-    console.log(`✅ ${ESPORTS_NEWS.length} esports news seeded`);
-
-    // 9. Rankings
-    await prisma.teamRanking.createMany({ data: GLOBAL_RANKINGS });
-    console.log(`✅ ${GLOBAL_RANKINGS.length} team rankings seeded`);
-
-    // 10. Pick'em Leaderboard
-    await prisma.pickemUser.createMany({ data: PICKEM_LEADERBOARD });
-    console.log(`✅ ${PICKEM_LEADERBOARD.length} pick'em users seeded`);
-
-    // 11. Player Stats (linked to CBLOL tournament)
-    for (const stat of PLAYER_STATS) {
-        await prisma.playerStat.create({
-            data: { ...stat, tournamentId: cblol.id }
-        });
-    }
-    console.log(`✅ ${PLAYER_STATS.length} player stats seeded`);
 
     console.log('\n🎉 Seed completed!');
 }

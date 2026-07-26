@@ -18,7 +18,7 @@ export const TournamentCard: React.FC<TournamentCardProps> = ({ tournament }) =>
         >
             <div className="h-24 overflow-hidden relative">
                 <div className="absolute inset-0 bg-gradient-to-t from-dark-900 to-transparent z-10"></div>
-                <img src={tournament.image} className="w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-500" />
+                {tournament.image ? <img src={tournament.image} alt="" className="w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-500" /> : <div className="h-full w-full bg-dark-800" />}
                 <div className="absolute top-2 right-2 z-20">
                     <Badge color={tournament.status === 'Live' ? 'brand' : 'gray'} className={tournament.status === 'Live' ? 'animate-pulse' : ''}>
                         {tournament.status}

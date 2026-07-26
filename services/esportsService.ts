@@ -1,359 +1,132 @@
+import api from '../src/services/api';
+import type {
+  EsportsNews,
+  EsportsOverview,
+  Match,
+  PickemEntry,
+  PickemLeaderboardRow,
+  PickemPrediction,
+  PlayerStat,
+  TeamRanking,
+  Tournament,
+  TournamentDetail,
+} from '../types';
 
-import { Match, Tournament, EsportsNews, TeamRanking, TournamentDetail, PlayerStat } from '../types';
-
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-
-const API_KEY = import.meta.env.VITE_PANDASCORE_API_KEY;
-// Use local proxy to avoid CORS issues
-const BASE_URL = '/api/pandascore';
-
-const headers = {
-  'Authorization': `Bearer ${API_KEY}`,
-  'Accept': 'application/json'
+const normalizeMatch = (raw: any): Match => {
+  const scheduledAt = raw.scheduledAt || null;
+  const instant = scheduledAt ? new Date(scheduledAt) : null;
+  return {
+    id: raw.id,
+    externalId: raw.externalId,
+    provider: raw.provider,
+    sourceUrl: raw.sourceUrl,
+    gameId: raw.gameId || raw.game?.id || null,
+    game: typeof raw.game === 'string' ? raw.game : raw.game?.name || 'E-sports',
+    tournamentId: raw.tournamentId || raw.tournament?.id || null,
+    tournamentSlug: raw.tournament?.slug || null,
+    competition: raw.competition || raw.tournament?.name || 'Competicao',
+    stage: raw.stage,
+    round: raw.round,
+    region: raw.region,
+    isBrazilFocused: raw.isBrazilFocused,
+    teamA: raw.teamA || { name: raw.teamAName || 'TBD', country: raw.teamACountry || 'xx', logo: raw.teamALogo },
+    teamB: raw.teamB || { name: raw.teamBName || 'TBD', country: raw.teamBCountry || 'xx', logo: raw.teamBLogo },
+    scheduledAt,
+    time: instant && !Number.isNaN(instant.getTime()) ? instant.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : 'A definir',
+    date: instant && !Number.isNaN(instant.getTime()) ? instant.toLocaleDateString('pt-BR') : 'A definir',
+    status: raw.status || 'SCHEDULED',
+    isLive: raw.status === 'LIVE' || raw.isLive === true,
+    scoreA: raw.scoreA,
+    scoreB: raw.scoreB,
+    bestOf: raw.bestOf,
+    number_of_games: raw.bestOf,
+    stream: raw.streamUrl,
+    streamUrl: raw.streamUrl,
+    vodUrl: raw.vodUrl,
+    lastSyncedAt: raw.lastSyncedAt,
+  };
 };
 
-// Simulator for network latency (Used for mock fallback)
-const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
+const normalizeTournament = (raw: any): Tournament => ({
+  ...raw,
+  id: raw.id,
+  name: raw.name,
+  game: typeof raw.game === 'string' ? raw.game : raw.game?.name || raw.gameRecord?.name || 'E-sports',
+  status: raw.status || 'Upcoming',
+  dates: raw.dates || [raw.startAt, raw.endAt].filter(Boolean).map((date: string) => new Date(date).toLocaleDateString('pt-BR')).join(' - ') || 'Datas a definir',
+  prizePool: raw.prizePool || 'Nao informado',
+});
 
-// Helper: fetch data from our own backend
-async function fetchFromBackend<T>(path: string): Promise<T> {
-  const response = await fetch(`${API_BASE}/esports${path}`);
-  if (!response.ok) throw new Error(`Backend fetch failed: ${path}`);
-  return response.json();
-}
+const get = async <T>(path: string, params?: Record<string, unknown>): Promise<T> => (await api.get(`/esports${path}`, { params })).data as T;
 
-/**
- * Service to handle Esports Data Fetching using PandaScore API.
- * Falls back to our own backend database when API key is missing.
- */
 export const esportsService = {
-  /**
-   * Fetches active tournaments (Leagues, Majors, etc)
-   */
-  getActiveTournaments: async (): Promise<Tournament[]> => {
-    if (!API_KEY) {
-      return fetchFromBackend<Tournament[]>('/tournaments');
-    }
-
-    try {
-      // Fetch running tournaments
-      const response = await fetch(`${BASE_URL}/tournaments?running=true&page[size]=10`, { headers });
-      if (!response.ok) throw new Error('Failed to fetch tournaments');
-
-      const data = await response.json();
-
-      // Map PandaScore data to our Tournament interface
-      return data.map((t: any) => ({
-        id: t.id.toString(),
-        name: t.league.name + ' - ' + t.name,
-        game: t.videogame.name,
-        logo: t.league.image_url || '',
-        status: 'Live',
-        dates: `${new Date(t.begin_at).toLocaleDateString()} - ${t.end_at ? new Date(t.end_at).toLocaleDateString() : 'TBA'}`,
-        prizePool: 'TBA', // PandaScore free tier might not give prize pool easily in this endpoint
-        image: t.league.image_url || '' // Use league image as background fallback
-      }));
-    } catch (error) {
-      console.error("Error fetching tournaments:", error);
-      return fetchFromBackend<Tournament[]>('/tournaments');
-    }
+  getOverview: async (): Promise<EsportsOverview> => {
+    const data = await get<any>('/overview');
+    return {
+      matches: (data.matches || []).map(normalizeMatch),
+      results: (data.results || []).map(normalizeMatch),
+      tournaments: (data.tournaments || []).map(normalizeTournament),
+      rankings: (data.rankings || []).map((row: any) => ({ ...row, game: typeof row.game === 'string' ? row.game : row.game?.name || 'E-sports' })),
+      news: data.news || [],
+      source: data.source,
+    };
   },
 
-  /**
-   * Fetches matches based on filter
-   */
-  getMatches: async (filter: 'all' | 'live' | 'upcoming' = 'all'): Promise<Match[]> => {
-    if (!API_KEY) {
-      return fetchFromBackend<Match[]>(`/matches?filter=${filter}`);
-    }
+  getActiveTournaments: async (): Promise<Tournament[]> => (await get<any[]>('/tournaments')).map(normalizeTournament),
 
-    try {
-      let url = `${BASE_URL}/matches?sort=begin_at&page[size]=20`;
+  getMatches: async (filter: 'all' | 'live' | 'upcoming' = 'all'): Promise<Match[]> =>
+    (await get<any[]>('/matches', { filter })).map(normalizeMatch),
 
-      // Adjust URL based on filter
-      if (filter === 'live') {
-        url = `${BASE_URL}/matches/running?sort=begin_at&page[size]=20`;
-      } else if (filter === 'upcoming') {
-        url = `${BASE_URL}/matches/upcoming?sort=begin_at&page[size]=20`;
-      } else {
-        url = `${BASE_URL}/matches?filter[status]=running,not_started&sort=begin_at&page[size]=20`;
-      }
-
-      const response = await fetch(url, { headers });
-      if (!response.ok) throw new Error('Failed to fetch matches');
-
-      const data = await response.json();
-
-      return data.map((m: any) => ({
-        id: m.id.toString(),
-        game: m.videogame.name,
-        competition: m.league.name + (m.tournament ? ' - ' + m.tournament.name : ''),
-        teamA: {
-          name: m.opponents[0]?.opponent.name || 'TBD',
-          country: (m.opponents[0]?.opponent.location || 'xx').toLowerCase(), // PandaScore uses ISO codes usually
-          logo: m.opponents[0]?.opponent.image_url
-        },
-        teamB: {
-          name: m.opponents[1]?.opponent.name || 'TBD',
-          country: (m.opponents[1]?.opponent.location || 'xx').toLowerCase(),
-          logo: m.opponents[1]?.opponent.image_url
-        },
-        time: m.begin_at ? new Date(m.begin_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'TBA',
-        date: m.begin_at ? new Date(m.begin_at).toLocaleDateString() : 'TBA',
-        isLive: m.status === 'running',
-        scoreA: m.results[0]?.score || 0,
-        scoreB: m.results[1]?.score || 0,
-        number_of_games: m.number_of_games
-      }));
-
-    } catch (error) {
-      console.error("Error fetching matches:", error);
-      return fetchFromBackend<Match[]>(`/matches?filter=${filter}`);
-    }
-  },
-
-  /**
-   * Fetches tournament details by ID
-   */
   getTournamentDetails: async (id: string): Promise<TournamentDetail | null> => {
-    if (!API_KEY) {
-      return fetchFromBackend<TournamentDetail | null>(`/tournaments/${id}`);
-    }
-
     try {
-      // 1. Fetch Tournament Info
-      const tResponse = await fetch(`${BASE_URL}/tournaments/${id}`, { headers });
-      if (!tResponse.ok) throw new Error('Failed to fetch tournament info');
-      const tData = await tResponse.json();
-
-      // 2. Fetch Matches for this tournament
-      const mResponse = await fetch(`${BASE_URL}/matches?tournament_id=${id}&sort=-begin_at&page[size]=50`, { headers });
-      const mData = await mResponse.json();
-
-      // Map matches
-      const matches: Match[] = mData.map((m: any) => ({
-        id: m.id.toString(),
-        game: m.videogame.name,
-        competition: m.league.name,
-        teamA: {
-          name: m.opponents[0]?.opponent.name || 'TBD',
-          country: (m.opponents[0]?.opponent.location || 'xx').toLowerCase(),
-          logo: m.opponents[0]?.opponent.image_url
-        },
-        teamB: {
-          name: m.opponents[1]?.opponent.name || 'TBD',
-          country: (m.opponents[1]?.opponent.location || 'xx').toLowerCase(),
-          logo: m.opponents[1]?.opponent.image_url
-        },
-        time: m.begin_at ? new Date(m.begin_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'TBA',
-        date: m.begin_at ? new Date(m.begin_at).toLocaleDateString() : 'TBA',
-        isLive: m.status === 'running',
-        scoreA: m.results[0]?.score || 0,
-        scoreB: m.results[1]?.score || 0,
-        number_of_games: m.number_of_games
-      }));
-
-      // Sort matches: Prioritize Brazil games, then keep original order (newest first)
-      matches.sort((a, b) => {
-        const isBrazilA = a.teamA.country === 'br' || a.teamB.country === 'br';
-        const isBrazilB = b.teamA.country === 'br' || b.teamB.country === 'br';
-
-        if (isBrazilA && !isBrazilB) return -1;
-        if (!isBrazilA && isBrazilB) return 1;
-        return 0;
-      });
-
-      // 3. Fetch Standings
-      let standings: any[] = [];
-      try {
-        const sResponse = await fetch(`${BASE_URL}/tournaments/${id}/standings`, { headers });
-        if (sResponse.ok) {
-          const sData = await sResponse.json();
-          standings = sData.map((s: any, index: number) => ({
-            rank: s.rank || index + 1,
-            team: {
-              name: s.team.name,
-              logo: s.team.image_url
-            },
-            wins: s.wins,
-            losses: s.losses,
-            played: s.total,
-            points: s.points || 0 // Points might not be in all responses
-          }));
-        }
-      } catch (e) {
-        console.warn("Could not fetch standings", e);
-      }
-
-      // Construct Detail Object
+      const data = await get<any>(`/tournaments/${encodeURIComponent(id)}`);
       return {
-        id: tData.id.toString(),
-        name: tData.league.name + ' - ' + tData.name,
-        game: tData.videogame.name,
-        logo: tData.league.image_url || '',
-        status: tData.end_at ? 'Finished' : 'Live',
-        dates: `${new Date(tData.begin_at).toLocaleDateString()} - ${tData.end_at ? new Date(tData.end_at).toLocaleDateString() : 'TBA'}`,
-        prizePool: tData.prizepool || 'TBA',
-        image: tData.league.image_url || '',
-        description: `Season ${new Date(tData.begin_at).getFullYear()} of ${tData.league.name}`,
-        organizer: tData.league.name,
-        location: tData.country ? tData.country.toUpperCase() : (tData.serie.full_name || 'Online'),
-        format: matches.length > 0 ? `Best of ${matches[0].number_of_games || (matches[0].game === 'Valorant' ? '3' : 'Unknown')}` : 'TBD',
-        teams: [],
-        bracket: [],
-        matches: matches,
-        standings: standings
-      } as any;
-
-    } catch (error) {
-      console.error("Error fetching tournament details:", error);
-      return null;
+        ...normalizeTournament(data),
+        description: data.description || '',
+        organizer: data.organizer || '',
+        location: data.location || 'Online',
+        format: data.format || '',
+        teams: data.teams || [],
+        standings: data.standings || [],
+        bracket: data.bracket || [],
+        matches: (data.matches || []).map(normalizeMatch),
+        news: data.news || [],
+        stats: data.stats || [],
+        attribution: data.attribution,
+      };
+    } catch (error: any) {
+      if (error?.response?.status === 404) return null;
+      throw error;
     }
   },
 
-  /**
-   * Fetches detailed match information by ID
-   */
   getMatchDetails: async (id: string): Promise<Match | null> => {
-    if (!API_KEY) {
-      // Fetch all matches and find by ID
-      const matches = await fetchFromBackend<Match[]>('/matches');
-      return matches.find(m => m.id === id) || null;
-    }
-
     try {
-      const response = await fetch(`${BASE_URL}/matches/${id}`, { headers });
-      if (!response.ok) throw new Error('Failed to fetch match');
-      const m = await response.json();
-
-      return {
-        id: m.id.toString(),
-        game: m.videogame.name,
-        competition: m.league.name,
-        teamA: {
-          name: m.opponents[0]?.opponent.name || 'TBD',
-          country: (m.opponents[0]?.opponent.location || 'xx').toLowerCase(),
-          logo: m.opponents[0]?.opponent.image_url
-        },
-        teamB: {
-          name: m.opponents[1]?.opponent.name || 'TBD',
-          country: (m.opponents[1]?.opponent.location || 'xx').toLowerCase(),
-          logo: m.opponents[1]?.opponent.image_url
-        },
-        time: m.begin_at ? new Date(m.begin_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'TBA',
-        date: m.begin_at ? new Date(m.begin_at).toLocaleDateString() : 'TBA',
-        isLive: m.status === 'running',
-        scoreA: m.results[0]?.score || 0,
-        scoreB: m.results[1]?.score || 0,
-        number_of_games: m.number_of_games
-      } as any;
-
-    } catch (error) {
-      console.error("Error fetching match details:", error);
-      return null;
+      return normalizeMatch(await get<any>(`/matches/${encodeURIComponent(id)}`));
+    } catch (error: any) {
+      if (error?.response?.status === 404) return null;
+      throw error;
     }
   },
 
-  /**
-   * Fetches latest news
-   */
-  getNews: async (): Promise<EsportsNews[]> => {
-    return fetchFromBackend<EsportsNews[]>('/news');
+  getNews: (tournamentId?: string): Promise<EsportsNews[]> => get('/news', tournamentId ? { tournamentId } : undefined),
+  getRankings: async (gameId?: string): Promise<TeamRanking[]> => (await get<any[]>('/rankings', gameId ? { gameId } : undefined)).map((row) => ({ ...row, game: typeof row.game === 'string' ? row.game : row.game?.name || 'E-sports' })),
+  getPickemLeaderboard: (tournamentId: string): Promise<PickemLeaderboardRow[]> => get(`/pickem/${encodeURIComponent(tournamentId)}/leaderboard`),
+  getMyPickem: (tournamentId: string): Promise<PickemEntry | null> => get(`/pickem/${encodeURIComponent(tournamentId)}/me`),
+  savePickemPrediction: async (tournamentId: string, matchId: string, predictedTeamId: string): Promise<PickemPrediction> =>
+    (await api.put(`/esports/pickem/${encodeURIComponent(tournamentId)}/predictions/${encodeURIComponent(matchId)}`, { predictedTeamId })).data,
+  deletePickemPrediction: async (tournamentId: string, matchId: string): Promise<void> => {
+    await api.delete(`/esports/pickem/${encodeURIComponent(tournamentId)}/predictions/${encodeURIComponent(matchId)}`);
   },
 
-  /**
-   * Fetches global team rankings
-   */
-  getRankings: async (): Promise<TeamRanking[]> => {
-    return fetchFromBackend<TeamRanking[]>('/rankings');
+  getTournamentStats: async (tournamentId: string, game: string): Promise<{ players: PlayerStat[]; columns: any[] }> => {
+    const data = await get<{ players: PlayerStat[] }>(`/stats/${encodeURIComponent(tournamentId)}`);
+    const normalized = game.toLowerCase();
+    const columns = normalized.includes('counter') || normalized.includes('cs2')
+      ? [{ key: 'name', label: 'Jogador', type: 'player' }, { key: 'rating', label: 'Rating', type: 'stat', primary: true }, { key: 'kda', label: 'K/D/A', type: 'stat' }, { key: 'adr', label: 'ADR', type: 'stat' }, { key: 'maps', label: 'Mapas', type: 'stat' }]
+      : normalized.includes('valorant')
+        ? [{ key: 'name', label: 'Jogador', type: 'player' }, { key: 'acs', label: 'ACS', type: 'stat', primary: true }, { key: 'kda', label: 'K/D/A', type: 'stat' }, { key: 'maps', label: 'Mapas', type: 'stat' }]
+        : [{ key: 'name', label: 'Jogador', type: 'player' }, { key: 'rating', label: 'Rating', type: 'stat', primary: true }, { key: 'kda', label: 'KDA', type: 'stat' }, { key: 'maps', label: 'Jogos', type: 'stat' }];
+    return { players: data.players || [], columns };
   },
-
-  /**
-   * Fetches pick'em leaderboard
-   */
-  getPickemLeaderboard: async (): Promise<any[]> => {
-    return fetchFromBackend<any[]>('/pickem/leaderboard');
-  },
-
-  /**
-   * Fetches tournament player statistics
-   */
-  getTournamentStats: async (tournamentId: string, game: string): Promise<{ players: PlayerStat[], columns: any[] }> => {
-    // Define columns based on game (Hoist to top so available for both API and Mock)
-    let columns: any[] = [];
-    if (game.includes('Counter-Strike') || game === 'CS2') {
-      columns = [
-        { key: 'name', label: 'Player', type: 'player' },
-        { key: 'rating', label: 'Rating', type: 'stat', highlight: true },
-        { key: 'kda', label: 'K/D/A', type: 'stat' },
-        { key: 'adr', label: 'ADR', type: 'stat' },
-        { key: 'maps', label: 'Maps', type: 'stat' }
-      ];
-    } else if (game.includes('Valorant')) {
-      columns = [
-        { key: 'name', label: 'Player', type: 'player' },
-        { key: 'rating', label: 'ACS', type: 'stat', highlight: true },
-        { key: 'kda', label: 'K/D/A', type: 'stat' },
-        { key: 'acs', label: 'ACS', type: 'stat' },
-        { key: 'maps', label: 'Maps', type: 'stat' }
-      ];
-    } else if (game.includes('League')) {
-      columns = [
-        { key: 'name', label: 'Player', type: 'player' },
-        { key: 'rating', label: 'KDA', type: 'stat', highlight: true },
-        { key: 'kda', label: 'KDA Ratio', type: 'stat' },
-        { key: 'gpm', label: 'GPM', type: 'stat' },
-        { key: 'maps', label: 'Games', type: 'stat' }
-      ];
-    } else {
-      columns = [
-        { key: 'name', label: 'Player', type: 'player' },
-        { key: 'rating', label: 'Rating', type: 'stat', highlight: true },
-        { key: 'kda', label: 'K/D/A', type: 'stat' },
-        { key: 'maps', label: 'Maps', type: 'stat' }
-      ];
-    }
-
-    if (!API_KEY) {
-      const data = await fetchFromBackend<{ players: PlayerStat[] }>(`/stats/${tournamentId}`);
-      return { players: data.players || [], columns };
-    }
-
-    try {
-      // PandaScore: Fetch players for the tournament
-      const response = await fetch(`${BASE_URL}/tournaments/${tournamentId}/players?page[size]=20`, { headers });
-      if (!response.ok) throw new Error('Failed to fetch stats');
-
-      const data = await response.json();
-
-      const players: PlayerStat[] = data.map((p: any) => ({
-        id: p.id?.toString() || '',
-        name: p.name || p.slug,
-        team: p.current_team?.name || 'N/A',
-        country: (p.nationality || 'xx').toLowerCase(),
-        role: p.role || '',
-        photo: p.image_url || null,
-        stats: {
-          rating: (Math.random() * 0.5 + 0.8).toFixed(2),
-          kda: (Math.random() * 1 + 0.5).toFixed(2),
-          acs: Math.floor(Math.random() * 100 + 150),
-          adr: Math.floor(Math.random() * 30 + 60),
-          maps: Math.floor(Math.random() * 10 + 5),
-          gpm: Math.floor(Math.random() * 150 + 300),
-        }
-      }));
-
-      // Sort by rating (or main stat)
-      players.sort((a: any, b: any) =>
-        parseFloat(b.stats.rating as string) - parseFloat(a.stats.rating as string)
-      );
-
-      return { players, columns };
-
-    } catch (error) {
-      console.error("Error fetching tournament stats:", error);
-      const data = await fetchFromBackend<{ players: PlayerStat[] }>(`/stats/${tournamentId}`);
-      return { players: data.players || [], columns };
-    }
-  }
 };
