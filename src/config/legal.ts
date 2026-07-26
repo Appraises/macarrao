@@ -1,6 +1,6 @@
 export const TERMS_VERSION = '2026-07-13';
-export const PRIVACY_VERSION = '2026-07-13';
-export const LEGAL_EFFECTIVE_DATE = '13 de julho de 2026';
+export const PRIVACY_VERSION = '2026-07-26';
+export const LEGAL_EFFECTIVE_DATE = '26 de julho de 2026';
 
 export const LEGAL_CONTROLLER_NAME =
   import.meta.env.VITE_LEGAL_CONTROLLER_NAME?.trim() || 'Dicionário Gamer';

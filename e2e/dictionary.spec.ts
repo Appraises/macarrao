@@ -7,7 +7,7 @@ test('catalog search is tolerant and persists in the URL', async ({ page }) => {
   await page.goto(`${BASE_URL}/dicionario`);
 
   await expect(page.getByRole('heading', { name: 'Dicionário', exact: true })).toBeVisible();
-  await expect(page.getByText('4 termos verificados')).toBeVisible();
+  await expect(page.getByText('5 termos verificados')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Gank', exact: true })).toBeVisible();
 
   const search = page.getByRole('searchbox', { name: 'Buscar no dicionário' });

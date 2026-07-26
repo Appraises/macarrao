@@ -62,6 +62,7 @@ export const PrivacyPolicy: React.FC = () => (
               <tr><td className="px-4 py-3 text-gray-200">Conta</td><td className="px-4 py-3">nome ou nick, email, avatar, descrição e jogo favorito</td><td className="px-4 py-3">fornecidos por você</td></tr>
               <tr><td className="px-4 py-3 text-gray-200">Autenticação</td><td className="px-4 py-3">senha com hash, tokens de sessão, verificação e recuperação</td><td className="px-4 py-3">gerados pelo serviço</td></tr>
               <tr><td className="px-4 py-3 text-gray-200">Comunidade</td><td className="px-4 py-3">termos, definições, exemplos, comentários, votos e denúncias</td><td className="px-4 py-3">suas interações</td></tr>
+              <tr><td className="px-4 py-3 text-gray-200">Brick Breaker</td><td className="px-4 py-3">melhor pontuação, tijolos destruídos, nível, duração e sessões recentes de partida</td><td className="px-4 py-3">suas partidas autenticadas</td></tr>
               <tr><td className="px-4 py-3 text-gray-200">Preferências</td><td className="px-4 py-3">configurações de perfil, notificações e privacidade</td><td className="px-4 py-3">suas escolhas</td></tr>
               <tr><td className="px-4 py-3 text-gray-200">Uso agregado</td><td className="px-4 py-3">página, origem, campanha, navegador, dispositivo e região aproximada</td><td className="px-4 py-3">Plausible Analytics</td></tr>
               <tr><td className="px-4 py-3 text-gray-200">Segurança</td><td className="px-4 py-3">IP, horário, rota e falhas de acesso em logs técnicos</td><td className="px-4 py-3">servidor e hospedagem</td></tr>
@@ -144,6 +145,7 @@ export const PrivacyPolicy: React.FC = () => (
           <li>Métricas agregadas permanecem no Plausible enquanto a conta analítica estiver ativa ou até sua exclusão pelo operador.</li>
           <li>O texto sanitizado de consultas internas é eliminado após 90 dias; hashes e totais agregados podem permanecer para análise histórica sem identificação do visitante.</li>
           <li>Registros diários de atividade autenticada são incluídos na exportação e removidos quando a conta é anonimizada.</li>
+          <li>O melhor resultado do Brick Breaker permanece enquanto a conta estiver ativa; sessões expiradas são eliminadas após sete dias e todos os dados do jogo são removidos na anonimização.</li>
         </ul>
         <p>Dados serão eliminados ou anonimizados quando deixarem de ser necessários, ressalvadas hipóteses legais de conservação.</p>
       </LegalSection>

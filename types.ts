@@ -972,3 +972,52 @@ export interface PickemLeaderboardRow {
   correctPicks: number;
   totalPicks: number;
 }
+
+export interface BrickBreakerLeaderboardEntry {
+  rank: number;
+  user: {
+    id: string;
+    name: string;
+    avatar?: string | null;
+  };
+  score: number;
+  bricksDestroyed: number;
+  level: number;
+  durationMs: number;
+  achievedAt: string;
+}
+
+export interface BrickBreakerLeaderboardResponse {
+  items: BrickBreakerLeaderboardEntry[];
+  me: BrickBreakerLeaderboardEntry | null;
+  totalPlayers: number;
+}
+
+export interface BrickBreakerRunSession {
+  runToken: string;
+  startedAt: string;
+  expiresAt: string;
+}
+
+export interface BrickBreakerScoreInput {
+  runToken: string;
+  score: number;
+  bricksDestroyed: number;
+  level: number;
+  durationMs: number;
+}
+
+export interface BrickBreakerScoreResult {
+  isPersonalBest: boolean;
+  bestScore: {
+    id: string;
+    userId: string;
+    score: number;
+    bricksDestroyed: number;
+    level: number;
+    durationMs: number;
+    achievedAt: string;
+    createdAt: string;
+    updatedAt: string;
+  };
+}

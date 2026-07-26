@@ -295,6 +295,8 @@ router.post('/:id/complete', async (req: AuthRequest, res) => {
                 await tx.termVote.deleteMany({ where: { userId: existing.user.id } });
                 await tx.notification.deleteMany({ where: { userId: existing.user.id } });
                 await (tx as any).userActivityDay?.deleteMany({ where: { userId: existing.user.id } });
+                await (tx as any).brickBreakerRun?.deleteMany({ where: { userId: existing.user.id } });
+                await (tx as any).brickBreakerBestScore?.deleteMany({ where: { userId: existing.user.id } });
                 await tx.report.updateMany({ where: { reporterId: existing.user.id }, data: { reporterId: null } });
 
                 const requests = await tx.privacyRequest.findMany({ where: { userId: existing.user.id }, select: { id: true, protocol: true } });

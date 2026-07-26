@@ -10,7 +10,7 @@ if (!process.env.JWT_SECRET) {
 const JWT_SECRET: string = process.env.JWT_SECRET;
 const CORS_ORIGINS = (process.env.CORS_ORIGINS || 'http://localhost:3000,http://localhost:5173').split(',').map(o => o.trim());
 const TERMS_VERSION = process.env.TERMS_VERSION || '2026-07-13';
-const PRIVACY_VERSION = process.env.PRIVACY_VERSION || '2026-07-13';
+const PRIVACY_VERSION = process.env.PRIVACY_VERSION || '2026-07-26';
 const APP_URL = (process.env.APP_URL || 'http://localhost:3000').replace(/\/$/, '');
 const PUBLIC_API_URL = (process.env.PUBLIC_API_URL || '').replace(/\/$/, '');
 const RESEND_API_KEY = process.env.RESEND_API_KEY || '';

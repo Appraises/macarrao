@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { Mail, User as UserIcon, Lock, ArrowRight, AlertCircle, RefreshCw, Gamepad2 } from 'lucide-react';
 import { Button } from '../components/UI';
 import { login, registerUser, resendVerificationEmail } from '../src/services/api';
@@ -9,6 +9,7 @@ import { useAuth } from '../src/context/AuthContext';
 
 export const Login: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { login: authLogin } = useAuth();
   const [isRegistering, setIsRegistering] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -51,7 +52,11 @@ export const Login: React.FC = () => {
         localStorage.setItem('user', JSON.stringify(response.user));
         authLogin(response.user);
         trackAnalyticsEvent('Login Completed', { method: 'email' });
-        navigate('/');
+        const requestedReturn = searchParams.get('returnTo');
+        const returnTo = requestedReturn?.startsWith('/') && !requestedReturn.startsWith('//')
+          ? requestedReturn
+          : '/';
+        navigate(returnTo);
       }
     } catch (err: any) {
       console.error(err);

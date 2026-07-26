@@ -106,6 +106,30 @@ export const buildUserDataExport = async (userId: string) => {
                 orderBy: { date: 'asc' },
                 select: { date: true, firstSeenAt: true, lastSeenAt: true, loginCount: true, requestCount: true }
             },
+            brickBreakerBestScore: {
+                select: {
+                    score: true,
+                    bricksDestroyed: true,
+                    level: true,
+                    durationMs: true,
+                    achievedAt: true,
+                    createdAt: true,
+                    updatedAt: true
+                }
+            },
+            brickBreakerRuns: {
+                orderBy: { startedAt: 'desc' },
+                take: 50,
+                select: {
+                    startedAt: true,
+                    expiresAt: true,
+                    completedAt: true,
+                    score: true,
+                    bricksDestroyed: true,
+                    level: true,
+                    durationMs: true
+                }
+            },
             termVotes: {
                 orderBy: { createdAt: 'asc' },
                 include: { term: { select: { id: true, word: true } } }

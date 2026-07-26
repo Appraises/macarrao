@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useLoaderData, useLocation, useNavigation, useRevalidator, type LoaderFunctionArgs } from 'react-router-dom';
 import { getTermBySlug, getTerms, recordTermView } from '../src/services/api';
 import { Button } from '../components/UI';
@@ -11,6 +11,8 @@ import { Term } from '../types';
 import { Seo } from '../components/Seo';
 import { JsonLd, definedTermSchema, breadcrumbSchema } from '../components/JsonLd';
 import { trackAnalyticsEvent } from '../src/lib/analytics';
+import { useArcade } from '../src/context/ArcadeContext';
+import { useKonamiTrigger } from '../src/hooks/useKonamiTrigger';
 
 // Runs at build time (prerender) and on client navigation, so the term data is
 // present in the server-rendered HTML for SEO.
@@ -32,29 +34,32 @@ export const TermDetail: React.FC = () => {
   const navigation = useNavigation();
   const revalidator = useRevalidator();
   const loading = navigation.state === 'loading';
-  const [isKonamiActive, setIsKonamiActive] = useState(false);
   const viewedTermRef = useRef<string | null>(null);
+  const { phase: arcadePhase, activate: activateArcade, close: closeArcade } = useArcade();
 
   const [related, setRelated] = useState<Term[]>([]);
   const [relatedLoading, setRelatedLoading] = useState(false);
   const [sameGameCount, setSameGameCount] = useState(0);
 
-  const konamiCode = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'b', 'a'];
-  const [konamiIndex, setKonamiIndex] = useState(0);
+  const isJogo = term?.word.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase() === 'jogo';
+  const handleKonami = useCallback((source: 'keyboard' | 'touch') => {
+    activateArcade(source);
+  }, [activateArcade]);
+  useKonamiTrigger(Boolean(isJogo) && arcadePhase === 'idle', handleKonami);
 
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === konamiCode[konamiIndex]) {
-        const nextIndex = konamiIndex + 1;
-        if (nextIndex === konamiCode.length) { setIsKonamiActive(true); setKonamiIndex(0); }
-        else setKonamiIndex(nextIndex);
-      } else setKonamiIndex(0);
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [konamiIndex]);
+    if (!isJogo && arcadePhase !== 'idle') closeArcade();
+  }, [arcadePhase, closeArcade, isJogo]);
 
-  useEffect(() => { setIsKonamiActive(false); }, [slug]);
+  useEffect(() => {
+    if (!isJogo || arcadePhase !== 'idle' || typeof window === 'undefined') return;
+    if (sessionStorage.getItem('dg:arcade:resume') !== 'true') return;
+    sessionStorage.removeItem('dg:arcade:resume');
+    const timer = window.setTimeout(() => activateArcade('keyboard'), 250);
+    return () => window.clearTimeout(timer);
+  }, [activateArcade, arcadePhase, isJogo]);
+
+  useEffect(() => () => closeArcade(), [closeArcade]);
 
   // Record a view (client-side only) once the term is shown
   useEffect(() => {
@@ -135,13 +140,6 @@ export const TermDetail: React.FC = () => {
         <ArrowLeft className="w-4 h-4" /> Voltar para busca
       </Button>
 
-      {isKonamiActive && (
-        <div className="mb-8 p-6 bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl shadow-2xl animate-pulse text-center border-4 border-yellow-400 transform rotate-1">
-          <h1 className="text-4xl font-black text-white drop-shadow-[0_5px_5px_rgba(0,0,0,0.5)] tracking-widest">KONAMI CODE DETECTED!</h1>
-          <p className="text-white font-mono mt-2 font-bold">CHEAT MODE ENABLED</p>
-        </div>
-      )}
-
       {loading ? (
         <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
           <div className="w-16 h-16 border-4 border-ocean-500/30 border-t-ocean-500 rounded-full animate-spin"></div>
@@ -156,17 +154,23 @@ export const TermDetail: React.FC = () => {
           <div className="grid gap-6 lg:grid-cols-5">
             {/* LEFT ~60% */}
             <div className="lg:col-span-3 space-y-6">
-              <TermCard term={term} />
+              <div data-arcade-panel="term-card">
+                <TermCard term={term} />
+              </div>
 
-              <AddMeaningPanel term={term} />
+              <div data-arcade-panel="add-meaning">
+                <AddMeaningPanel term={term} />
+              </div>
 
-              <TermContributions term={term} onChanged={() => revalidator.revalidate()} />
+              <div data-arcade-panel="contributions">
+                <TermContributions term={term} onChanged={() => revalidator.revalidate()} />
+              </div>
             </div>
 
             {/* RIGHT ~40% */}
             <div className="lg:col-span-2 space-y-6">
               {/* Contribution CTA */}
-              <div className="rounded-xl border border-brand-500/20 bg-gradient-to-br from-brand-900/30 to-dark-900 p-6 shadow-glow-brand">
+              <div data-arcade-panel="contribute-card" className="rounded-xl border border-brand-500/20 bg-gradient-to-br from-brand-900/30 to-dark-900 p-6 shadow-glow-brand">
                 <div className="mb-4 grid h-11 w-11 place-items-center rounded-lg bg-brand-500/15 text-brand-400">
                   <PlusCircle className="h-6 w-6" />
                 </div>
@@ -186,7 +190,7 @@ export const TermDetail: React.FC = () => {
 
               {/* Game context */}
               {term.game && (
-                <Link to={`/games/${term.game.slug}`} className="group block overflow-hidden rounded-xl border border-white/5 bg-dark-900 transition-colors hover:border-brand-500/30">
+                <Link data-arcade-panel="game-card" to={`/games/${term.game.slug}`} className="group block overflow-hidden rounded-xl border border-white/5 bg-dark-900 transition-colors hover:border-brand-500/30">
                   {term.game.image && (
                     <div className="h-24 overflow-hidden">
                       <img src={term.game.image} alt={term.game.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
@@ -205,7 +209,7 @@ export const TermDetail: React.FC = () => {
 
               {/* Quick "veja também" from relatedTerms field */}
               {term.relatedTerms && term.relatedTerms.length > 0 && (
-                <div className="rounded-xl border border-white/5 bg-dark-900 p-5">
+                <div data-arcade-panel="related-terms" className="rounded-xl border border-white/5 bg-dark-900 p-5">
                   <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-gray-500">Veja também</h3>
                   <div className="flex flex-wrap gap-2">
                     {term.relatedTerms.map((rt) => (
@@ -240,7 +244,7 @@ export const TermDetail: React.FC = () => {
                   Ver todos
                 </Link>
               </div>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <div data-arcade-panel="related-list" className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {relatedLoading
                   ? Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-20 animate-pulse rounded-lg border border-white/5 bg-dark-900" />)
                   : related.map((t) => <CompactTermCard key={t.id} term={t} navigationState={{ source: 'related_term' }} />)}

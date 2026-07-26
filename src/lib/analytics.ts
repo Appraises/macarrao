@@ -28,6 +28,10 @@ export type AnalyticsEventName =
   | 'Term Shared'
   | 'Term Reported'
   | 'Term Vote'
+  | 'Easter Egg Activated'
+  | 'Arcade Game Started'
+  | 'Arcade Game Over'
+  | 'Arcade Score Saved'
   | '404';
 
 const getDomain = () => import.meta.env.VITE_PLAUSIBLE_DOMAIN?.trim();

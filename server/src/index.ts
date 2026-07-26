@@ -19,6 +19,7 @@ import aiRoutes from './routes/ai';
 import esportsRoutes from './routes/esports';
 import contributionsRoutes from './routes/contributions';
 import newsletterRoutes from './routes/newsletter';
+import arcadeRoutes from './routes/arcade';
 import { CORS_ORIGINS } from './utils/config';
 import { UPLOAD_ROOT } from './utils/uploads';
 import { setEsportsSocketServer } from './services/esports/realtime';
@@ -118,6 +119,7 @@ app.use('/maps', mapRoutes);
 app.use('/ai', aiRoutes);
 app.use('/esports', esportsRoutes);
 app.use('/newsletter', newsletterRoutes);
+app.use('/arcade', arcadeRoutes);
 
 app.get('/', (req, res) => {
     res.send('Dicionário Gamer API is running');

@@ -57,6 +57,8 @@ import { NotificationsProvider } from './src/context/NotificationsContext';
 import { NotificationCenter } from './components/NotificationCenter';
 import { PrivacyPreferencesDialog } from './components/PrivacyPreferences';
 import { initAnalytics } from './src/lib/analytics';
+import { ArcadeProvider } from './src/context/ArcadeContext';
+import { ArcadeMain } from './components/arcade/ArcadeMain';
 
 const Header: React.FC = () => {
   const { user, logout } = useAuth();
@@ -360,21 +362,23 @@ const PageLoader: React.FC = () => (
 // Default layout for the public site (Header + Footer around the routed page).
 const MainLayout: React.FC = () => {
   return (
-    <div className="flex flex-col min-h-screen bg-dark-950 text-gray-200 font-sans selection:bg-brand-500/30 selection:text-brand-100 overflow-x-hidden">
-      {/* Global Background Effects */}
-      <div className="fixed inset-0 bg-grid pointer-events-none z-0"></div>
-      <div className="fixed top-0 left-0 w-full h-full bg-gradient-to-b from-transparent via-transparent to-dark-950/80 pointer-events-none z-0"></div>
+    <ArcadeProvider>
+      <div className="flex flex-col min-h-screen bg-dark-950 text-gray-200 font-sans selection:bg-brand-500/30 selection:text-brand-100 overflow-x-hidden">
+        {/* Global Background Effects */}
+        <div className="fixed inset-0 bg-grid pointer-events-none z-0"></div>
+        <div className="fixed top-0 left-0 w-full h-full bg-gradient-to-b from-transparent via-transparent to-dark-950/80 pointer-events-none z-0"></div>
 
-      <Header />
+        <Header />
 
-      <main className="flex-grow relative z-10 flex flex-col">
-        <Suspense fallback={<PageLoader />}>
-          <Outlet />
-        </Suspense>
-      </main>
+        <ArcadeMain>
+          <Suspense fallback={<PageLoader />}>
+            <Outlet />
+          </Suspense>
+        </ArcadeMain>
 
-      <Footer />
-    </div>
+        <Footer />
+      </div>
+    </ArcadeProvider>
   );
 };
 

@@ -230,6 +230,8 @@ model User {
   assignedPrivacyRequests  PrivacyRequest[]      @relation("PrivacyRequestAssignee")
   privacyRequestEvents     PrivacyRequestEvent[] @relation("PrivacyRequestEventActor")
   pickemEntries            EsportsPickemEntry[]
+  brickBreakerBestScore    BrickBreakerBestScore?
+  brickBreakerRuns         BrickBreakerRun[]
   activityDays             UserActivityDay[]
   analyticsSyncRuns        AnalyticsSyncRun[]    @relation("AnalyticsSyncActor")
 
@@ -1087,4 +1089,35 @@ model NewsletterSubscriber {
   createdAt      DateTime  @default(now())
 
   @@index([createdAt])
+}
+
+model BrickBreakerBestScore {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  score           Int
+  bricksDestroyed Int
+  level           Int
+  durationMs      Int
+  achievedAt      DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([score, bricksDestroyed, durationMs, achievedAt])
+}
+
+model BrickBreakerRun {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  startedAt       DateTime @default(now())
+  expiresAt       DateTime
+  completedAt     DateTime?
+  score           Int?
+  bricksDestroyed Int?
+  level           Int?
+  durationMs      Int?
+
+  @@index([userId, startedAt])
+  @@index([expiresAt])
 }

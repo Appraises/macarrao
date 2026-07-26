@@ -54,7 +54,7 @@ export const TermContributions: React.FC<{ term: Term; onChanged: () => void }> 
     };
 
     return (
-        <>
+        <div className="space-y-4">
             {notice && (
                 <div className="flex items-center justify-between gap-3 rounded-lg border border-rose-500/25 bg-rose-500/10 px-4 py-2.5 text-sm text-rose-200">
                     <span>{notice}</span><button aria-label="Fechar" onClick={() => setNotice('')}><X className="h-4 w-4" /></button>
@@ -110,7 +110,7 @@ export const TermContributions: React.FC<{ term: Term; onChanged: () => void }> 
             {/* Imagens */}
             <ImagesSection term={term} images={images} isLoggedIn={!!user} hasPending={pendingImages.length > 0}
                 onLogin={() => navigate('/login')} onSent={loadCuration} onError={setNotice} />
-        </>
+        </div>
     );
 };
 

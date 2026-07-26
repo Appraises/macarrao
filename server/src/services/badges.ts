@@ -102,9 +102,11 @@ export const collectBadgeStats = async (userId: string, db: Tx = prisma): Promis
  * Safe to call after any milestone event.
  */
 export const evaluateBadges = async (userId: string): Promise<string[]> => {
+    // Defer both calls so a malformed test/transaction client cannot throw
+    // synchronously before Promise.all attaches rejection handlers.
     const [stats, owned] = await Promise.all([
-        collectBadgeStats(userId),
-        prisma.userBadge.findMany({ where: { userId }, select: { badgeId: true } }),
+        Promise.resolve().then(() => collectBadgeStats(userId)),
+        Promise.resolve().then(() => prisma.userBadge.findMany({ where: { userId }, select: { badgeId: true } })),
     ]);
     const ownedIds = new Set(owned.map((b) => b.badgeId));
 

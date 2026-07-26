@@ -1,5 +1,6 @@
 import { NewsStatus, PrismaClient, TermStatus } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 
 const prisma = new PrismaClient();
 const seedSlug = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -275,8 +276,7 @@ const TERMS = [
 ];
 
 // ==================== NEWS (Full articles) ====================
-const NEWS = [
-];
+const NEWS: Array<{ headline: string; category: string; image: string; author: string; content: string }> = [];
 
 const FULL_NEWS = [
     {
@@ -357,6 +357,27 @@ async function main() {
     });
     console.log('✅ Admin user created');
 
+    const appraisesPassword = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 12);
+    const appraises = await prisma.user.upsert({
+        where: { email: 'appraises@system.dicionariogamer.invalid' },
+        update: {
+            name: 'Appraises',
+            description: 'Jogos também são palavras. Às vezes, portas.',
+            emailVerified: true,
+            preferences: { emailNotifications: false }
+        },
+        create: {
+            name: 'Appraises',
+            email: 'appraises@system.dicionariogamer.invalid',
+            password: appraisesPassword,
+            role: 'USER',
+            emailVerified: true,
+            description: 'Jogos também são palavras. Às vezes, portas.',
+            preferences: { emailNotifications: false }
+        }
+    });
+    console.log('✅ Appraises editorial profile created');
+
     // 2. Games
     const gameMap: Record<string, string> = {}; // slug -> id
     for (const game of GAMES) {
@@ -398,6 +419,11 @@ async function main() {
     // 4. Terms
     for (const term of TERMS) {
         const gameId = term.gameSlug ? gameMap[term.gameSlug] : null;
+        const existing = await prisma.term.findFirst({
+            where: { word: { equals: term.word, mode: 'insensitive' } },
+            select: { id: true }
+        });
+        if (existing) continue;
         await prisma.term.create({
             data: {
                 word: term.word,
@@ -414,6 +440,76 @@ async function main() {
         });
     }
     console.log(`✅ ${TERMS.length} terms seeded`);
+
+    const jogoDefinition = 'Experiência interativa organizada por regras, objetivos e escolhas, criada para desafiar, divertir, competir, cooperar ou explorar possibilidades.';
+    const jogoExamples = ['Alguns jogos só começam quando a sequência certa é descoberta.'];
+    const existingJogo = await prisma.term.findFirst({
+        where: { word: { equals: 'Jogo', mode: 'insensitive' } },
+        orderBy: { createdAt: 'asc' }
+    });
+    const jogo = existingJogo
+        ? await prisma.term.update({
+            where: { id: existingJogo.id },
+            data: {
+                word: 'Jogo',
+                definition: jogoDefinition,
+                phonetic: '/ˈʒo.gu/',
+                pronunciationGuide: 'JÔ-go',
+                examples: jogoExamples,
+                tags: ['Geral', 'Cultura Gamer', 'Conceito'],
+                gameId: null,
+                gameIds: [],
+                authorId: appraises.id,
+                status: TermStatus.APPROVED,
+                archivedAt: null,
+                moderatedAt: new Date()
+            }
+        })
+        : await prisma.term.create({
+            data: {
+                word: 'Jogo',
+                definition: jogoDefinition,
+                phonetic: '/ˈʒo.gu/',
+                pronunciationGuide: 'JÔ-go',
+                examples: jogoExamples,
+                tags: ['Geral', 'Cultura Gamer', 'Conceito'],
+                gameIds: [],
+                authorId: appraises.id,
+                status: TermStatus.APPROVED,
+                moderatedAt: new Date()
+            }
+        });
+    const existingJogoMeaning = await prisma.termMeaning.findFirst({
+        where: { termId: jogo.id },
+        orderBy: [{ order: 'asc' }, { createdAt: 'asc' }]
+    });
+    if (existingJogoMeaning) {
+        await prisma.termMeaning.update({
+            where: { id: existingJogoMeaning.id },
+            data: {
+                definition: jogoDefinition,
+                examples: jogoExamples,
+                context: 'Cultura gamer',
+                gameId: null,
+                authorId: appraises.id,
+                status: TermStatus.APPROVED,
+                order: 1
+            }
+        });
+    } else {
+        await prisma.termMeaning.create({
+            data: {
+                termId: jogo.id,
+                definition: jogoDefinition,
+                examples: jogoExamples,
+                context: 'Cultura gamer',
+                authorId: appraises.id,
+                status: TermStatus.APPROVED,
+                order: 1
+            }
+        });
+    }
+    console.log('✅ Jogo easter-egg term seeded');
 
     // 5. News (short + full articles)
     for (const news of NEWS) {

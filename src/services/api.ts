@@ -51,6 +51,10 @@ import type {
     ,AnalyticsSeo
     ,AnalyticsTraffic
     ,AnalyticsProvider
+    ,BrickBreakerLeaderboardResponse
+    ,BrickBreakerRunSession
+    ,BrickBreakerScoreInput
+    ,BrickBreakerScoreResult
 } from '../../types';
 import { isAnalyticsEnabled } from '../lib/analytics';
 
@@ -116,6 +120,15 @@ export const getGames = async () => {
     const response = await api.get('/games');
     return response.data;
 };
+
+export const getBrickBreakerLeaderboard = async (): Promise<BrickBreakerLeaderboardResponse> =>
+    (await api.get('/arcade/brick-breaker/leaderboard')).data;
+
+export const startBrickBreakerRun = async (): Promise<BrickBreakerRunSession> =>
+    (await api.post('/arcade/brick-breaker/runs')).data;
+
+export const submitBrickBreakerScore = async (data: BrickBreakerScoreInput): Promise<BrickBreakerScoreResult> =>
+    (await api.post('/arcade/brick-breaker/scores', data)).data;
 
 // ... (existing code)
 
