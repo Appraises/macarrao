@@ -11,12 +11,23 @@ import {
 } from '../services/contributions';
 import { buildPaginationMeta, parsePagination } from '../utils/pagination';
 import { parseTermPayload } from '../utils/terms';
+import {
+    enforceContributionProtection,
+    publicContributionProtectionStatus,
+} from '../services/contributionProtection';
 
 const router = Router();
 router.use(authenticateToken);
 
 const handleContributionError = (error: unknown, res: any) => {
-    if (error instanceof ContributionError) return res.status(error.statusCode).json({ error: error.message });
+    if (error instanceof ContributionError) {
+        if (error.retryAfterSeconds) res.setHeader('Retry-After', String(error.retryAfterSeconds));
+        return res.status(error.statusCode).json({
+            error: error.message,
+            ...(error.code ? { code: error.code } : {}),
+            ...(error.retryAfterSeconds ? { retryAfter: error.retryAfterSeconds } : {}),
+        });
+    }
     console.error('[contributions] Request failed:', error);
     return res.status(500).json({ error: 'Falha ao processar a contribuicao.' });
 };
@@ -27,9 +38,24 @@ const parseDate = (value: unknown, endOfDay = false): Date | undefined => {
     return Number.isNaN(parsed.getTime()) ? undefined : parsed;
 };
 
+router.get('/protection', async (req: AuthRequest, res) => {
+    try {
+        res.json(await publicContributionProtectionStatus(req.user));
+    } catch (error) {
+        console.error('[contributions] Protection status failed:', error);
+        res.status(503).json({ error: 'Nao foi possivel consultar a protecao anti-bot.' });
+    }
+});
+
 router.post('/', async (req: AuthRequest, res) => {
     if (!req.user?.emailVerified) {
         return res.status(403).json({ error: 'Confirme seu email antes de sugerir termos.' });
+    }
+    try {
+        if (!await enforceContributionProtection(req, res)) return;
+    } catch (error) {
+        console.error('[contributions] Protection check failed:', error);
+        return res.status(503).json({ error: 'A protecao anti-bot esta temporariamente indisponivel.' });
     }
     const validation = parseTermPayload(req.body);
     if (!validation.valid) return res.status(400).json({ error: validation.error });

@@ -32,6 +32,10 @@ export type AnalyticsEventName =
   | 'Arcade Game Started'
   | 'Arcade Game Over'
   | 'Arcade Score Saved'
+  | 'Bot Challenge Shown'
+  | 'Bot Challenge Passed'
+  | 'Bot Challenge Failed'
+  | 'Contribution Rate Limited'
   | '404';
 
 const getDomain = () => import.meta.env.VITE_PLAUSIBLE_DOMAIN?.trim();

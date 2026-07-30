@@ -18,6 +18,8 @@ import { evaluateBadges } from './badges';
 import { emitContributionQueueUpdate, emitUserNotification } from './realtime';
 import { normalizeCatalogSearch } from './termCatalog';
 import { syncTermFromMeanings } from './termMeanings';
+import { consumeContributionAccountSlot } from './abuseProtection';
+import { CONTRIBUTION_ACCOUNT_LIMIT } from '../utils/config';
 
 export interface ContributionContent {
     word: string;
@@ -53,7 +55,12 @@ const splitContribution = (content: ContributionContent) => {
 export type ModerationAction = 'APPROVE' | 'REJECT' | 'REQUEST_CHANGES';
 
 export class ContributionError extends Error {
-    constructor(public readonly statusCode: number, message: string) {
+    constructor(
+        public readonly statusCode: number,
+        message: string,
+        public readonly code?: string,
+        public readonly retryAfterSeconds?: number,
+    ) {
         super(message);
     }
 }
@@ -136,6 +143,15 @@ export const createContribution = async (authorId: string, content: Contribution
     await ensureGameExists(content.gameId);
     const { termFields, meaning } = splitContribution(content);
     return prisma.$transaction(async (tx) => {
+        const accountLimit = await consumeContributionAccountSlot(authorId, tx);
+        if (!accountLimit.allowed) {
+            throw new ContributionError(
+                429,
+                `Voce atingiu o limite de ${CONTRIBUTION_ACCOUNT_LIMIT} novas contribuicoes neste periodo. Aguarde antes de enviar outra.`,
+                'CONTRIBUTION_ACCOUNT_RATE_LIMITED',
+                accountLimit.retryAfterSeconds,
+            );
+        }
         const term = await tx.term.create({
             data: {
                 ...termFields,

@@ -19,6 +19,7 @@ import type {
     ContributionDetail,
     ContributionInput,
     ContributionListResponse,
+    BotProtectionStatus,
     ContributionRejectionReason,
     ContentStatus,
     Game,
@@ -255,8 +256,19 @@ export const getTermBySlug = async (slug: string) => {
     return response.data;
 };
 
-export const createContribution = async (data: ContributionInput): Promise<ContributionDetail> => {
-    const response = await api.post('/contributions', data);
+export const createContribution = async (
+    data: ContributionInput,
+    turnstileToken?: string | null
+): Promise<ContributionDetail> => {
+    const response = await api.post('/contributions', {
+        ...data,
+        turnstileToken: turnstileToken || undefined
+    });
+    return response.data;
+};
+
+export const getContributionProtection = async (): Promise<BotProtectionStatus> => {
+    const response = await api.get('/contributions/protection');
     return response.data;
 };
 
@@ -631,6 +643,11 @@ export const login = async (credentials: any) => {
 
 export const registerUser = async (userData: any) => {
     const response = await api.post('/auth/register', userData);
+    return response.data;
+};
+
+export const createDashboardUser = async (userData: { name: string; email: string; password: string; role?: 'USER' | 'ADMIN' }) => {
+    const response = await api.post('/dashboard/users', userData);
     return response.data;
 };
 

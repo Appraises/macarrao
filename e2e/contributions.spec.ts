@@ -5,8 +5,8 @@ import { config } from '../server/node_modules/dotenv/lib/main.js';
 
 config({ path: 'server/.env', quiet: true });
 
-const BASE_URL = 'http://localhost:4175';
-const API_URL = 'http://localhost:3001';
+const BASE_URL = process.env.E2E_BASE_URL || 'http://localhost:4175';
+const API_URL = process.env.E2E_API_URL || 'http://localhost:3001';
 const prisma = new PrismaClient();
 
 interface Session {
@@ -75,8 +75,10 @@ test('complete contribution, revision, approval, rejection and notification flow
     await page.getByLabel(/Exemplos de uso/).fill('O time aplicou a estratégia durante a rodada decisiva.');
     await page.getByText('Estratégia', { exact: true }).click();
 
+    const submitButton = page.getByRole('button', { name: 'Enviar contribuição' });
+    await expect(submitButton).toBeEnabled();
     const createdResponse = page.waitForResponse((response) => response.url() === `${API_URL}/contributions` && response.request().method() === 'POST');
-    await page.getByRole('button', { name: 'Enviar contribuição' }).click();
+    await submitButton.click();
     const created = await createdResponse;
     const createdBody = await created.json() as { id?: string; error?: string };
     expect(created.status(), createdBody.error || JSON.stringify(createdBody)).toBe(201);

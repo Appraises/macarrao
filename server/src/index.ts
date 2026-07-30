@@ -28,6 +28,7 @@ import { startEsportsSyncScheduler } from './services/esports/sync';
 import { authenticatedUser } from './middleware/auth';
 import { startAnalyticsScheduler } from './services/analytics/sync';
 import { sentryEnabled } from './instrument';
+import { deleteExpiredRateLimitBuckets } from './services/abuseProtection';
 
 import { prisma } from './lib/prisma';
 const PORT = process.env.PORT || 3001;
@@ -45,7 +46,7 @@ app.use(cors({
     origin: CORS_ORIGINS,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Analytics-Enabled', 'X-Search-Origin'],
-    exposedHeaders: ['Content-Disposition']
+    exposedHeaders: ['Content-Disposition', 'Retry-After', 'RateLimit', 'RateLimit-Policy']
 }));
 
 const limiter = rateLimit({
@@ -143,6 +144,13 @@ httpServer.listen(Number(PORT), '0.0.0.0', () => {
     console.log(`Server is running on port ${PORT}`);
     startEsportsSyncScheduler();
     startAnalyticsScheduler();
+    void deleteExpiredRateLimitBuckets()
+        .catch((error) => console.error('[abuse-protection] Cleanup failed:', error));
+    const abuseCleanup = setInterval(() => {
+        void deleteExpiredRateLimitBuckets()
+            .catch((error) => console.error('[abuse-protection] Cleanup failed:', error));
+    }, 6 * 60 * 60 * 1000);
+    abuseCleanup.unref();
 });
 
 export { prisma };

@@ -65,7 +65,7 @@ export const PrivacyPolicy: React.FC = () => (
               <tr><td className="px-4 py-3 text-gray-200">Brick Breaker</td><td className="px-4 py-3">melhor pontuação, tijolos destruídos, nível, duração e sessões recentes de partida</td><td className="px-4 py-3">suas partidas autenticadas</td></tr>
               <tr><td className="px-4 py-3 text-gray-200">Preferências</td><td className="px-4 py-3">configurações de perfil, notificações e privacidade</td><td className="px-4 py-3">suas escolhas</td></tr>
               <tr><td className="px-4 py-3 text-gray-200">Uso agregado</td><td className="px-4 py-3">página, origem, campanha, navegador, dispositivo e região aproximada</td><td className="px-4 py-3">Plausible Analytics</td></tr>
-              <tr><td className="px-4 py-3 text-gray-200">Segurança</td><td className="px-4 py-3">IP, horário, rota e falhas de acesso em logs técnicos</td><td className="px-4 py-3">servidor e hospedagem</td></tr>
+              <tr><td className="px-4 py-3 text-gray-200">Segurança</td><td className="px-4 py-3">IP em formato protegido por HMAC, horário, limites de uso, resultado anti-bot e falhas de acesso</td><td className="px-4 py-3">servidor, hospedagem e Cloudflare Turnstile</td></tr>
             </tbody>
           </table>
         </div>
@@ -124,7 +124,7 @@ export const PrivacyPolicy: React.FC = () => (
           <li><strong className="text-white">Plausible:</strong> métricas agregadas de audiência, com infraestrutura na União Europeia;</li>
           <li><strong className="text-white">Google Search Console, CrUX e PageSpeed:</strong> desempenho orgânico, indexação e qualidade técnica de páginas públicas;</li>
           <li><strong className="text-white">Sentry:</strong> diagnóstico de erros, desempenho e disponibilidade, configurado sem envio intencional de dados pessoais ou conteúdo de formulários;</li>
-          <li><strong className="text-white">Google Gemini:</strong> análise automatizada do termo e da definição enviados para contribuição;</li>
+          <li><strong className="text-white">Cloudflare Turnstile:</strong> verificação anti-bot no cadastro e, conforme o risco, em contribuições; o token temporário e o endereço IP são enviados à Cloudflare para validação;</li>
           <li><strong className="text-white">Liquipedia:</strong> fornecimento de dados públicos de partidas e competições de esports;</li>
           <li><strong className="text-white">serviços de avatar, fontes e mídia:</strong> carregamento de avatar gerado, tipografia e imagens externas.</li>
         </ul>
@@ -142,6 +142,7 @@ export const PrivacyPolicy: React.FC = () => (
           <li>Contribuições e comentários podem permanecer publicados para preservar a integridade do dicionário, inclusive de forma anonimizada após o encerramento da conta.</li>
           <li>Solicitações de direitos, protocolos e registros administrativos mínimos podem ser conservados para comprovar o atendimento e o exercício regular de direitos; dados de contato e textos livres são minimizados após a anonimização.</li>
           <li>Logs técnicos são mantidos pelo período necessário para segurança, diagnóstico e cumprimento legal.</li>
+          <li>Contadores antiabuso protegidos por HMAC expiram ao final de sua janela e são eliminados periodicamente; o horário da última verificação anti-bot permanece enquanto a conta estiver ativa.</li>
           <li>Métricas agregadas permanecem no Plausible enquanto a conta analítica estiver ativa ou até sua exclusão pelo operador.</li>
           <li>O texto sanitizado de consultas internas é eliminado após 90 dias; hashes e totais agregados podem permanecer para análise histórica sem identificação do visitante.</li>
           <li>Registros diários de atividade autenticada são incluídos na exportação e removidos quando a conta é anonimizada.</li>
@@ -178,7 +179,7 @@ export const PrivacyPolicy: React.FC = () => (
       <LegalSection id="seguranca" title="8. Segurança">
         <p>
           Adotamos controles como hash de senhas, autenticação por token, limitação de requisições, cabeçalhos de
-          segurança, validação de entradas e restrição de acesso administrativo. Nenhum sistema é infalível; por isso,
+          segurança, validação de entradas, verificação anti-bot adaptativa e restrição de acesso administrativo. Nenhum sistema é infalível; por isso,
           também monitoramos incidentes e revisamos medidas conforme o risco e a evolução do produto.
         </p>
         <p>Se você suspeitar de acesso indevido, altere sua senha e comunique o canal de privacidade.</p>

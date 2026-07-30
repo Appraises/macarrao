@@ -24,6 +24,8 @@ interface ContributionFormProps {
   busyLabel?: string;
   onSubmit: (value: ContributionInput) => Promise<void>;
   onCancel?: () => void;
+  securityChallenge?: React.ReactNode;
+  submitDisabled?: boolean;
 }
 
 export const ContributionForm: React.FC<ContributionFormProps> = ({
@@ -32,6 +34,8 @@ export const ContributionForm: React.FC<ContributionFormProps> = ({
   busyLabel = 'Validando e enviando...',
   onSubmit,
   onCancel,
+  securityChallenge,
+  submitDisabled = false,
 }) => {
   const [games, setGames] = useState<Game[]>([]);
   const [word, setWord] = useState(initialValue.word);
@@ -172,11 +176,14 @@ export const ContributionForm: React.FC<ContributionFormProps> = ({
         </div>
       </section>
 
-      <div className="flex flex-col-reverse justify-end gap-3 border-t border-white/10 pt-6 sm:flex-row">
-        {onCancel && <Button type="button" variant="ghost" onClick={onCancel}>Cancelar</Button>}
-        <Button type="submit" disabled={submitting} className="sm:min-w-52">
-          <Save className="h-4 w-4" /> {submitting ? busyLabel : submitLabel}
-        </Button>
+      <div className="space-y-4 border-t border-white/10 pt-6">
+        {securityChallenge}
+        <div className="flex flex-col-reverse justify-end gap-3 sm:flex-row">
+          {onCancel && <Button type="button" variant="ghost" onClick={onCancel}>Cancelar</Button>}
+          <Button type="submit" disabled={submitting || submitDisabled} className="sm:min-w-52">
+            <Save className="h-4 w-4" /> {submitting ? busyLabel : submitLabel}
+          </Button>
+        </div>
       </div>
     </form>
   );

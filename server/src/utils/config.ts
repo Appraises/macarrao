@@ -15,6 +15,36 @@ const APP_URL = (process.env.APP_URL || 'http://localhost:3000').replace(/\/$/, 
 const PUBLIC_API_URL = (process.env.PUBLIC_API_URL || '').replace(/\/$/, '');
 const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
 const EMAIL_FROM = process.env.EMAIL_FROM || 'Dicionario Gamer <onboarding@resend.dev>';
+const positiveInteger = (value: string | undefined, fallback: number) => {
+    const parsed = Number(value);
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+};
+const TURNSTILE_ENABLED = process.env.TURNSTILE_ENABLED === 'true';
+const TURNSTILE_SECRET_KEY = process.env.TURNSTILE_SECRET_KEY || '';
+const TURNSTILE_ALLOWED_HOSTNAMES = (process.env.TURNSTILE_ALLOWED_HOSTNAMES || 'localhost,127.0.0.1')
+    .split(',').map((value) => value.trim().toLowerCase()).filter(Boolean);
+const TURNSTILE_TIMEOUT_MS = positiveInteger(process.env.TURNSTILE_TIMEOUT_MS, 3_000);
+const ABUSE_HASH_SECRET = process.env.ABUSE_HASH_SECRET || JWT_SECRET;
+const BOT_TRUST_MINUTES = positiveInteger(process.env.BOT_TRUST_MINUTES, 30);
+const BOT_NEW_ACCOUNT_HOURS = positiveInteger(process.env.BOT_NEW_ACCOUNT_HOURS, 24);
+const CONTRIBUTION_ACCOUNT_LIMIT = positiveInteger(process.env.CONTRIBUTION_ACCOUNT_LIMIT, 5);
+const CONTRIBUTION_ACCOUNT_WINDOW_MINUTES = positiveInteger(process.env.CONTRIBUTION_ACCOUNT_WINDOW_MINUTES, 30);
+const CONTRIBUTION_IP_LIMIT = positiveInteger(process.env.CONTRIBUTION_IP_LIMIT, 20);
+const CONTRIBUTION_IP_WINDOW_MINUTES = positiveInteger(process.env.CONTRIBUTION_IP_WINDOW_MINUTES, 30);
+const CONTRIBUTION_CHALLENGE_THRESHOLD = positiveInteger(process.env.CONTRIBUTION_CHALLENGE_THRESHOLD, 2);
+const CONTRIBUTION_DAILY_CHALLENGE_THRESHOLD = positiveInteger(process.env.CONTRIBUTION_DAILY_CHALLENGE_THRESHOLD, 5);
+
+if (TURNSTILE_ENABLED && !TURNSTILE_SECRET_KEY) {
+    const message = 'TURNSTILE_ENABLED=true mas TURNSTILE_SECRET_KEY nao foi configurada.';
+    if (process.env.NODE_ENV === 'production') {
+        console.error(`[config] ERRO: ${message}`);
+        process.exit(1);
+    }
+    console.warn(`[config] AVISO: ${message}`);
+}
+if (TURNSTILE_ENABLED && !process.env.ABUSE_HASH_SECRET) {
+    console.warn('[config] AVISO: ABUSE_HASH_SECRET ausente; usando JWT_SECRET como fallback.');
+}
 
 // Email nao impede o servidor de subir, mas um canal morto em silencio e pior do que
 // um canal ausente: recuperacao de senha falha sem ninguem perceber. Avisa alto.
@@ -96,6 +126,19 @@ export {
     PUBLIC_API_URL,
     RESEND_API_KEY,
     EMAIL_FROM,
+    TURNSTILE_ENABLED,
+    TURNSTILE_SECRET_KEY,
+    TURNSTILE_ALLOWED_HOSTNAMES,
+    TURNSTILE_TIMEOUT_MS,
+    ABUSE_HASH_SECRET,
+    BOT_TRUST_MINUTES,
+    BOT_NEW_ACCOUNT_HOURS,
+    CONTRIBUTION_ACCOUNT_LIMIT,
+    CONTRIBUTION_ACCOUNT_WINDOW_MINUTES,
+    CONTRIBUTION_IP_LIMIT,
+    CONTRIBUTION_IP_WINDOW_MINUTES,
+    CONTRIBUTION_CHALLENGE_THRESHOLD,
+    CONTRIBUTION_DAILY_CHALLENGE_THRESHOLD,
     MEDIA_DRIVER,
     MEDIA_S3_BUCKET,
     MEDIA_S3_REGION,

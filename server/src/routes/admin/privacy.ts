@@ -333,6 +333,7 @@ router.post('/:id/complete', async (req: AuthRequest, res) => {
                         termsVersion: null,
                         privacyAcknowledgedAt: null,
                         privacyVersion: null,
+                        botVerifiedAt: null,
                         description: null,
                         favoriteGame: { disconnect: true },
                         sessionVersion: { increment: 1 },

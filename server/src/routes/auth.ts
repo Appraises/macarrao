@@ -5,10 +5,11 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import rateLimit from 'express-rate-limit';
 import { prisma } from '../lib/prisma';
-import { JWT_SECRET, PRIVACY_VERSION, TERMS_VERSION } from '../utils/config';
+import { JWT_SECRET, PRIVACY_VERSION, TERMS_VERSION, TURNSTILE_ENABLED } from '../utils/config';
 import { validateEmail, validatePassword, validateName } from '../utils/validation';
 import { sendPasswordResetEmail, sendVerificationEmail } from '../services/email';
 import { recordUserActivity } from '../services/analytics/activity';
+import { TurnstileVerificationError, verifyTurnstileToken } from '../services/turnstile';
 
 const router = Router();
 
@@ -86,6 +87,7 @@ const publicUser = <T extends Record<string, any>>(user: T) => {
         resetPasswordToken: _resetPasswordToken,
         resetPasswordExpires: _resetPasswordExpires,
         sessionVersion: _sessionVersion,
+        botVerifiedAt: _botVerifiedAt,
         ...safeUser
     } = user;
     return safeUser;
@@ -138,6 +140,11 @@ router.post('/register', registerLimiter, async (req, res) => {
     }
 
     try {
+        const turnstile = await verifyTurnstileToken({
+            token: req.body?.turnstileToken,
+            action: 'register',
+            remoteIp: req.ip,
+        });
         const verification = newToken(24 * 60 * 60 * 1000);
         const acceptedAt = new Date();
         const user = await prisma.user.create({
@@ -154,7 +161,8 @@ router.post('/register', registerLimiter, async (req, res) => {
                 termsAcceptedAt: acceptedAt,
                 termsVersion: TERMS_VERSION,
                 privacyAcknowledgedAt: acceptedAt,
-                privacyVersion: PRIVACY_VERSION
+                privacyVersion: PRIVACY_VERSION,
+                botVerifiedAt: TURNSTILE_ENABLED && !turnstile.skipped ? acceptedAt : null,
             }
         });
 
@@ -162,6 +170,12 @@ router.post('/register', registerLimiter, async (req, res) => {
         const token = jwt.sign({ userId: user.id, role: user.role, sessionVersion: user.sessionVersion }, JWT_SECRET, { expiresIn: '1d' });
         res.status(201).json({ token, user: publicUser(user), emailSent });
     } catch (error: any) {
+        if (error instanceof TurnstileVerificationError) {
+            return res.status(error.kind === 'INVALID' ? 400 : 503).json({
+                code: error.kind === 'INVALID' ? 'BOT_CHALLENGE_FAILED' : 'BOT_CHALLENGE_UNAVAILABLE',
+                error: error.message,
+            });
+        }
         if (error?.code === 'P2002') {
             return res.status(409).json({ error: 'Este email ja esta cadastrado.' });
         }

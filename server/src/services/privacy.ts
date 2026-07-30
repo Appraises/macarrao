@@ -64,6 +64,7 @@ export const buildUserDataExport = async (userId: string) => {
             termsVersion: true,
             privacyAcknowledgedAt: true,
             privacyVersion: true,
+            botVerifiedAt: true,
             description: true,
             createdAt: true,
             updatedAt: true,

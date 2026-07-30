@@ -4,6 +4,10 @@ import { Mail, User as UserIcon, Lock, ArrowRight, AlertCircle, RefreshCw, Gamep
 import { Button } from '../components/UI';
 import { login, registerUser, resendVerificationEmail } from '../src/services/api';
 import { trackAnalyticsEvent } from '../src/lib/analytics';
+import {
+  isTurnstileConfigured,
+  TurnstileWidget,
+} from '../components/security/TurnstileWidget';
 
 import { useAuth } from '../src/context/AuthContext';
 
@@ -25,10 +29,16 @@ export const Login: React.FC = () => {
   const [resending, setResending] = useState(false);
   const [resendMessage, setResendMessage] = useState('');
   const [acceptedLegal, setAcceptedLegal] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileReset, setTurnstileReset] = useState(0);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    if (isRegistering && isTurnstileConfigured && !turnstileToken) {
+      setError('Conclua a verificacao de seguranca para criar sua conta.');
+      return;
+    }
     setLoading(true);
 
     try {
@@ -37,7 +47,13 @@ export const Login: React.FC = () => {
         if (password !== confirmPassword) {
           throw { response: { data: { error: 'As senhas não coincidem.' } } };
         }
-        response = await registerUser({ name, email, password, acceptTerms: acceptedLegal });
+        response = await registerUser({
+          name,
+          email,
+          password,
+          acceptTerms: acceptedLegal,
+          turnstileToken,
+        });
         trackAnalyticsEvent('Account Created', { method: 'email' });
         setRegistrationEmailSent(response.emailSent !== false);
         setRegistrationSuccess(true);
@@ -61,6 +77,13 @@ export const Login: React.FC = () => {
     } catch (err: any) {
       console.error(err);
       setError(err.response?.data?.error || 'Falha na autenticação. Verifique seus dados.');
+      if (isRegistering) {
+        if (err.response?.data?.code === 'BOT_CHALLENGE_FAILED') {
+          trackAnalyticsEvent('Bot Challenge Failed', { context: 'register' });
+        }
+        setTurnstileToken(null);
+        setTurnstileReset((value) => value + 1);
+      }
     } finally {
       if (!isRegistering) setLoading(false);
     }
@@ -217,6 +240,17 @@ export const Login: React.FC = () => {
             </label>
           )}
 
+          {isRegistering && isTurnstileConfigured && (
+            <TurnstileWidget
+              action="register"
+              resetSignal={turnstileReset}
+              onTokenChange={(token) => {
+                setTurnstileToken(token);
+                if (token) trackAnalyticsEvent('Bot Challenge Passed', { context: 'register' });
+              }}
+            />
+          )}
+
           {!isRegistering && (
             <div className="flex justify-end">
               <Link to="/forgot-password" className="text-xs font-bold text-brand-400 hover:text-brand-300 transition-colors">
@@ -228,7 +262,11 @@ export const Login: React.FC = () => {
           <Button
             type="submit"
             className="w-full h-12 text-base mt-2"
-            disabled={loading || (isRegistering && !acceptedLegal)}
+            disabled={
+              loading
+              || (isRegistering && !acceptedLegal)
+              || (isRegistering && isTurnstileConfigured && !turnstileToken)
+            }
           >
             {loading ? 'Processando...' : (isRegistering ? 'Criar Conta' : 'Entrar')}
             {!loading && <ArrowRight className="w-4 h-4 ml-2" />}
@@ -239,7 +277,16 @@ export const Login: React.FC = () => {
           <p className="text-sm text-gray-400">
             {isRegistering ? 'Já tem uma conta?' : 'Não tem uma conta?'}
             <button
-              onClick={() => setIsRegistering(!isRegistering)}
+              onClick={() => {
+                const nextMode = !isRegistering;
+                setIsRegistering(nextMode);
+                setError('');
+                setTurnstileToken(null);
+                setTurnstileReset((value) => value + 1);
+                if (nextMode && isTurnstileConfigured) {
+                  trackAnalyticsEvent('Bot Challenge Shown', { context: 'register' });
+                }
+              }}
               className="ml-1 text-brand-400 font-bold hover:text-brand-300 hover:underline transition-colors"
             >
               {isRegistering ? 'Fazer Login' : 'Registrar-se'}

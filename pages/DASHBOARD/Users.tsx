@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { getUsers, registerUser } from '../../src/services/api';
+import { createDashboardUser, getUsers } from '../../src/services/api';
 import { User, PaginationMeta } from '../../types';
 import { Shield, Search, Plus, X } from 'lucide-react';
 import { Badge, Button } from '../../components/UI';
@@ -45,7 +45,7 @@ export const UsersList: React.FC = () => {
         e.preventDefault();
         setRegisterError('');
         try {
-            await registerUser(newUser);
+            await createDashboardUser(newUser);
             setIsModalOpen(false);
             setNewUser({ name: '', email: '', password: '' });
             fetchUsers();

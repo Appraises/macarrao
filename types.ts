@@ -382,6 +382,13 @@ export interface ContributionInput {
   inflections?: Inflection[];
 }
 
+export interface BotProtectionStatus {
+  enabled: boolean;
+  challengeRequired: boolean;
+  reason: 'DISABLED' | 'RECENTLY_VERIFIED' | 'NEW_ACCOUNT' | 'ACCELERATED_ACTIVITY' | 'DAILY_ACTIVITY' | 'NOT_REQUIRED';
+  trustExpiresAt?: string | null;
+}
+
 export interface TermModerationEvent {
   id: string;
   type: TermModerationEventType;

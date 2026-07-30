@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AlertTriangle, Check, ClipboardList, LogIn, Sparkles } from 'lucide-react';
 import { ContributionForm } from '../components/contributions/ContributionForm';
@@ -6,13 +6,49 @@ import { Seo } from '../components/Seo';
 import { Button } from '../components/UI';
 import { useAuth } from '../src/context/AuthContext';
 import { trackAnalyticsEvent } from '../src/lib/analytics';
-import { createContribution } from '../src/services/api';
-import type { ContributionInput } from '../types';
+import { createContribution, getContributionProtection } from '../src/services/api';
+import {
+  isTurnstileConfigured,
+  TurnstileWidget,
+} from '../components/security/TurnstileWidget';
+import type { BotProtectionStatus, ContributionInput } from '../types';
 
 export const Contribute: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [created, setCreated] = useState<{ id: string; word: string } | null>(null);
+  const [protection, setProtection] = useState<BotProtectionStatus | null>(null);
+  const [protectionLoading, setProtectionLoading] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileReset, setTurnstileReset] = useState(0);
+
+  useEffect(() => {
+    if (!user?.emailVerified) return;
+    let cancelled = false;
+    setProtectionLoading(true);
+    getContributionProtection()
+      .then((status) => {
+        if (!cancelled) setProtection(status);
+      })
+      .catch(() => {
+        if (!cancelled) setProtection(null);
+      })
+      .finally(() => {
+        if (!cancelled) setProtectionLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, user?.emailVerified]);
+
+  useEffect(() => {
+    if (protection?.challengeRequired && isTurnstileConfigured) {
+      trackAnalyticsEvent('Bot Challenge Shown', {
+        context: 'contribution',
+        reason: protection.reason,
+      });
+    }
+  }, [protection?.challengeRequired, protection?.reason]);
 
   if (!user) {
     return (
@@ -39,12 +75,40 @@ export const Contribute: React.FC = () => {
   }
 
   const submit = async (value: ContributionInput) => {
-    const contribution = await createContribution(value);
-    trackAnalyticsEvent('Contribution Submitted', {
-      game_selected: Boolean(value.gameId),
-      topics_count: value.tags.length,
-    });
-    setCreated({ id: contribution.id, word: contribution.word });
+    try {
+      const contribution = await createContribution(value, turnstileToken);
+      trackAnalyticsEvent('Contribution Submitted', {
+        game_selected: Boolean(value.gameId),
+        topics_count: value.tags.length,
+      });
+      setCreated({ id: contribution.id, word: contribution.word });
+    } catch (error: any) {
+      const code = error?.response?.data?.code;
+      if (error?.response?.status === 428 || code === 'BOT_CHALLENGE_REQUIRED') {
+        setProtection({
+          enabled: true,
+          challengeRequired: true,
+          reason: 'ACCELERATED_ACTIVITY',
+        });
+      }
+      if (code === 'BOT_CHALLENGE_FAILED') {
+        trackAnalyticsEvent('Bot Challenge Failed', { context: 'contribution' });
+      }
+      if (error?.response?.status === 429) {
+        trackAnalyticsEvent('Contribution Rate Limited', {
+          scope: code === 'CONTRIBUTION_IP_RATE_LIMITED'
+            ? 'network'
+            : code === 'CONTRIBUTION_ACCOUNT_RATE_LIMITED'
+              ? 'account'
+              : 'request',
+        });
+      }
+      if (turnstileToken || code === 'BOT_CHALLENGE_FAILED') {
+        setTurnstileToken(null);
+        setTurnstileReset((value) => value + 1);
+      }
+      throw error;
+    }
   };
 
   if (created) {
@@ -72,7 +136,35 @@ export const Contribute: React.FC = () => {
         <h1 className="mt-3 text-3xl font-bold text-white md:text-4xl">Nova contribuição</h1>
         <p className="mt-3 max-w-2xl text-gray-400">Explique o termo com clareza. A moderação poderá aprovar, rejeitar ou pedir ajustes antes da publicação.</p>
       </header>
-      <ContributionForm onSubmit={submit} onCancel={() => navigate('/dicionario')} />
+      <ContributionForm
+        onSubmit={submit}
+        onCancel={() => navigate('/dicionario')}
+        submitDisabled={
+          protectionLoading
+          || Boolean(protection?.challengeRequired && (!isTurnstileConfigured || !turnstileToken))
+        }
+        securityChallenge={protection?.challengeRequired ? (
+          <div className="rounded-lg border border-brand-500/20 bg-brand-500/5 p-4">
+            <p className="mb-3 text-sm text-gray-300">
+              Uma verificação rápida protege a fila contra envios automatizados.
+            </p>
+            {isTurnstileConfigured ? (
+              <TurnstileWidget
+                action="contribution"
+                resetSignal={turnstileReset}
+                onTokenChange={(token) => {
+                  setTurnstileToken(token);
+                  if (token) trackAnalyticsEvent('Bot Challenge Passed', { context: 'contribution' });
+                }}
+              />
+            ) : (
+              <p role="alert" className="text-sm text-red-300">
+                A verificação de segurança não foi configurada neste ambiente.
+              </p>
+            )}
+          </div>
+        ) : undefined}
+      />
     </main>
   );
 };

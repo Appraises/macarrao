@@ -27,6 +27,7 @@ const mocks = vi.hoisted(() => ({
     sendEmail: vi.fn(),
     emitNotification: vi.fn(),
     emitQueueUpdate: vi.fn()
+    ,rateLimitUpsert: vi.fn()
     ,queryRaw: vi.fn()
     ,executeRaw: vi.fn()
 }));
@@ -55,6 +56,7 @@ vi.mock('../src/lib/prisma', () => {
         notification: { create: mocks.notificationCreate, update: mocks.notificationUpdate },
         user: { update: mocks.userUpdate },
         adminAuditLog: { create: mocks.auditCreate }
+        ,rateLimitBucket: { upsert: mocks.rateLimitUpsert }
         ,$queryRaw: mocks.queryRaw
         ,$executeRaw: mocks.executeRaw
     };
@@ -119,6 +121,7 @@ beforeEach(() => {
     mocks.meaningUpdateMany.mockResolvedValue({ count: 1 });
     mocks.meaningFindFirst.mockResolvedValue({ id: 'meaning-1' });
     mocks.meaningFindMany.mockResolvedValue([]);
+    mocks.rateLimitUpsert.mockResolvedValue({ count: 1 });
     mocks.termUpdate.mockResolvedValue({ id: 'term-1' });
 });
 
@@ -142,6 +145,17 @@ describe('contribution lifecycle', () => {
                 revision: 1
             })
         });
+    });
+
+    it('rejects a sixth contribution inside the account window before creating content', async () => {
+        mocks.rateLimitUpsert.mockResolvedValue({ count: 6 });
+
+        await expect(createContribution('user-1', content)).rejects.toMatchObject<Partial<ContributionError>>({
+            statusCode: 429,
+            code: 'CONTRIBUTION_ACCOUNT_RATE_LIMITED',
+        });
+        expect(mocks.termCreate).not.toHaveBeenCalled();
+        expect(mocks.eventCreate).not.toHaveBeenCalled();
     });
 
     it('turns requested changes back into pending when the author resubmits', async () => {

@@ -158,7 +158,7 @@ Com `ANALYTICS_SYNC_ENABLED=true`, o backend executa no fuso `America/Sao_Paulo`
 
 Os jobs usam lock consultivo do PostgreSQL, upsert idempotente, timeout, retentativas exponenciais e histórico em `AnalyticsSyncRun`. Também podem ser iniciados pelo botão de sincronização, com cooldown de cinco minutos e auditoria administrativa.
 
-Cadastre no Plausible os goals `Visit Classified`, `Search Submitted`, `Search No Results`, `Search Result Click`, `Search Suggestion Selected`, `Term Opened`, `Term Shared`, `Account Created`, `Contribution Submitted` e `404`.
+Cadastre no Plausible os goals `Visit Classified`, `Search Submitted`, `Search No Results`, `Search Result Click`, `Search Suggestion Selected`, `Term Opened`, `Term Shared`, `Account Created`, `Contribution Submitted`, `Bot Challenge Shown`, `Bot Challenge Passed`, `Bot Challenge Failed`, `Contribution Rate Limited` e `404`.
 
 Um provedor sem credenciais aparece como `NOT_CONFIGURED`; falhas externas não impedem as métricas internas e os últimos dados sincronizados continuam disponíveis.
 

@@ -212,6 +212,7 @@ model User {
   description              String?
   sessionVersion           Int                   @default(0)
   anonymizedAt             DateTime?
+  botVerifiedAt            DateTime?
   createdAt                DateTime              @default(now())
   updatedAt                DateTime              @updatedAt
   comments                 Comment[]
@@ -1119,5 +1120,19 @@ model BrickBreakerRun {
   durationMs      Int?
 
   @@index([userId, startedAt])
+  @@index([expiresAt])
+}
+
+model RateLimitBucket {
+  id              String   @id @default(uuid())
+  scope           String
+  subjectHash     String
+  windowStartedAt DateTime
+  count           Int      @default(0)
+  expiresAt       DateTime
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([scope, subjectHash, windowStartedAt])
   @@index([expiresAt])
 }

@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams, useLoaderData, useLocation, useNavigation
 import { getTermBySlug, getTerms, recordTermView } from '../src/services/api';
 import { Button } from '../components/UI';
 import { CompactTermCard } from '../components/CompactTermCard';
-import { ArrowLeft, SearchX, Gamepad2, PlusCircle, ArrowUpRight } from 'lucide-react';
+import { SearchX, Gamepad2, PlusCircle, ArrowUpRight } from 'lucide-react';
 import { TermCard } from '../components/TermCard';
 import { AddMeaningPanel } from '../components/AddMeaningPanel';
 import { TermContributions } from '../components/term/TermContributions';
@@ -136,10 +136,6 @@ export const TermDetail: React.FC = () => {
           ])} />
         </>
       )}
-      <Button variant="ghost" onClick={() => navigate('/dicionario')} className="mb-6 pl-0 hover:bg-transparent hover:text-ocean-400">
-        <ArrowLeft className="w-4 h-4" /> Voltar para busca
-      </Button>
-
       {loading ? (
         <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
           <div className="w-16 h-16 border-4 border-ocean-500/30 border-t-ocean-500 rounded-full animate-spin"></div>

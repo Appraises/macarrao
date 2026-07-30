@@ -14,6 +14,9 @@ import adminPrivacyRouter from './admin/privacy';
 import adminContributionsRouter from './admin/contributions';
 import adminAnalyticsRouter from './admin/analytics';
 import adminTermsRouter from './admin/terms';
+import bcrypt from 'bcryptjs';
+import { validateEmail, validateName, validatePassword } from '../utils/validation';
+import { writeAuditLog } from '../services/audit';
 
 const router = Router();
 
@@ -113,6 +116,56 @@ router.get('/users', async (req, res) => {
         });
     } catch (error) {
         res.status(500).json({ error: 'Failed to fetch users' });
+    }
+});
+
+router.post('/users', async (req: any, res) => {
+    const nameCheck = validateName(req.body?.name);
+    if (!nameCheck.valid) return res.status(400).json({ error: nameCheck.message });
+    if (typeof req.body?.email !== 'string' || !validateEmail(req.body.email)) {
+        return res.status(400).json({ error: 'Formato de email invalido.' });
+    }
+    const passwordCheck = validatePassword(req.body?.password);
+    if (!passwordCheck.valid) return res.status(400).json({ error: passwordCheck.message });
+    const role = req.body?.role === 'ADMIN' ? 'ADMIN' : 'USER';
+
+    try {
+        const item = await prisma.$transaction(async (tx) => {
+            const created = await tx.user.create({
+                data: {
+                    name: req.body.name.trim(),
+                    email: req.body.email.trim().toLowerCase(),
+                    password: await bcrypt.hash(req.body.password, 10),
+                    role,
+                    emailVerified: true,
+                    avatar: null,
+                },
+                select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    role: true,
+                    level: true,
+                    avatar: true,
+                    emailVerified: true,
+                    createdAt: true,
+                },
+            });
+            await writeAuditLog({
+                actorId: req.user?.id,
+                action: 'CREATE',
+                entityType: 'User',
+                entityId: created.id,
+                after: { ...created, email: '[redacted]' },
+                metadata: { source: 'dashboard', emailVerified: true },
+            }, tx);
+            return created;
+        });
+        res.status(201).json(item);
+    } catch (error: any) {
+        if (error?.code === 'P2002') return res.status(409).json({ error: 'Este email ja esta cadastrado.' });
+        console.error('[dashboard/users] Create failed:', error);
+        res.status(500).json({ error: 'Falha ao criar usuario.' });
     }
 });
 

@@ -18,6 +18,7 @@ import {
     proposeOrigin, reportMedia, setOriginHidden, submitImage, TermMediaError,
 } from '../services/termMedia';
 import rateLimit from 'express-rate-limit';
+import { enforceContributionProtection } from '../services/contributionProtection';
 import multer from 'multer';
 
 const router = Router();
@@ -442,6 +443,12 @@ router.post('/', authenticateToken, async (req: any, res: any) => {
     if (!user.emailVerified) {
         return res.status(403).json({ error: 'Confirme seu email antes de sugerir termos.' });
     }
+    try {
+        if (!await enforceContributionProtection(req, res)) return;
+    } catch (error) {
+        console.error('[terms] Contribution protection failed:', error);
+        return res.status(503).json({ error: 'A protecao anti-bot esta temporariamente indisponivel.' });
+    }
 
     const validation = parseTermPayload(req.body);
     if (!validation.valid) return res.status(400).json({ error: validation.error });
@@ -453,7 +460,14 @@ router.post('/', authenticateToken, async (req: any, res: any) => {
         res.setHeader('Link', '</contributions>; rel="successor-version"');
         res.status(201).json(term);
     } catch (error) {
-        if (error instanceof ContributionError) return res.status(error.statusCode).json({ error: error.message });
+        if (error instanceof ContributionError) {
+            if (error.retryAfterSeconds) res.setHeader('Retry-After', String(error.retryAfterSeconds));
+            return res.status(error.statusCode).json({
+                error: error.message,
+                ...(error.code ? { code: error.code } : {}),
+                ...(error.retryAfterSeconds ? { retryAfter: error.retryAfterSeconds } : {}),
+            });
+        }
         res.status(500).json({ error: 'Falha ao criar contribuicao.' });
     }
 });
