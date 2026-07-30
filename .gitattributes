@@ -1,0 +1,20 @@
+# O repositorio guarda tudo em LF, independente de quem commita.
+#
+# Sem isto, um commit feito no Windows grava CRLF e o servidor Linux ve todos os
+# arquivos como modificados no `git pull` — o deploy quebra sem ninguem ter
+# editado nada. Pior: script .sh com CRLF nao executa no Linux, porque o \r
+# entra no shebang.
+#
+# Cada desenvolvedor continua vendo a quebra de linha nativa dele no editor.
+* text=auto eol=lf
+
+# Binarios nunca sao convertidos.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.pdf binary
