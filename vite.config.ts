@@ -1,17 +1,12 @@
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { writeFile, mkdir } from 'node:fs/promises';
-import { defineConfig, type UserConfig } from 'vite';
+import { defineConfig, loadEnv, type UserConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { sentryVitePlugin } from '@sentry/vite-plugin';
 import { termCardSvg, renderPng } from './scripts/og-template.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-// Build-time config. The backend must be reachable at API_URL during the build
-// so term pages can be prerendered with their content (and OG images).
-const API_URL = process.env.VITE_API_URL || 'http://localhost:3001';
-const SITE_URL = (process.env.VITE_SITE_URL || 'https://SEU-DOMINIO.com').replace(/\/$/, '');
 
 // Static, content-rich pages always included in the prerender + sitemap.
 const STATIC_ROUTES = ['/', '/dicionario', '/games', '/news', '/esports', '/termos', '/privacidade'];
@@ -22,14 +17,14 @@ type TermLite = { word: string; definition?: string; tags?: unknown };
 let terms: TermLite[] = [];
 
 // Fetch approved terms (full objects) from the public API.
-async function fetchTerms(): Promise<TermLite[]> {
+async function fetchTerms(apiUrl: string): Promise<TermLite[]> {
   try {
     const collected: unknown[] = [];
     let page = 1;
     let totalPages = 1;
 
     do {
-      const url = `${API_URL}/terms?page=${page}&pageSize=100&sort=word&order=asc`;
+      const url = `${apiUrl}/terms?page=${page}&pageSize=100&sort=word&order=asc`;
       const res = await fetch(url);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data: any = await res.json();
@@ -43,7 +38,7 @@ async function fetchTerms(): Promise<TermLite[]> {
     );
   } catch (e) {
     console.warn(
-      `[ssg] Could not fetch terms from ${API_URL} — prerendering static pages only. ` +
+      `[ssg] Could not fetch terms from ${apiUrl} — prerendering static pages only. ` +
       `Start the backend before building to prerender term pages. (${(e as Error).message})`,
     );
     return [];
@@ -86,8 +81,17 @@ async function generateTermImages(dir: string, list: TermLite[]) {
   console.log(`[ssg] Generated ${ok} term OG images.`);
 }
 
-export default defineConfig(() => {
-  const sentryUploadEnabled = Boolean(process.env.SENTRY_AUTH_TOKEN && process.env.SENTRY_ORG && process.env.SENTRY_PROJECT);
+export default defineConfig(({ mode }) => {
+  // Application modules receive VITE_* automatically, while the config must
+  // load env files itself. SSG needs the production API to discover term URLs.
+  const env = loadEnv(mode, process.cwd(), '');
+  const apiUrl = process.env.VITE_API_URL || env.VITE_API_URL || 'http://localhost:3001';
+  const configuredSiteUrl = process.env.VITE_SITE_URL || env.VITE_SITE_URL;
+  const siteUrl = (configuredSiteUrl || 'https://SEU-DOMINIO.com').replace(/\/$/, '');
+  const sentryAuthToken = process.env.SENTRY_AUTH_TOKEN || env.SENTRY_AUTH_TOKEN;
+  const sentryOrg = process.env.SENTRY_ORG || env.SENTRY_ORG;
+  const sentryProject = process.env.SENTRY_PROJECT || env.SENTRY_PROJECT;
+  const sentryUploadEnabled = Boolean(sentryAuthToken && sentryOrg && sentryProject);
   const config: SsgConfig = {
     server: {
       port: 3000,
@@ -96,9 +100,9 @@ export default defineConfig(() => {
     plugins: [
       react(),
       ...(sentryUploadEnabled ? [sentryVitePlugin({
-        authToken: process.env.SENTRY_AUTH_TOKEN,
-        org: process.env.SENTRY_ORG,
-        project: process.env.SENTRY_PROJECT,
+        authToken: sentryAuthToken,
+        org: sentryOrg,
+        project: sentryProject,
         sourcemaps: { filesToDeleteAfterUpload: ['dist/**/*.map'] },
       })] : []),
     ],
@@ -118,18 +122,18 @@ export default defineConfig(() => {
       // Private contribution routes still work as a normal SPA via the
       // host's index.html fallback.
       includedRoutes: async () => {
-        terms = await fetchTerms();
+        terms = await fetchTerms(apiUrl);
         return [...STATIC_ROUTES, ...uniquePaths(terms)];
       },
       // `/games` -> dist/games/index.html, served reliably by any static host.
       dirStyle: 'nested',
       // After rendering: emit the sitemap and per-term OG images.
       onFinished: async (dir) => {
-        if (terms.length === 0) terms = await fetchTerms();
+        if (terms.length === 0) terms = await fetchTerms(apiUrl);
 
         // Sitemap (static pages + all prerendered terms).
         const urls = [...STATIC_ROUTES, ...uniquePaths(terms)];
-        const body = urls.map((u) => `  <url><loc>${SITE_URL}${u}</loc></url>`).join('\n');
+        const body = urls.map((u) => `  <url><loc>${siteUrl}${u}</loc></url>`).join('\n');
         const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${body}\n</urlset>\n`;
         await writeFile(path.join(dir, 'sitemap.xml'), xml, 'utf-8');
         console.log(`[ssg] Wrote sitemap.xml with ${urls.length} URLs.`);
@@ -145,11 +149,11 @@ export default defineConfig(() => {
           ...['/dashboard', '/login', '/forgot-password', '/reset-password', '/verify-email', '/settings', '/perfil', '/contribuir']
             .map((route) => `Disallow: ${route}`),
           '',
-          `Sitemap: ${SITE_URL}/sitemap.xml`,
+          `Sitemap: ${siteUrl}/sitemap.xml`,
           '',
         ].join('\n');
         await writeFile(path.join(dir, 'robots.txt'), robots, 'utf-8');
-        if (!process.env.VITE_SITE_URL) {
+        if (!configuredSiteUrl) {
           console.warn('[ssg] AVISO: VITE_SITE_URL nao definida — sitemap e robots.txt saem com o dominio de exemplo.');
         }
 

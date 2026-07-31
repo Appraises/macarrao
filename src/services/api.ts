@@ -252,7 +252,7 @@ export const getTerms = async (query: TermsQuery = {}): Promise<PaginatedRespons
 };
 
 export const getTermBySlug = async (slug: string) => {
-    const response = await api.get(`/terms/${slug}`);
+    const response = await api.get(`/terms/${encodeURIComponent(slug)}`);
     return response.data;
 };
 

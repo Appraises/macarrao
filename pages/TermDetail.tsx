@@ -27,19 +27,49 @@ export async function termLoader({ params }: LoaderFunctionArgs): Promise<Term |
 }
 
 export const TermDetail: React.FC = () => {
-  const term = useLoaderData() as Term | null;
+  const loaderTerm = useLoaderData() as Term | null;
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const location = useLocation();
   const navigation = useNavigation();
   const revalidator = useRevalidator();
-  const loading = navigation.state === 'loading';
+  const [fallbackTerm, setFallbackTerm] = useState<Term | null>(null);
+  const [fallbackSlug, setFallbackSlug] = useState<string | null>(null);
+  const [fallbackLoading, setFallbackLoading] = useState(false);
+  const term = loaderTerm || (fallbackSlug === slug ? fallbackTerm : null);
+  const loading = navigation.state === 'loading'
+    || (!loaderTerm && Boolean(slug) && (fallbackSlug !== slug || fallbackLoading));
   const viewedTermRef = useRef<string | null>(null);
   const { phase: arcadePhase, activate: activateArcade, close: closeArcade } = useArcade();
 
   const [related, setRelated] = useState<Term[]>([]);
   const [relatedLoading, setRelatedLoading] = useState(false);
   const [sameGameCount, setSameGameCount] = useState(0);
+
+  // vite-react-ssg serves loader data from the build manifest in production.
+  // A term approved after the last build is absent from that manifest, so client
+  // navigations fall back to the live API instead of reporting a false 404.
+  useEffect(() => {
+    if (loaderTerm || !slug) return;
+
+    let cancelled = false;
+    setFallbackSlug(slug);
+    setFallbackTerm(null);
+    setFallbackLoading(true);
+
+    getTermBySlug(slug)
+      .then((result) => {
+        if (!cancelled) setFallbackTerm(result);
+      })
+      .catch(() => {
+        if (!cancelled) setFallbackTerm(null);
+      })
+      .finally(() => {
+        if (!cancelled) setFallbackLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [loaderTerm, slug]);
 
   const isJogo = term?.word.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase() === 'jogo';
   const handleKonami = useCallback((source: 'keyboard' | 'touch') => {
