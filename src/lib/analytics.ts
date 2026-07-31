@@ -1,11 +1,11 @@
-import { init, track } from '@plausible-analytics/tracker';
-
 const PLAUSIBLE_IGNORE_KEY = 'plausible_ignore';
 const PREFERENCE_EVENT = 'dg:analytics-preference-changed';
 const RETURNING_VISITOR_KEY = 'dg:analytics-seen';
 const CLASSIFIED_SESSION_KEY = 'dg:analytics-session-classified';
 
 let initialized = false;
+let trackerPromise: Promise<typeof import('@plausible-analytics/tracker')> | null = null;
+let initializationPromise: Promise<typeof import('@plausible-analytics/tracker') | null> | null = null;
 
 type AnalyticsProperty = string | number | boolean | null | undefined;
 
@@ -42,32 +42,57 @@ const getDomain = () => import.meta.env.VITE_PLAUSIBLE_DOMAIN?.trim();
 
 export const isAnalyticsConfigured = () => Boolean(getDomain());
 
-export const initAnalytics = () => {
-  if (initialized || typeof window === 'undefined') return;
+const loadTracker = () => {
+  if (typeof window === 'undefined') return Promise.resolve(null);
+  trackerPromise ??= import('@plausible-analytics/tracker');
+  return trackerPromise;
+};
+
+const ensureAnalyticsInitialized = () => {
+  if (typeof window === 'undefined') return Promise.resolve(null);
 
   const domain = getDomain();
-  if (!domain) return;
+  if (!domain) return Promise.resolve(null);
+  if (initialized && trackerPromise) return trackerPromise;
 
-  init({
-    domain,
-    endpoint: import.meta.env.VITE_PLAUSIBLE_ENDPOINT?.trim() || undefined,
-    autoCapturePageviews: true,
-    hashBasedRouting: false,
-    outboundLinks: true,
-    fileDownloads: true,
-    formSubmissions: false,
-    captureOnLocalhost: import.meta.env.VITE_PLAUSIBLE_CAPTURE_LOCALHOST === 'true',
-    logging: import.meta.env.DEV,
-    bindToWindow: true,
-  });
+  initializationPromise ??= loadTracker()
+    .then((tracker) => {
+      if (!tracker) return null;
 
-  initialized = true;
-  if (isAnalyticsEnabled() && sessionStorage.getItem(CLASSIFIED_SESSION_KEY) !== 'true') {
-    const visitorType = localStorage.getItem(RETURNING_VISITOR_KEY) ? 'returning' : 'new';
-    track('Visit Classified', { props: { visitor_type: visitorType } });
-    localStorage.setItem(RETURNING_VISITOR_KEY, new Date().toISOString().slice(0, 10));
-    sessionStorage.setItem(CLASSIFIED_SESSION_KEY, 'true');
-  }
+      tracker.init({
+        domain,
+        endpoint: import.meta.env.VITE_PLAUSIBLE_ENDPOINT?.trim() || undefined,
+        autoCapturePageviews: true,
+        hashBasedRouting: false,
+        outboundLinks: true,
+        fileDownloads: true,
+        formSubmissions: false,
+        captureOnLocalhost: import.meta.env.VITE_PLAUSIBLE_CAPTURE_LOCALHOST === 'true',
+        logging: import.meta.env.DEV,
+        bindToWindow: true,
+      });
+
+      initialized = true;
+      if (isAnalyticsEnabled() && sessionStorage.getItem(CLASSIFIED_SESSION_KEY) !== 'true') {
+        const visitorType = localStorage.getItem(RETURNING_VISITOR_KEY) ? 'returning' : 'new';
+        tracker.track('Visit Classified', { props: { visitor_type: visitorType } });
+        localStorage.setItem(RETURNING_VISITOR_KEY, new Date().toISOString().slice(0, 10));
+        sessionStorage.setItem(CLASSIFIED_SESSION_KEY, 'true');
+      }
+
+      return tracker;
+    })
+    .catch((error) => {
+      initializationPromise = null;
+      if (import.meta.env.DEV) console.error('Falha ao inicializar analytics.', error);
+      return null;
+    });
+
+  return initializationPromise;
+};
+
+export const initAnalytics = () => {
+  void ensureAnalyticsInitialized();
 };
 
 export const trackAnalyticsEvent = (
@@ -76,15 +101,15 @@ export const trackAnalyticsEvent = (
 ) => {
   if (typeof window === 'undefined' || !getDomain() || !isAnalyticsEnabled()) return;
 
-  initAnalytics();
-
   const props = Object.fromEntries(
     Object.entries(properties)
       .filter(([, value]) => value !== null && value !== undefined)
       .map(([key, value]) => [key, String(value)]),
   );
 
-  track(name, Object.keys(props).length > 0 ? { props } : undefined);
+  void ensureAnalyticsInitialized().then((tracker) => {
+    tracker?.track(name, Object.keys(props).length > 0 ? { props } : undefined);
+  });
 };
 
 export const isAnalyticsEnabled = () => {
