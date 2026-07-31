@@ -206,56 +206,24 @@ export const TermCard: React.FC<TermCardProps> = ({ term }) => {
                 <div key={meaning.id} className="flex gap-3 py-5">
                   {numbered && <span className="flex-none pt-0.5 text-lg font-bold text-gray-600">{index + 1}.</span>}
                   <div className="min-w-0 flex-1">
-                    {/* Linha de cabeçalho do sentido: classificação à esquerda, voto à
-                        direita — ancorado aqui, o voto deixa de flutuar no meio do card. */}
-                    <div className="mb-2.5 flex flex-wrap items-center gap-2">
-                      {meaning.wordClass && (
-                        <span title={wordClassFull(meaning.wordClass) || undefined} className="font-mono text-xs italic text-gray-500">
-                          {wordClassShort(meaning.wordClass)}
-                        </span>
-                      )}
-                      {meaning.game && <Badge color="blue">{meaning.game.name}</Badge>}
-                      {meaning.context && <Badge color="gray">{meaning.context}</Badge>}
-                      {/* Discreto de propósito: informa quem repara, sem gritar com quem
-                          só quer a definição. A explicação fica no title. */}
-                      {(() => {
-                        const reg = registerMeta(meaning.register);
-                        if (!reg) return null;
-                        return <span title={reg.hint} className={`text-xs italic ${reg.className}`}>{reg.label}</span>;
-                      })()}
-                      {(() => {
-                        const v = votes[meaning.id] || { up: meaning.upvotes || 0, down: meaning.downvotes || 0, my: 0 };
-                        const score = v.up - v.down;
-                        const busy = votingId === meaning.id;
-                        return (
-                          // Sem moldura própria: acompanha os ícones ghost do cabeçalho
-                          // em vez de virar um widget destacado no meio da entrada.
-                          <div className="ml-auto flex flex-none items-center gap-1">
-                            <button
-                              onClick={() => handleVote(meaning.id, 'up')}
-                              disabled={busy}
-                              title="Concordo com este significado"
-                              aria-label="Votar a favor"
-                              className={`rounded-md p-1.5 transition-colors disabled:opacity-50 ${v.my === 1 ? 'text-brand-400' : 'text-gray-600 hover:bg-white/5 hover:text-gray-300'}`}
-                            >
-                              <ThumbsUp className="h-4 w-4" />
-                            </button>
-                            <span className={`min-w-[2rem] text-center text-sm font-bold tabular-nums ${score > 0 ? 'text-brand-300' : score < 0 ? 'text-red-400' : 'text-gray-500'}`}>
-                              {score > 0 ? `+${score}` : score}
-                            </span>
-                            <button
-                              onClick={() => handleVote(meaning.id, 'down')}
-                              disabled={busy}
-                              title="Discordo deste significado"
-                              aria-label="Votar contra"
-                              className={`rounded-md p-1.5 transition-colors disabled:opacity-50 ${v.my === -1 ? 'text-red-400' : 'text-gray-600 hover:bg-white/5 hover:text-gray-300'}`}
-                            >
-                              <ThumbsDown className="h-4 w-4" />
-                            </button>
-                          </div>
-                        );
-                      })()}
-                    </div>
+                    {(meaning.wordClass || meaning.game || meaning.context || meaning.register) && (
+                      <div className="mb-2.5 flex flex-wrap items-center gap-2">
+                        {meaning.wordClass && (
+                          <span title={wordClassFull(meaning.wordClass) || undefined} className="font-mono text-xs italic text-gray-500">
+                            {wordClassShort(meaning.wordClass)}
+                          </span>
+                        )}
+                        {meaning.game && <Badge color="blue">{meaning.game.name}</Badge>}
+                        {meaning.context && <Badge color="gray">{meaning.context}</Badge>}
+                        {/* Discreto de propósito: informa quem repara, sem gritar com quem
+                            só quer a definição. A explicação fica no title. */}
+                        {(() => {
+                          const reg = registerMeta(meaning.register);
+                          if (!reg) return null;
+                          return <span title={reg.hint} className={`text-xs italic ${reg.className}`}>{reg.label}</span>;
+                        })()}
+                      </div>
+                    )}
                     <p className="text-lg md:text-xl font-normal leading-relaxed text-gray-200">
                       <DefinitionParser text={meaning.definition} keywords={term.keywords} />
                     </p>
@@ -276,18 +244,50 @@ export const TermCard: React.FC<TermCardProps> = ({ term }) => {
                         ))}
                       </ul>
                     )}
-                    {meaning.author && (
-                      <Link
-                        to={`/u/${meaning.author.id}`}
-                        className="mt-3 inline-flex items-center gap-2 text-xs text-gray-500 transition-colors hover:text-gray-300"
-                      >
-                        <Avatar name={meaning.author.name} src={meaning.author.avatar} size={18} className="flex-none" />
-                        <span>
-                          por <span className="font-semibold text-gray-400">{meaning.author.name}</span>
-                          {meaning.author.level ? <span className="text-brand-400/70"> · Nível {meaning.author.level}</span> : null}
-                        </span>
-                      </Link>
-                    )}
+                    <div className="mt-4 flex min-h-8 flex-wrap items-center gap-3">
+                      {meaning.author && (
+                        <Link
+                          to={`/u/${meaning.author.id}`}
+                          className="inline-flex items-center gap-2 text-xs text-gray-500 transition-colors hover:text-gray-300"
+                        >
+                          <Avatar name={meaning.author.name} src={meaning.author.avatar} size={18} className="flex-none" />
+                          <span>
+                            por <span className="font-semibold text-gray-400">{meaning.author.name}</span>
+                            {meaning.author.level ? <span className="text-brand-400/70"> · Nível {meaning.author.level}</span> : null}
+                          </span>
+                        </Link>
+                      )}
+                      {(() => {
+                        const v = votes[meaning.id] || { up: meaning.upvotes || 0, down: meaning.downvotes || 0, my: 0 };
+                        const score = v.up - v.down;
+                        const busy = votingId === meaning.id;
+                        return (
+                          <div className="ml-auto flex flex-none items-center gap-0.5 rounded-md bg-dark-800/50 p-0.5" aria-label="Avaliação deste significado">
+                            <button
+                              onClick={() => handleVote(meaning.id, 'up')}
+                              disabled={busy}
+                              title="Concordo com este significado"
+                              aria-label="Votar a favor"
+                              className={`rounded p-1.5 transition-colors disabled:opacity-50 ${v.my === 1 ? 'bg-brand-500/10 text-brand-400' : 'text-gray-600 hover:bg-white/5 hover:text-gray-300'}`}
+                            >
+                              <ThumbsUp className="h-4 w-4" />
+                            </button>
+                            <span className={`min-w-[2.25rem] text-center text-xs font-bold tabular-nums ${score > 0 ? 'text-brand-300' : score < 0 ? 'text-red-400' : 'text-gray-500'}`}>
+                              {score > 0 ? `+${score}` : score}
+                            </span>
+                            <button
+                              onClick={() => handleVote(meaning.id, 'down')}
+                              disabled={busy}
+                              title="Discordo deste significado"
+                              aria-label="Votar contra"
+                              className={`rounded p-1.5 transition-colors disabled:opacity-50 ${v.my === -1 ? 'bg-red-500/10 text-red-400' : 'text-gray-600 hover:bg-white/5 hover:text-gray-300'}`}
+                            >
+                              <ThumbsDown className="h-4 w-4" />
+                            </button>
+                          </div>
+                        );
+                      })()}
+                    </div>
                   </div>
                 </div>
               ))}
