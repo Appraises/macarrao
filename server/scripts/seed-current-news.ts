@@ -12,7 +12,7 @@ const NEWS = [
         headline: 'Sony mantém plano de encerrar discos físicos para novos jogos de PlayStation em 2028',
         slug: 'sony-mantem-plano-discos-fisicos-playstation-2028',
         category: 'INDÚSTRIA',
-        image: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=1200&q=80',
+        image: 'https://blog.playstation.com/tachyon/2026/07/70bb22030b29f4234fd812253bf1129b00609c4c.jpg?crop_strategy=smart&resize=1088%2C612',
         publishedAt: new Date('2026-08-01T14:00:00-03:00'),
         seoTitle: 'Sony mantém fim dos discos físicos de PlayStation em 2028',
         seoDescription: 'A Sony confirmou que seguirá com o plano de interromper a produção de discos físicos para novos jogos de PlayStation em janeiro de 2028.',
@@ -22,7 +22,7 @@ const NEWS = [
         headline: 'Assassin’s Creed Black Flag Resynced ultrapassa três milhões de cópias vendidas na primeira semana',
         slug: 'assassins-creed-black-flag-resynced-tres-milhoes',
         category: 'LANÇAMENTOS',
-        image: 'https://images.unsplash.com/photo-1593305841991-05c29736cec7?auto=format&fit=crop&w=1200&q=80',
+        image: 'https://staticctf.ubisoft.com/J3yJr34U2pZ2Ieem48Dwy9uqj5PNUQTn/Z1AD23NTIQj5XkN3oBqeL/5e6df488115342090414efa85ca26e39/ACOBS_16x9_X_MILLION_COPIES_02_V1_2.jpg',
         publishedAt: new Date('2026-07-17T13:00:00-03:00'),
         seoTitle: 'Black Flag Resynced supera 3 milhões na primeira semana',
         seoDescription: 'A Ubisoft informou que Assassin’s Creed Black Flag Resynced passou de três milhões de cópias vendidas em sua primeira semana.',
@@ -32,7 +32,7 @@ const NEWS = [
         headline: 'Halo: Campaign Evolved chega com campanha refeita e três missões inéditas',
         slug: 'halo-campaign-evolved-chega-com-missoes-ineditas',
         category: 'LANÇAMENTOS',
-        image: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80',
+        image: 'https://xboxwire.thesourcemediaassets.com/sites/2/2026/06/HALO-CE_NEW_MISSIONS_CINEMATIC-e6cb7aa93a4d57f44a88-1900x1080.jpg',
         publishedAt: new Date('2026-07-28T16:00:00-03:00'),
         seoTitle: 'Halo Campaign Evolved chega com três missões inéditas',
         seoDescription: 'O remake de Halo: Combat Evolved foi lançado com visual atualizado, controles refinados e três missões de prólogo inéditas.',
@@ -42,7 +42,7 @@ const NEWS = [
         headline: 'Splatoon Raiders estreia no Switch 2 levando a série para uma aventura solo',
         slug: 'splatoon-raiders-estreia-switch-2-aventura-solo',
         category: 'NINTENDO',
-        image: 'https://images.unsplash.com/photo-1605901309584-818e25960b8f?auto=format&fit=crop&w=1200&q=80',
+        image: 'https://assets.nintendo.com/image/upload/q_auto%3Abest/f_auto/c_fill%2Cw_813/dpr_2.0/ncom/en_US/articles/2026/splatoon-raiders-is-out-now-hunt-for-treasure-in-a-wild-new-single-player-adventure/2250x1266_availablenow',
         publishedAt: new Date('2026-07-23T12:00:00-03:00'),
         seoTitle: 'Splatoon Raiders estreia no Switch 2 em aventura solo',
         seoDescription: 'Splatoon Raiders chegou ao Switch 2 com uma campanha individual, participação do grupo Deep Cut e exploração da ilha Spirhalite.',
@@ -52,11 +52,21 @@ const NEWS = [
         headline: 'Esports World Cup 2026 reúne 24 jogos e premiação de US$ 75 milhões em Paris',
         slug: 'esports-world-cup-2026-24-jogos-premiacao-paris',
         category: 'E-SPORTS',
-        image: 'https://images.unsplash.com/photo-1560253023-3ec5d502959f?auto=format&fit=crop&w=1200&q=80',
+        image: 'https://mma.prnewswire.com/media/2984629/Esports_Foundation_1.jpg',
         publishedAt: new Date('2026-07-31T11:00:00-03:00'),
         seoTitle: 'Esports World Cup 2026 reúne 24 jogos em Paris',
         seoDescription: 'A edição de 2026 da Esports World Cup reúne mais de 2 mil jogadores, 24 jogos e premiação de US$ 75 milhões em Paris.',
         content: `<p>A edição de 2026 da <strong>Esports World Cup</strong> está sendo realizada em Paris e reúne mais de 2 mil jogadores, 200 clubes e representantes de mais de cem países. O evento se estende até 23 de agosto e distribui uma premiação total de US$ 75 milhões.</p><p>São 25 torneios em 24 jogos, uma escala que transforma o campeonato em uma vitrine ampla para diferentes comunidades competitivas. Além dos resultados individuais, os clubes disputam uma classificação geral que cria uma narrativa comum entre modalidades distintas.</p><h2>O tamanho do espetáculo</h2><p>A competição mostra como o e-sports deixou de ser organizado apenas em torno de um jogo por vez. Ao mesmo tempo, o tamanho do evento reacende discussões sobre calendário, concentração de investimento e o espaço que cada cena regional ocupa em um circuito global.</p><p>Para o público brasileiro, vale acompanhar não só os confrontos, mas também quais equipes e jogadores conseguem transformar presença internacional em continuidade durante o restante da temporada.</p>${sourceLink('Esports World Cup — guia oficial de mídia', 'https://cdn.esportsworldcup.com/resources/uploads/EWC_26_Media_Guide_short_d6f73c0f8a.pdf')}`
+    },
+    {
+        headline: 'Queda do Xbox Live expõe a dependência de serviços online até em jogos em disco',
+        slug: 'queda-xbox-live-dependencia-servicos-online-jogos-disco',
+        category: 'INDÚSTRIA',
+        image: 'https://cdn.mos.cms.futurecdn.net/Y8McSo9iZFnfyFaWLyegKD.jpg',
+        publishedAt: new Date('2026-07-28T18:00:00-03:00'),
+        seoTitle: 'Queda do Xbox Live reacende debate sobre jogos em disco',
+        seoDescription: 'Uma falha de aproximadamente 16 horas afetou login, biblioteca e a abertura de jogos no ecossistema Xbox, reacendendo o debate sobre dependência online.',
+        content: `<p>Uma falha que afetou o Xbox Live por aproximadamente 16 horas deixou usuários sem acesso ao login, à biblioteca e ao lançamento de jogos. O incidente chamou atenção porque também atingiu alguns títulos adquiridos em disco, mostrando que a mídia física nem sempre elimina a dependência de serviços online.</p><p>Segundo a cobertura técnica do caso, o problema estava ligado a um serviço de licenciamento externo ao Xbox. Mesmo depois da restauração, a discussão permaneceu: quando uma experiência depende de autenticação, servidores e permissões remotas, o formato da compra deixa de ser a única garantia de acesso.</p><h2>O debate além da pane</h2><p>Quedas acontecem, mas cada episódio torna mais visível a diferença entre possuir uma mídia e possuir uma experiência que pode ser executada sem validações adicionais. Para jogadores, isso reforça a importância de preservação, comunicação clara sobre requisitos online e ferramentas de recuperação quando um serviço central fica indisponível.</p><p>Para as empresas, o desafio é manter a conveniência dos ecossistemas conectados sem transformar uma interrupção temporária em uma barreira para jogos que deveriam continuar acessíveis.</p>${sourceLink('Tom\'s Hardware — análise da interrupção', 'https://www.tomshardware.com/video-games/xbox/xbox-blames-a-licensing-service-outside-xbox-for-the-16-hour-outage-that-blocked-disc-games')}`
     }
 ];
 
