@@ -59,6 +59,7 @@ import { PrivacyPreferencesDialog } from './components/PrivacyPreferences';
 import { initAnalytics } from './src/lib/analytics';
 import { ArcadeProvider } from './src/context/ArcadeContext';
 import { ArcadeMain } from './components/arcade/ArcadeMain';
+import { Avatar } from './components/Avatar';
 
 const Header: React.FC = () => {
   const { user, logout } = useAuth();
@@ -108,7 +109,7 @@ const Header: React.FC = () => {
                   <p className="text-xs font-bold text-white">{user.name}</p>
                   <p className="text-[10px] text-brand-400">Lvl {user.level}</p>
                 </div>
-                <img src={user.avatar} alt={user.name} className="w-9 h-9 rounded-full border border-dark-700" />
+                <Avatar name={user.name} src={user.avatar} size={36} className="border border-dark-700" />
               </button>
 
               {/* Dropdown */}
@@ -226,7 +227,7 @@ const Header: React.FC = () => {
             {user ? (
               <div className="flex flex-col gap-4">
                 <div className="flex items-center gap-4">
-                  <img src={user.avatar} alt={user.name} className="w-12 h-12 rounded-full border-2 border-brand-500" />
+                  <Avatar name={user.name} src={user.avatar} size={48} className="border-2 border-brand-500" />
                   <div>
                     <p className="text-lg font-bold text-white">{user.name}</p>
                     <p className="text-xs text-brand-400 font-bold uppercase tracking-wider">Nível {user.level}</p>

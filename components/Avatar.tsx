@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import BoringAvatar from 'boring-avatars';
 
 // Palette used for generated avatars — vibrant, reads well on the dark UI.
@@ -31,11 +31,19 @@ export const isCustomImage = (src?: string | null): src is string =>
  */
 export const Avatar: React.FC<AvatarProps> = ({ name, src, size = 32, className = '', square = false }) => {
     const shape = square ? 'rounded-2xl' : 'rounded-full';
-    if (isCustomImage(src)) {
+    const customImage = isCustomImage(src);
+    const [imageFailed, setImageFailed] = useState(false);
+
+    useEffect(() => {
+        setImageFailed(false);
+    }, [src]);
+
+    if (customImage && !imageFailed) {
         return (
             <img
                 src={src}
                 alt={name}
+                onError={() => setImageFailed(true)}
                 // The avatar may point at any host the person typed in. We cannot stop
                 // that server from seeing the visitor's IP, but no-referrer keeps it from
                 // also learning which page they were on when it loaded.

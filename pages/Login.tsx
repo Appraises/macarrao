@@ -261,7 +261,8 @@ export const Login: React.FC = () => {
 
           <Button
             type="submit"
-            className="w-full h-12 text-base mt-2"
+            className="w-full h-12 text-base mt-2 disabled:bg-brand-700/60 disabled:text-gray-400 disabled:shadow-none"
+            loading={loading}
             disabled={
               loading
               || (isRegistering && !acceptedLegal)

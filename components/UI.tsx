@@ -7,8 +7,9 @@ export const Button: React.FC<{
   variant?: 'primary' | 'secondary' | 'ghost' | 'outline' | 'glow';
   className?: string;
   disabled?: boolean;
+  loading?: boolean;
   type?: "button" | "submit" | "reset";
-}> = ({ children, onClick, variant = 'primary', className = '', disabled, type="button" }) => {
+}> = ({ children, onClick, variant = 'primary', className = '', disabled, loading = false, type="button" }) => {
   const baseStyle = "relative px-6 py-2.5 rounded-lg font-semibold tracking-wide transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]";
   
   const variants = {
@@ -23,10 +24,10 @@ export const Button: React.FC<{
     <button 
       type={type}
       onClick={onClick} 
-      disabled={disabled}
+      disabled={disabled || loading}
       className={`${baseStyle} ${variants[variant]} ${className}`}
     >
-      {disabled ? <Loader2 className="animate-spin w-4 h-4" /> : children}
+      {loading ? <Loader2 className="animate-spin w-4 h-4" /> : children}
     </button>
   );
 };
