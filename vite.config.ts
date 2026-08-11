@@ -5,6 +5,7 @@ import { defineConfig, loadEnv, type UserConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { sentryVitePlugin } from '@sentry/vite-plugin';
 import { termCardSvg, renderPng } from './scripts/og-template.mjs';
+import { normalizeStaticOutputPaths } from './scripts/static-output';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -159,6 +160,14 @@ export default defineConfig(({ mode }) => {
 
         // Per-term Open Graph images.
         await generateTermImages(dir, terms);
+
+        // SSG route names are URL-encoded in the manifest. Static servers such
+        // as Nginx decode the URL before resolving the file, so physical names
+        // must be decoded as well (for example Hot%20drop -> Hot drop).
+        const normalizedPaths = await normalizeStaticOutputPaths(dir);
+        if (normalizedPaths > 0) {
+          console.log(`[ssg] Normalized ${normalizedPaths} encoded static paths for Nginx.`);
+        }
       },
     },
   };
