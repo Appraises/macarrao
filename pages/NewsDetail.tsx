@@ -1,7 +1,7 @@
 import React from 'react';
 import { useLoaderData, Link, useNavigation, useParams } from 'react-router-dom';
 import { getNewsById, getNews } from '../src/services/api';
-import { ArrowLeft, Share2, MessageSquare, Clock, Flame, CalendarDays } from 'lucide-react';
+import { ChevronRight, Share2, MessageSquare, Clock, Flame, CalendarDays } from 'lucide-react';
 import { Button } from '../components/UI';
 import { CommentsSection } from '../components/CommentsSection';
 import { Seo } from '../components/Seo';
@@ -79,7 +79,7 @@ export const NewsDetail: React.FC = () => {
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-[#0a0b10] text-white">
+            <div className="min-h-screen flex items-center justify-center bg-dark-950 text-white">
                 <div className="h-12 w-12 animate-spin rounded-full border-2 border-dark-700 border-t-brand-500" aria-label="Carregando notícia" />
             </div>
         );
@@ -87,7 +87,7 @@ export const NewsDetail: React.FC = () => {
 
     if (!detail) {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center bg-[#0a0b10] px-4 text-center text-white">
+            <div className="min-h-screen flex flex-col items-center justify-center bg-dark-950 px-4 text-center text-white">
                 <h2 className="mb-3 text-2xl font-bold">
                     {fallbackForCurrentRoute?.failed ? 'Não foi possível carregar a notícia' : 'Notícia não encontrada'}
                 </h2>
@@ -156,7 +156,7 @@ export const NewsDetail: React.FC = () => {
 
     /* Data is loaded by the route loader so the SSG can render the article HTML. */
     return (
-        <div className="min-h-screen bg-[#0a0b10] text-gray-200 font-sans pb-20 pt-24">
+        <div className="min-h-screen bg-dark-950 pb-20 font-sans text-gray-200">
             <Seo
                 title={newsItem.seoTitle || newsItem.headline}
                 description={
@@ -175,17 +175,25 @@ export const NewsDetail: React.FC = () => {
                 { name: newsItem.headline, path: `/news/${newsItem.slug}/` },
             ])} />
 
-            <div className="fixed top-0 left-0 w-full h-1 bg-dark-800 z-50">
-                <div className="h-full bg-brand-500 w-full origin-left animate-[progress_1s_ease-out]"></div>
-            </div>
-
             <article>
-                <header className="border-b border-white/10 pb-8 md:pb-12">
+                <header className="border-b border-white/[0.07] pb-8 pt-6 md:pb-12 md:pt-8">
                     <div className="mx-auto max-w-6xl px-4">
-                        <Link to="/news" className="mb-8 inline-flex items-center gap-2 text-xs font-bold uppercase text-gray-500 transition-colors hover:text-brand-400 md:mb-10">
-                            <ArrowLeft className="h-4 w-4" />
-                            Notícias
-                        </Link>
+                        <nav
+                            aria-label="Navegação da notícia"
+                            className="mb-8 flex min-w-0 items-center gap-2 text-[11px] font-bold uppercase text-gray-600 md:mb-10"
+                        >
+                            <Link to="/" className="transition-colors hover:text-gray-300">
+                                Início
+                            </Link>
+                            <ChevronRight className="h-3 w-3 shrink-0 text-gray-700" aria-hidden="true" />
+                            <Link to="/news" className="transition-colors hover:text-brand-400">
+                                Notícias
+                            </Link>
+                            <ChevronRight className="h-3 w-3 shrink-0 text-gray-700" aria-hidden="true" />
+                            <span className="truncate text-gray-500" aria-current="page">
+                                {newsItem.category}
+                            </span>
+                        </nav>
 
                         <div className="max-w-5xl">
                             <div className="mb-5 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-gray-500">
