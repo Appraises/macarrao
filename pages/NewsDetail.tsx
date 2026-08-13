@@ -1,7 +1,7 @@
 import React from 'react';
 import { useLoaderData, Link, useNavigation, useParams } from 'react-router-dom';
 import { getNewsById, getNews } from '../src/services/api';
-import { User, ArrowLeft, Share2, MessageSquare, Clock, Flame, CalendarDays } from 'lucide-react';
+import { ArrowLeft, Share2, MessageSquare, Clock, Flame, CalendarDays } from 'lucide-react';
 import { Button } from '../components/UI';
 import { CommentsSection } from '../components/CommentsSection';
 import { Seo } from '../components/Seo';
@@ -31,7 +31,11 @@ export async function newsDetailLoader({ params }: { params: { slug?: string; id
 
     try {
         return await loadNewsDetail(idOrSlug);
-    } catch {
+    } catch (error) {
+        // A failed social/SEO prerender must fail the build instead of quietly
+        // shipping the generic SPA shell. Browser navigation still uses the
+        // resilient client-side fallback below.
+        if (typeof window === 'undefined') throw error;
         return null;
     }
 }
@@ -126,11 +130,28 @@ export const NewsDetail: React.FC = () => {
 
     const summary = newsItem.seoDescription || extractSummary(newsItem.content);
     const readingMinutes = Math.max(1, Math.ceil(stripHtml(newsItem.content).split(/\s+/).filter(Boolean).length / 220));
+    const socialRevision = newsItem.updatedAt || newsItem.publishedAt || newsItem.createdAt;
+    const socialImageVersion = encodeURIComponent(socialRevision);
+    const socialImage = newsItem.image
+        ? `/og/news/${encodeURIComponent(newsItem.slug)}.png?v=${socialImageVersion}`
+        : undefined;
+    const authorName = newsItem.author || 'Equipe Dicionário Gamer';
+    const authorInitials = authorName
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0])
+        .join('')
+        .toUpperCase();
 
     const handleShare = async () => {
-        const shareData = { title: newsItem?.headline, url: window.location.href };
+        const shareUrl = new URL(window.location.href);
+        shareUrl.hash = '';
+        shareUrl.search = '';
+        shareUrl.searchParams.set('v', String(Date.parse(socialRevision) || socialRevision));
+        const shareData = { title: newsItem?.headline, url: shareUrl.toString() };
         if (navigator.share) await navigator.share(shareData).catch(() => undefined);
-        else await navigator.clipboard?.writeText(window.location.href);
+        else await navigator.clipboard?.writeText(shareUrl.toString());
     };
 
     /* Data is loaded by the route loader so the SSG can render the article HTML. */
@@ -141,7 +162,9 @@ export const NewsDetail: React.FC = () => {
                 description={
                     summary || stripHtml(newsItem.content).slice(0, 260) || newsItem.headline
                 }
-                image={newsItem.image}
+                image={socialImage}
+                imageAlt={`Capa da notícia: ${newsItem.headline}`}
+                imageType="image/png"
                 path={`/news/${newsItem.slug}/`}
                 type="article"
             />
@@ -177,6 +200,16 @@ export const NewsDetail: React.FC = () => {
                                     <Clock className="h-3.5 w-3.5" />
                                     {readingMinutes} min de leitura
                                 </span>
+                                <span className="h-3 w-px bg-white/10" aria-hidden="true" />
+                                <button
+                                    type="button"
+                                    onClick={handleShare}
+                                    className="grid h-6 w-6 place-items-center rounded-full text-gray-500 transition-colors hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
+                                    title="Compartilhar notícia"
+                                    aria-label="Compartilhar notícia"
+                                >
+                                    <Share2 className="h-3.5 w-3.5" />
+                                </button>
                             </div>
 
                             <h1 className="max-w-5xl text-4xl font-black leading-[1.08] text-white md:text-6xl xl:text-7xl">
@@ -189,37 +222,6 @@ export const NewsDetail: React.FC = () => {
                                 </p>
                             )}
 
-                            <div className="mt-8 flex flex-wrap items-center justify-between gap-5 border-t border-white/10 pt-5">
-                                <div className="flex items-center gap-3">
-                                    <div className="grid h-10 w-10 place-items-center rounded-full border border-white/10 bg-dark-900">
-                                        <User className="h-4 w-4 text-brand-400" />
-                                    </div>
-                                    <div>
-                                        <p className="text-sm font-bold text-white">{newsItem.author || 'Equipe Dicionário Gamer'}</p>
-                                        <p className="text-xs text-gray-500">Dicionário Gamer</p>
-                                    </div>
-                                </div>
-
-                                <div className="flex items-center gap-1">
-                                    <button
-                                        type="button"
-                                        onClick={handleShare}
-                                        className="grid h-10 w-10 place-items-center rounded-full text-gray-400 transition-colors hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
-                                        title="Compartilhar notícia"
-                                        aria-label="Compartilhar notícia"
-                                    >
-                                        <Share2 className="h-4 w-4" />
-                                    </button>
-                                    <a
-                                        href="#comentarios"
-                                        className="grid h-10 w-10 place-items-center rounded-full text-gray-400 transition-colors hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
-                                        title="Ir para os comentários"
-                                        aria-label="Ir para os comentários"
-                                    >
-                                        <MessageSquare className="h-4 w-4" />
-                                    </a>
-                                </div>
-                            </div>
                         </div>
                     </div>
                 </header>
@@ -240,12 +242,42 @@ export const NewsDetail: React.FC = () => {
                             <div dangerouslySetInnerHTML={{ __html: cleanArticleContent(newsItem.content) }} />
                         </div>
 
-                        <footer className="mt-12 flex flex-wrap items-center gap-x-3 gap-y-2 border-y border-white/10 py-5 text-xs uppercase text-gray-500">
-                            <span className="font-black text-gray-300">Tópicos</span>
-                            <span aria-hidden="true">/</span>
-                            <span>Notícias</span>
-                            <span aria-hidden="true">/</span>
-                            <span>{newsItem.category}</span>
+                        <footer className="mt-12 border-y border-white/10">
+                            <div className="flex flex-wrap items-center gap-x-5 gap-y-4 py-4">
+                                <div className="flex items-center gap-3">
+                                    <div
+                                        className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-brand-500/25 bg-brand-500/10 text-[11px] font-black text-brand-300"
+                                        aria-hidden="true"
+                                    >
+                                        {authorInitials}
+                                    </div>
+                                    <div className="leading-tight">
+                                        <p className="text-sm text-gray-500">
+                                            Por <span className="font-bold text-white">{authorName}</span>
+                                        </p>
+                                        <p className="mt-1 text-xs text-gray-600">Redação Dicionário Gamer</p>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-1 border-l border-white/10 pl-4">
+                                    <a
+                                        href="#comentarios"
+                                        className="grid h-9 w-9 place-items-center rounded-full text-gray-400 transition-colors hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
+                                        title="Ir para os comentários"
+                                        aria-label="Ir para os comentários"
+                                    >
+                                        <MessageSquare className="h-4 w-4" />
+                                    </a>
+                                </div>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-white/10 py-4 text-xs uppercase text-gray-500">
+                                <span className="font-black text-gray-300">Tópicos</span>
+                                <span aria-hidden="true">/</span>
+                                <span>Notícias</span>
+                                <span aria-hidden="true">/</span>
+                                <span>{newsItem.category}</span>
+                            </div>
                         </footer>
                     </div>
 

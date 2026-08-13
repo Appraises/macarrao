@@ -59,6 +59,10 @@ const limiter = rateLimit({
     // The SPA loads independent widgets and uses polling. Sensitive operations
     // retain their stricter route-specific limits.
     max: process.env.NODE_ENV === 'production' ? 600 : 5000,
+    // Production SSG runs on the same host and can legitimately prerender
+    // hundreds of routes in one pass. Nginx preserves the real client IP, so
+    // only direct loopback requests bypass this browser-facing limiter.
+    skip: (req) => ['127.0.0.1', '::1'].includes(String(req.ip || '').replace(/^::ffff:/, '')),
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: 'Muitas requisições. Aguarde alguns minutos e tente novamente.' }

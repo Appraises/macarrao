@@ -4,7 +4,7 @@ import { writeFile, mkdir } from 'node:fs/promises';
 import { defineConfig, loadEnv, type UserConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { sentryVitePlugin } from '@sentry/vite-plugin';
-import { termCardSvg, renderPng } from './scripts/og-template.mjs';
+import { escapeXml, ogFrame, renderPng, termCardSvg, wrapLines } from './scripts/og-template.mjs';
 import { normalizeStaticOutputPaths } from './scripts/static-output';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -13,7 +13,13 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const STATIC_ROUTES = ['/', '/dicionario', '/games', '/news', '/esports', '/termos', '/privacidade'];
 
 type TermLite = { word: string; definition?: string; tags?: unknown };
-type NewsLite = { slug: string; updatedAt?: string | null; publishedAt?: string | null };
+type NewsLite = {
+  slug: string;
+  headline?: string | null;
+  image?: string | null;
+  updatedAt?: string | null;
+  publishedAt?: string | null;
+};
 
 // Cached between includedRoutes() and onFinished() within a single build.
 let terms: TermLite[] = [];
@@ -110,6 +116,66 @@ async function generateTermImages(dir: string, list: TermLite[]) {
   console.log(`[ssg] Generated ${ok} term OG images.`);
 }
 
+// Mirror remote news covers into first-party, social-card-sized images. Social
+// crawlers are more reliable when the page and image share the same host.
+async function generateNewsImages(dir: string, list: NewsLite[]) {
+  const withCover = list.filter((item) => typeof item.image === 'string' && /^https?:\/\//i.test(item.image));
+  if (withCover.length === 0) return;
+
+  const ogDir = path.join(dir, 'og', 'news');
+  await mkdir(ogDir, { recursive: true });
+  let ok = 0;
+  let fallbacks = 0;
+
+  await mapPool(withCover, 4, async (item) => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 25_000);
+
+    try {
+      const response = await fetch(item.image!, {
+        signal: controller.signal,
+        headers: { 'User-Agent': 'DicionarioGamer-SSG/1.0' },
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+      const mimeType = (response.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(mimeType)) {
+        throw new Error(`formato nao suportado: ${mimeType || 'desconhecido'}`);
+      }
+
+      const source = Buffer.from(await response.arrayBuffer());
+      if (source.length === 0 || source.length > 8 * 1024 * 1024) {
+        throw new Error(`tamanho invalido: ${source.length} bytes`);
+      }
+
+      const dataUrl = `data:${mimeType};base64,${source.toString('base64')}`;
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+        <rect width="1200" height="630" fill="#020617"/>
+        <image href="${dataUrl}" x="0" y="0" width="1200" height="630" preserveAspectRatio="xMidYMid slice"/>
+      </svg>`;
+      await writeFile(path.join(ogDir, `${encodeURIComponent(item.slug)}.png`), renderPng(svg));
+      ok++;
+    } catch (error) {
+      const lines = wrapLines(item.headline || 'Notícia do Dicionário Gamer', 34, 4)
+        .map((line, index) => `<tspan x="90" dy="${index === 0 ? 0 : 72}">${escapeXml(line)}</tspan>`)
+        .join('');
+      const fallbackSvg = ogFrame(`
+        <rect x="88" y="88" width="8" height="454" rx="4" fill="#0ea5e9"/>
+        <text x="90" y="150" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="bold" fill="#38bdf8">NOTÍCIAS</text>
+        <text x="90" y="250" font-family="Arial, Helvetica, sans-serif" font-size="58" font-weight="bold" fill="#ffffff">${lines}</text>
+        <text x="90" y="570" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="bold" fill="#64748b">DICIONÁRIO GAMER</text>
+      `);
+      await writeFile(path.join(ogDir, `${encodeURIComponent(item.slug)}.png`), renderPng(fallbackSvg));
+      fallbacks++;
+      console.warn(`[ssg] Used editorial fallback for "${item.slug}": ${(error as Error).message}`);
+    } finally {
+      clearTimeout(timeout);
+    }
+  });
+
+  console.log(`[ssg] Generated ${ok} news cover images${fallbacks ? ` and ${fallbacks} editorial fallbacks` : ''}.`);
+}
+
 export default defineConfig(({ mode }) => {
   // Application modules receive VITE_* automatically, while the config must
   // load env files itself. SSG needs the production API to discover term URLs.
@@ -192,8 +258,11 @@ export default defineConfig(({ mode }) => {
           console.warn('[ssg] AVISO: VITE_SITE_URL nao definida — sitemap e robots.txt saem com o dominio de exemplo.');
         }
 
-        // Per-term Open Graph images.
-        await generateTermImages(dir, terms);
+        // First-party Open Graph images for terms and news covers.
+        await Promise.all([
+          generateTermImages(dir, terms),
+          generateNewsImages(dir, news),
+        ]);
 
         // SSG route names are URL-encoded in the manifest. Static servers such
         // as Nginx decode the URL before resolving the file, so physical names

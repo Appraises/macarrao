@@ -32,6 +32,10 @@ interface SeoProps {
   description?: string;
   /** Absolute URL of a representative image (Open Graph / Twitter card). */
   image?: string;
+  /** Accessible description for the social image. */
+  imageAlt?: string;
+  /** MIME type of the social image. */
+  imageType?: string;
   /** Canonical path, e.g. "/term/gg". Defaults to the current URL. */
   path?: string;
   /** Open Graph type. */
@@ -46,6 +50,8 @@ export const Seo: React.FC<SeoProps> = ({
   title,
   description = DEFAULT_DESCRIPTION,
   image,
+  imageAlt,
+  imageType,
   path,
   type = 'website',
   noindex = false,
@@ -61,6 +67,12 @@ export const Seo: React.FC<SeoProps> = ({
 
   const desc = description.length > 160 ? `${description.slice(0, 157)}…` : description;
   const imageUrl = toAbsolute(image || DEFAULT_IMAGE);
+  const resolvedImageType = imageType
+    || (/\.webp(?:\?|$)/i.test(imageUrl)
+      ? 'image/webp'
+      : /\.jpe?g(?:\?|$)/i.test(imageUrl)
+        ? 'image/jpeg'
+        : 'image/png');
 
   return (
     <Head>
@@ -77,14 +89,18 @@ export const Seo: React.FC<SeoProps> = ({
       <meta property="og:url" content={url} />
       <meta property="og:locale" content="pt_BR" />
       <meta property="og:image" content={imageUrl} />
+      <meta property="og:image:secure_url" content={imageUrl} />
+      <meta property="og:image:type" content={resolvedImageType} />
       <meta property="og:image:width" content="1200" />
       <meta property="og:image:height" content="630" />
+      {imageAlt && <meta property="og:image:alt" content={imageAlt} />}
 
       {/* Twitter */}
       <meta name="twitter:card" content="summary_large_image" />
       <meta name="twitter:title" content={fullTitle} />
       <meta name="twitter:description" content={desc} />
       <meta name="twitter:image" content={imageUrl} />
+      {imageAlt && <meta name="twitter:image:alt" content={imageAlt} />}
     </Head>
   );
 };
