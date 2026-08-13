@@ -13,9 +13,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const STATIC_ROUTES = ['/', '/dicionario', '/games', '/news', '/esports', '/termos', '/privacidade'];
 
 type TermLite = { word: string; definition?: string; tags?: unknown };
+type NewsLite = { slug: string; updatedAt?: string | null; publishedAt?: string | null };
 
 // Cached between includedRoutes() and onFinished() within a single build.
 let terms: TermLite[] = [];
+let news: NewsLite[] = [];
 
 // Fetch approved terms (full objects) from the public API.
 async function fetchTerms(apiUrl: string): Promise<TermLite[]> {
@@ -48,6 +50,32 @@ async function fetchTerms(apiUrl: string): Promise<TermLite[]> {
 
 const termPath = (word: string) => `/term/${encodeURIComponent(word)}`;
 const uniquePaths = (list: TermLite[]) => Array.from(new Set(list.map((t) => termPath(t.word))));
+const newsPath = (slug: string) => `/news/${encodeURIComponent(slug)}/`;
+const uniqueNewsPaths = (list: NewsLite[]) => Array.from(new Set(list.map((item) => newsPath(item.slug))));
+
+async function fetchPublishedNews(apiUrl: string): Promise<NewsLite[]> {
+  try {
+    const collected: NewsLite[] = [];
+    let page = 1;
+    let totalPages = 1;
+
+    do {
+      const url = `${apiUrl}/news?page=${page}&pageSize=100&sort=createdAt&order=desc`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data: any = await res.json();
+      const items = Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : [];
+      collected.push(...items.filter((item: any): item is NewsLite => typeof item?.slug === 'string' && item.slug.trim().length > 0));
+      totalPages = Number(data?.pagination?.totalPages) || 1;
+      page++;
+    } while (page <= totalPages);
+
+    return collected;
+  } catch (e) {
+    console.warn(`[ssg] Could not fetch published news from ${apiUrl} — news routes will not be prerendered. ${(e as Error).message}`);
+    return [];
+  }
+}
 
 // Run async `fn` over `items` with at most `limit` in flight.
 async function mapPool<T>(items: T[], limit: number, fn: (item: T) => Promise<void>) {
@@ -88,7 +116,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const apiUrl = process.env.VITE_API_URL || env.VITE_API_URL || 'http://localhost:3001';
   const configuredSiteUrl = process.env.VITE_SITE_URL || env.VITE_SITE_URL;
-  const siteUrl = (configuredSiteUrl || 'https://SEU-DOMINIO.com').replace(/\/$/, '');
+  const siteUrl = (configuredSiteUrl || 'https://dicionariogamer.com.br').replace(/\/$/, '');
   const sentryAuthToken = process.env.SENTRY_AUTH_TOKEN || env.SENTRY_AUTH_TOKEN;
   const sentryOrg = process.env.SENTRY_ORG || env.SENTRY_ORG;
   const sentryProject = process.env.SENTRY_PROJECT || env.SENTRY_PROJECT;
@@ -123,18 +151,24 @@ export default defineConfig(({ mode }) => {
       // Private contribution routes still work as a normal SPA via the
       // host's index.html fallback.
       includedRoutes: async () => {
-        terms = await fetchTerms(apiUrl);
-        return [...STATIC_ROUTES, ...uniquePaths(terms)];
+        [terms, news] = await Promise.all([fetchTerms(apiUrl), fetchPublishedNews(apiUrl)]);
+        return [...STATIC_ROUTES, ...uniquePaths(terms), ...uniqueNewsPaths(news)];
       },
       // `/games` -> dist/games/index.html, served reliably by any static host.
       dirStyle: 'nested',
       // After rendering: emit the sitemap and per-term OG images.
       onFinished: async (dir) => {
         if (terms.length === 0) terms = await fetchTerms(apiUrl);
+        if (news.length === 0) news = await fetchPublishedNews(apiUrl);
 
-        // Sitemap (static pages + all prerendered terms).
-        const urls = [...STATIC_ROUTES, ...uniquePaths(terms)];
-        const body = urls.map((u) => `  <url><loc>${siteUrl}${u}</loc></url>`).join('\n');
+        // Sitemap (static pages, all prerendered terms, and published news).
+        const urls = [...STATIC_ROUTES, ...uniquePaths(terms), ...uniqueNewsPaths(news)];
+        const newsByPath = new Map(news.map((item) => [newsPath(item.slug), item]));
+        const body = urls.map((u) => {
+          const item = newsByPath.get(u);
+          const lastmod = item?.updatedAt || item?.publishedAt;
+          return `  <url><loc>${siteUrl}${u}</loc>${lastmod ? `<lastmod>${new Date(lastmod).toISOString()}</lastmod>` : ''}</url>`;
+        }).join('\n');
         const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${body}\n</urlset>\n`;
         await writeFile(path.join(dir, 'sitemap.xml'), xml, 'utf-8');
         console.log(`[ssg] Wrote sitemap.xml with ${urls.length} URLs.`);

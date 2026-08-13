@@ -14,6 +14,7 @@ import adminPrivacyRouter from './admin/privacy';
 import adminContributionsRouter from './admin/contributions';
 import adminAnalyticsRouter from './admin/analytics';
 import adminTermsRouter from './admin/terms';
+import adminNewsletterRouter from './admin/newsletter';
 import bcrypt from 'bcryptjs';
 import { validateEmail, validateName, validatePassword } from '../utils/validation';
 import { writeAuditLog } from '../services/audit';
@@ -32,6 +33,7 @@ router.use('/privacy-requests', adminPrivacyRouter);
 router.use('/contributions', adminContributionsRouter);
 router.use('/analytics', adminAnalyticsRouter);
 router.use('/terms', adminTermsRouter);
+router.use('/newsletter', adminNewsletterRouter);
 
 router.get('/stats', async (req, res) => {
     try {

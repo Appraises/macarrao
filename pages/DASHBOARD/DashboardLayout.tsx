@@ -1,6 +1,6 @@
 import React, { useEffect, Suspense, useState } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, FileText, Newspaper, LogOut, Users, Flag, Menu, X, Gamepad2, Map, Trophy, RadioTower, ShieldCheck, ClipboardList, BarChart3, BookOpen } from 'lucide-react';
+import { LayoutDashboard, FileText, Newspaper, LogOut, Users, Flag, Menu, X, Gamepad2, Map, Trophy, RadioTower, ShieldCheck, ClipboardList, BarChart3, BookOpen, Mail } from 'lucide-react';
 import { Seo } from '../../components/Seo';
 
 export const DashboardLayout: React.FC = () => {
@@ -32,6 +32,7 @@ export const DashboardLayout: React.FC = () => {
 
     const navItems = [
         { label: 'Analytics', path: '/dashboard/analytics', icon: BarChart3 },
+        { label: 'Newsletter', path: '/dashboard/newsletter', icon: Mail },
         { label: 'Visão Geral', path: '/dashboard/overview', icon: LayoutDashboard },
         { label: 'Contribuições', path: '/dashboard/contributions', icon: ClipboardList },
         { label: 'Catálogo', path: '/dashboard/terms', icon: FileText },

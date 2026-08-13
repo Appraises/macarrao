@@ -23,6 +23,8 @@ const mocks = vi.hoisted(() => ({
     termUpdate: vi.fn(),
     reportUpdateMany: vi.fn(),
     notificationDeleteMany: vi.fn(),
+    newsletterFindUnique: vi.fn(),
+    newsletterDeleteMany: vi.fn(),
     auditCreate: vi.fn(),
     sendStatusEmail: vi.fn()
 }));
@@ -50,6 +52,10 @@ vi.mock('../src/lib/prisma', () => {
         term: { findUnique: mocks.termFindUnique, update: mocks.termUpdate },
         report: { updateMany: mocks.reportUpdateMany },
         notification: { deleteMany: mocks.notificationDeleteMany },
+        newsletterSubscriber: {
+            findUnique: mocks.newsletterFindUnique,
+            deleteMany: mocks.newsletterDeleteMany
+        },
         adminAuditLog: { create: mocks.auditCreate }
     };
     prisma.$transaction = vi.fn(async (input: any) => Array.isArray(input) ? Promise.all(input) : input(prisma));
@@ -121,6 +127,8 @@ beforeEach(() => {
     mocks.voteDeleteMany.mockResolvedValue({ count: 0 });
     mocks.badgeDeleteMany.mockResolvedValue({ count: 0 });
     mocks.reportUpdateMany.mockResolvedValue({ count: 0 });
+    mocks.newsletterFindUnique.mockResolvedValue(null);
+    mocks.newsletterDeleteMany.mockResolvedValue({ count: 0 });
     mocks.privacyFindMany.mockResolvedValue([]);
     mocks.privacyCount.mockResolvedValue(0);
     mocks.privacyUpdateMany.mockResolvedValue({ count: 1 });
@@ -151,6 +159,11 @@ describe('privacy request primitives', () => {
             termVotes: [],
             privacyRequests: []
         });
+        mocks.newsletterFindUnique.mockResolvedValue({
+            status: 'ACTIVE',
+            source: 'home',
+            deliveries: []
+        });
 
         const result = await buildUserDataExport('user-1');
         const call = mocks.userFindUnique.mock.calls[0][0];
@@ -159,6 +172,7 @@ describe('privacy request primitives', () => {
         expect(call.select.sessionVersion).toBeUndefined();
         expect(call.select.verificationToken).toBeUndefined();
         expect(call.select.resetPasswordToken).toBeUndefined();
+        expect(result?.dataSubject.newsletter).toEqual(expect.objectContaining({ status: 'ACTIVE', source: 'home' }));
         expect(JSON.stringify(result)).not.toContain('password');
     });
 });
@@ -203,6 +217,7 @@ describe('administrative privacy workflow', () => {
         expect(mocks.voteDeleteMany).toHaveBeenCalledWith({ where: { userId: 'user-1' } });
         expect(mocks.termUpdate).toHaveBeenCalledWith(expect.objectContaining({ data: { upvotes: 3, downvotes: 2 } }));
         expect(mocks.reportUpdateMany).toHaveBeenCalledWith({ where: { reporterId: 'user-1' }, data: { reporterId: null } });
+        expect(mocks.newsletterDeleteMany).toHaveBeenCalledWith({ where: { email: { equals: 'person@example.com', mode: 'insensitive' } } });
         expect(mocks.userUpdate).toHaveBeenCalledWith(expect.objectContaining({
             where: { id: 'user-1' },
             data: expect.objectContaining({

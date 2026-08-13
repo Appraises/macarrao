@@ -108,7 +108,7 @@ router.get('/', async (req, res) => {
     }
 
     const parsed = parsePagination(req.query, {
-        allowedSorts: ['createdAt', 'updatedAt', 'headline', 'category'] as const,
+            allowedSorts: ['createdAt', 'updatedAt', 'headline', 'category'] as const,
         defaultSort: 'createdAt',
         defaultOrder: 'desc'
     });

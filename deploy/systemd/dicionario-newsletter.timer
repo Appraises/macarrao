@@ -1,0 +1,11 @@
+[Unit]
+Description=Agenda diaria do Termo do Dia - Dicionario Gamer
+
+[Timer]
+OnCalendar=*-*-* 09:00:00 America/Sao_Paulo
+Persistent=true
+AccuracySec=1min
+Unit=dicionario-newsletter.service
+
+[Install]
+WantedBy=timers.target

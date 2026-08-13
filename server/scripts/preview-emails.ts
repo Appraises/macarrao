@@ -12,6 +12,10 @@ import {
     renderPrivacyRequestStatusEmail,
     renderVerificationEmail,
 } from '../src/services/email';
+import {
+    renderNewsletterConfirmationEmail,
+    renderNewsletterDailyEmail,
+} from '../src/services/newsletterEmail';
 
 const NAME = 'Bruno';
 const TOKEN = 'exemplo-de-token-1234567890abcdef';
@@ -28,6 +32,26 @@ const SAMPLES: Array<{ file: string; label: string; content: EmailContent }> = [
     {
         file: 'contribution-changes.html', label: 'Contribuição — ajustes',
         content: renderContributionDecisionEmail({ name: NAME, termId: 'abc123', word: 'Gank', decision: 'CHANGES_REQUESTED', message: 'Poderia adicionar um exemplo de uso?' }),
+    },
+    {
+        file: 'newsletter-confirmation.html',
+        label: 'Newsletter — confirmação',
+        content: renderNewsletterConfirmationEmail(TOKEN),
+    },
+    {
+        file: 'newsletter-daily.html',
+        label: 'Newsletter — Termo do Dia',
+        content: renderNewsletterDailyEmail({
+            term: {
+                word: 'Gank',
+                definition: 'Ataque surpresa realizado por um ou mais jogadores contra um adversário em desvantagem.',
+                example: 'O caçador preparou um gank na rota inferior.',
+                game: 'League of Legends',
+                tags: ['MOBA', 'Estratégia'],
+            },
+            clickUrl: 'https://dicionariogamer.com.br/term/Gank',
+            unsubscribeUrl: `https://dicionariogamer.com.br/newsletter/descadastrar?token=${TOKEN}`,
+        }),
     },
 ];
 

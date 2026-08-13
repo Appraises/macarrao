@@ -10,6 +10,7 @@ import { ContributionError, createContribution } from '../services/contributions
 import { parseTermPayload } from '../utils/terms';
 import { AdminTermError, permanentlyDeleteAdminTerm, updateAdminTerm } from '../services/adminTerms';
 import { analyticsEnabled } from '../services/analytics/privacy';
+import { getTermOfTheDay } from '../services/termOfDay';
 import { PUBLIC_API_URL } from '../utils/config';
 import { captureInternalSearch, recordTermViewWithSearch } from '../services/analytics/search';
 import { getMyMeaningVotes, parseMeaningPayload, proposeTermMeaning, TermMeaningError, voteOnMeaning } from '../services/termMeanings';
@@ -159,20 +160,7 @@ router.get('/catalog-meta', async (_req, res) => {
 // rotates at local midnight. Must be declared before "/:idOrSlug".
 router.get('/term-of-the-day', async (req, res) => {
     try {
-        const count = await prisma.term.count({ where: { status: TermStatus.APPROVED, archivedAt: null } });
-        if (count === 0) return res.status(404).json({ error: 'No terms available' });
-
-        // Use the current date in Brasília (UTC-3) as the seed.
-        const brt = new Date(Date.now() - 3 * 60 * 60 * 1000);
-        const seed = brt.getUTCFullYear() * 10000 + (brt.getUTCMonth() + 1) * 100 + brt.getUTCDate();
-        const skip = seed % count;
-
-        const term = await prisma.term.findFirst({
-            where: { status: TermStatus.APPROVED, archivedAt: null },
-            orderBy: { id: 'asc' },
-            skip,
-            include: { game: true },
-        });
+        const term = await getTermOfTheDay();
         if (!term) return res.status(404).json({ error: 'No term available' });
 
         res.json({

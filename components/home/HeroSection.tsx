@@ -18,12 +18,22 @@ const QUICK_CATEGORIES = [
     "FPS", "MOBA", "RPG", "Estratégia", "Gírias", "Economia", "Técnico"
 ];
 
+const HERO_MESSAGES = [
+    'o que cada termo significa.',
+    'as gírias de cada jogo.',
+    'o que estão falando no chat.',
+    'o vocabulário da comunidade.',
+];
+
 export const HeroSection: React.FC = () => {
     const navigate = useNavigate();
     const [searchTerm, setSearchTerm] = useState('');
     const [suggestions, setSuggestions] = useState<TermSuggestion[]>([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [activeSuggestion, setActiveSuggestion] = useState(-1);
+    const [heroMessageIndex, setHeroMessageIndex] = useState(0);
+    const [typedHeroMessage, setTypedHeroMessage] = useState(HERO_MESSAGES[0]);
+    const [isDeletingHeroMessage, setIsDeletingHeroMessage] = useState(false);
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
@@ -59,6 +69,41 @@ export const HeroSection: React.FC = () => {
             clearTimeout(t);
         };
     }, [searchTerm]);
+
+    useEffect(() => {
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            setTypedHeroMessage(HERO_MESSAGES[0]);
+            return;
+        }
+
+        const currentMessage = HERO_MESSAGES[heroMessageIndex];
+        let delay = isDeletingHeroMessage ? 28 : 55;
+
+        if (!isDeletingHeroMessage && typedHeroMessage === currentMessage) {
+            delay = 1800;
+        } else if (isDeletingHeroMessage && typedHeroMessage === '') {
+            delay = 260;
+        }
+
+        const timeout = window.setTimeout(() => {
+            if (!isDeletingHeroMessage && typedHeroMessage === currentMessage) {
+                setIsDeletingHeroMessage(true);
+                return;
+            }
+
+            if (isDeletingHeroMessage && typedHeroMessage === '') {
+                const nextIndex = (heroMessageIndex + 1) % HERO_MESSAGES.length;
+                setHeroMessageIndex(nextIndex);
+                setIsDeletingHeroMessage(false);
+                return;
+            }
+
+            const nextLength = typedHeroMessage.length + (isDeletingHeroMessage ? -1 : 1);
+            setTypedHeroMessage(currentMessage.slice(0, nextLength));
+        }, delay);
+
+        return () => window.clearTimeout(timeout);
+    }, [heroMessageIndex, isDeletingHeroMessage, typedHeroMessage]);
 
     const chooseSuggestion = (suggestion: TermSuggestion, index: number) => {
         trackAnalyticsEvent('Search Suggestion Selected', {
@@ -150,8 +195,14 @@ export const HeroSection: React.FC = () => {
                 </div>
 
                 <h1 className="text-4xl md:text-6xl font-black text-white tracking-tight mb-8 leading-tight drop-shadow-2xl">
-                    Entenda a língua <br />
-                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-400 to-brand-600">dos jogos.</span>
+                    <span className="sr-only">Entenda o que cada termo significa.</span>
+                    <span aria-hidden="true">
+                        Entenda <br />
+                        <span className="inline-flex min-h-[2.4em] max-w-full items-baseline text-transparent bg-clip-text bg-gradient-to-r from-brand-400 to-brand-600 md:min-h-[1.2em]">
+                            {typedHeroMessage}
+                            <span className="ml-1 inline-block h-[0.9em] w-[3px] bg-brand-400 align-baseline animate-pulse" />
+                        </span>
+                    </span>
                 </h1>
 
                 <form onSubmit={handleSearch} className="w-full max-w-2xl mx-auto relative group mb-8">
@@ -161,7 +212,7 @@ export const HeroSection: React.FC = () => {
                         </div>
                         <input
                             type="text"
-                            placeholder="Busque um termo (ex: Gank, Tilt, Nerf...)"
+                            placeholder="Busque por um termo, gíria ou expressão..."
                             className="w-full bg-transparent border-none focus:outline-none focus:ring-0 px-4 py-5 text-lg text-white placeholder-gray-500 font-medium"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}

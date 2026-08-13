@@ -79,20 +79,27 @@ export function websiteSchema() {
 }
 
 export function articleSchema(news: {
-  id: string;
-  headline: string;
-  image?: string;
-  author?: string;
-  createdAt?: string;
-  updatedAt?: string;
+    id: string;
+    headline: string;
+    slug?: string;
+    seoDescription?: string | null;
+    content?: string;
+    image?: string;
+    author?: string;
+    createdAt?: string;
+    publishedAt?: string | null;
+    updatedAt?: string;
 }) {
+  const description = news.seoDescription || String(news.content || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160);
+  const canonicalPath = `/news/${news.slug || news.id}`;
   return {
     '@context': 'https://schema.org',
     '@type': 'NewsArticle',
     headline: news.headline,
-    image: news.image ? [news.image] : undefined,
-    datePublished: news.createdAt,
-    dateModified: news.updatedAt || news.createdAt,
+    description,
+    image: news.image ? [news.image.startsWith('http') ? news.image : abs(news.image)] : undefined,
+    datePublished: news.publishedAt || news.createdAt,
+    dateModified: news.updatedAt || news.publishedAt || news.createdAt,
     author: news.author
       ? { '@type': 'Person', name: news.author }
       : { '@type': 'Organization', name: SITE_NAME },
@@ -101,6 +108,6 @@ export function articleSchema(news: {
       name: SITE_NAME,
       logo: { '@type': 'ImageObject', url: abs('/og-default.png') },
     },
-    mainEntityOfPage: abs(`/news/${news.id}`),
+    mainEntityOfPage: abs(canonicalPath),
   };
 }

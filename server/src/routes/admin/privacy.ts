@@ -272,6 +272,9 @@ router.post('/:id/complete', async (req: AuthRequest, res) => {
             });
             if (claimed.count !== 1) return null;
             if (anonymize && existing.user) {
+                await tx.newsletterSubscriber.deleteMany({
+                    where: { email: { equals: existing.user.email, mode: 'insensitive' } }
+                });
                 const votes = await tx.termVote.findMany({ where: { userId: existing.user.id }, select: { termId: true, value: true } });
                 const voteTotals = new Map<string, { up: number; down: number }>();
                 for (const vote of votes) {

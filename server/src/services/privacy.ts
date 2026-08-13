@@ -149,11 +149,48 @@ export const buildUserDataExport = async (userId: string) => {
     });
 
     if (!user) return null;
+    const newsletter = await prisma.newsletterSubscriber.findUnique({
+        where: { email: user.email.toLowerCase() },
+        select: {
+            status: true,
+            source: true,
+            consentAt: true,
+            confirmationSentAt: true,
+            confirmedAt: true,
+            unsubscribedAt: true,
+            blockedAt: true,
+            blockedReason: true,
+            lastSentAt: true,
+            createdAt: true,
+            updatedAt: true,
+            deliveries: {
+                orderBy: { createdAt: 'desc' },
+                take: 100,
+                select: {
+                    status: true,
+                    attempts: true,
+                    sentAt: true,
+                    deliveredAt: true,
+                    firstClickedAt: true,
+                    lastClickedAt: true,
+                    clickCount: true,
+                    failedAt: true,
+                    bouncedAt: true,
+                    complainedAt: true,
+                    suppressedAt: true,
+                    createdAt: true,
+                    campaign: {
+                        select: { dateKey: true, termWord: true, subject: true }
+                    }
+                }
+            }
+        }
+    });
     return {
         format: 'dicionario-gamer-user-export',
-        version: 2,
+        version: 3,
         generatedAt: new Date().toISOString(),
-        dataSubject: user
+        dataSubject: { ...user, newsletter }
     };
 };
 

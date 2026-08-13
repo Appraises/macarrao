@@ -27,6 +27,7 @@ import { setRealtimeSocketServer } from './services/realtime';
 import { startEsportsSyncScheduler } from './services/esports/sync';
 import { authenticatedUser } from './middleware/auth';
 import { startAnalyticsScheduler } from './services/analytics/sync';
+import { resendWebhook } from './routes/webhooks';
 import { sentryEnabled } from './instrument';
 import { deleteExpiredRateLimitBuckets } from './services/abuseProtection';
 
@@ -39,6 +40,10 @@ const httpServer = createServer(app);
 
 // Security Middleware
 app.use(helmet());
+
+// Provider webhooks can legitimately emit several signed events per recipient.
+// Keep this before the browser-oriented global limiter and preserve the raw body.
+app.post('/webhooks/resend', express.raw({ type: 'application/json', limit: '256kb' }), resendWebhook);
 
 // Keep CORS ahead of the limiter so the browser can read 429 responses instead
 // of turning them into a misleading generic network error.
@@ -60,7 +65,7 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-// Body parser — BEFORE all routes
+// Body parser — BEFORE all regular routes
 app.use(express.json({ limit: '1mb' }));
 app.use('/uploads', express.static(UPLOAD_ROOT, {
     dotfiles: 'deny',

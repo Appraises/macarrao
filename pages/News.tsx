@@ -83,7 +83,7 @@ export const News: React.FC = () => {
                     {featuredNews.map((item) => (
                         <Link
                             key={item.id}
-                            to={`/news/${item.id}`}
+                            to={`/news/${item.slug}/`}
                             className="group relative aspect-[3/4] overflow-hidden rounded-lg cursor-pointer border border-transparent hover:border-brand-500 transition-all duration-300"
                         >
                             <img
@@ -117,7 +117,7 @@ export const News: React.FC = () => {
                     {latestNews.map((item) => (
                         <Link
                             key={item.id}
-                            to={`/news/${item.id}`}
+                            to={`/news/${item.slug}/`}
                             className="group flex flex-col md:flex-row gap-4 bg-dark-900/50 border border-dark-800/50 hover:bg-dark-900 hover:border-brand-500/30 rounded-lg overflow-hidden transition-all duration-300 p-4"
                         >
                             {/* Thumbnail */}

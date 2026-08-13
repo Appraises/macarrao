@@ -69,7 +69,7 @@ export const CommunityCard: React.FC = () => {
                 {status === 'done' ? (
                     <div className="flex items-center gap-2 rounded-lg bg-green-500/10 border border-green-500/20 px-3 py-3 text-sm text-green-300">
                         <CheckCircle2 className="h-4 w-4 flex-none" />
-                        Inscrito! Você vai receber o Termo do Dia.
+                        Confira seu e-mail para confirmar a inscrição.
                     </div>
                 ) : (
                     <form onSubmit={submit} className="space-y-2.5">

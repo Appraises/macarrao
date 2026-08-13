@@ -10,7 +10,7 @@ export type EmailKind =
     | 'privacy-status'
     | 'contribution-decision';
 
-const escapeHtml = (value: string): string => value.replace(/[&<>'"]/g, (character) => ({
+export const escapeHtml = (value: string): string => value.replace(/[&<>'"]/g, (character) => ({
     '&': '&amp;',
     '<': '&lt;',
     '>': '&gt;',
@@ -66,7 +66,7 @@ const FONT = 'Arial, Helvetica, sans-serif';
 export interface EmailContent { subject: string; html: string; text: string }
 
 interface ShellOptions {
-    name: string;
+    name?: string;
     heading: string;
     message: string;
     buttonLabel: string;
@@ -77,11 +77,13 @@ interface ShellOptions {
     highlight?: string;
     /** Optional reassurance shown under the divider. */
     securityNote?: string;
+    /** Trusted template fragment for legal/operational footer links. */
+    footerHtml?: string;
 }
 
 // Table-based layout: Outlook (Word engine) ignores max-width on divs, so the width
 // lives on a <table width="600">. The button ships a VML fallback for the same reason.
-const emailShell = ({ name, heading, message, buttonLabel, url, preheader, highlight, securityNote }: ShellOptions): string => {
+export const emailShell = ({ name, heading, message, buttonLabel, url, preheader, highlight, securityNote, footerHtml }: ShellOptions): string => {
     const safeUrl = escapeHtml(url);
     return `<!doctype html>
 <html lang="pt-BR" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
@@ -108,7 +110,7 @@ const emailShell = ({ name, heading, message, buttonLabel, url, preheader, highl
 <tr>
 <td style="background-color:${CARD_BG};border:1px solid ${BORDER};border-radius:10px;padding:32px 30px;">
 <h1 style="margin:0 0 18px;font-family:${FONT};font-size:24px;line-height:1.3;color:${TEXT};">${escapeHtml(heading)}</h1>
-<p style="margin:0 0 14px;font-family:${FONT};font-size:15px;line-height:1.6;color:${TEXT};">Olá, ${escapeHtml(name)}.</p>
+${name ? `<p style="margin:0 0 14px;font-family:${FONT};font-size:15px;line-height:1.6;color:${TEXT};">Olá, ${escapeHtml(name)}.</p>` : ''}
 <p style="margin:0 0 22px;font-family:${FONT};font-size:15px;line-height:1.6;color:${TEXT_SOFT};">${escapeHtml(message)}</p>
 ${highlight ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 24px;">
 <tr><td style="background-color:${HIGHLIGHT_BG};border-left:3px solid ${BRAND};padding:12px 14px;font-family:${FONT};font-size:14px;line-height:1.5;color:${HIGHLIGHT_TEXT};">${escapeHtml(highlight)}</td></tr>
@@ -131,6 +133,7 @@ ${highlight ? `<table role="presentation" width="100%" cellpadding="0" cellspaci
 ${securityNote ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:24px 0 0;">
 <tr><td style="border-top:1px solid ${BORDER};padding:16px 0 0;font-family:${FONT};font-size:13px;line-height:1.6;color:${TEXT_SOFT};">${escapeHtml(securityNote)}</td></tr>
 </table>` : ''}
+${footerHtml || ''}
 </td>
 </tr>
 <tr>

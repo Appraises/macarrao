@@ -1,0 +1,16 @@
+[Unit]
+Description=Disparo do Termo do Dia - Dicionario Gamer
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=blopes
+Group=blopes
+WorkingDirectory=/srv/dicionario/server
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/npm run newsletter:send-daily
+TimeoutStartSec=30min
+
+[Install]
+WantedBy=multi-user.target

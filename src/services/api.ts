@@ -56,6 +56,13 @@ import type {
     ,BrickBreakerRunSession
     ,BrickBreakerScoreInput
     ,BrickBreakerScoreResult
+    ,NewsletterCampaignDetail
+    ,NewsletterCampaignStatus
+    ,NewsletterCampaignSummary
+    ,NewsletterDeliveryStatus
+    ,NewsletterOverview
+    ,NewsletterSubscriberStatus
+    ,NewsletterSubscriberSummary
 } from '../../types';
 import { isAnalyticsEnabled } from '../lib/analytics';
 
@@ -414,7 +421,7 @@ export const getNews = async (query: NewsQuery = {}): Promise<PaginatedResponse<
 };
 
 export const getNewsById = async (id: string) => {
-    const response = await api.get(`/news/${id}`);
+    const response = await api.get(`/news/${encodeURIComponent(id)}`);
     return response.data;
 };
 
@@ -921,6 +928,40 @@ export const subscribeNewsletter = async (email: string, consent: boolean, sourc
     const response = await api.post('/newsletter/subscribe', { email, consent, source });
     return response.data;
 };
+
+export const confirmNewsletter = async (token: string): Promise<{ confirmed: boolean }> =>
+    (await api.post('/newsletter/confirm', { token })).data;
+
+export const resendNewsletterConfirmation = async (email: string): Promise<{ message: string }> =>
+    (await api.post('/newsletter/resend-confirmation', { email })).data;
+
+export const unsubscribeNewsletter = async (token: string): Promise<{ unsubscribed: boolean }> =>
+    (await api.post('/newsletter/unsubscribe', { token })).data;
+
+export interface NewsletterSubscribersQuery extends PaginationQuery { status?: NewsletterSubscriberStatus; source?: string; from?: string; to?: string }
+export interface NewsletterCampaignsQuery extends PaginationQuery { status?: NewsletterCampaignStatus }
+export interface NewsletterDeliveriesQuery extends PaginationQuery { status?: NewsletterDeliveryStatus }
+
+export const getNewsletterOverview = async (): Promise<NewsletterOverview> =>
+    (await api.get('/dashboard/newsletter/overview')).data;
+
+export const getNewsletterStatus = async (): Promise<Pick<NewsletterOverview, 'provider' | 'lastCampaign'>> =>
+    (await api.get('/dashboard/newsletter/status')).data;
+
+export const getNewsletterSubscribers = async (query: NewsletterSubscribersQuery = {}): Promise<PaginatedResponse<NewsletterSubscriberSummary>> =>
+    normalizePaginatedResponse((await api.get('/dashboard/newsletter/subscribers', { params: query })).data);
+
+export const getNewsletterCampaigns = async (query: NewsletterCampaignsQuery = {}): Promise<PaginatedResponse<NewsletterCampaignSummary>> =>
+    normalizePaginatedResponse((await api.get('/dashboard/newsletter/campaigns', { params: query })).data);
+
+export const getNewsletterCampaign = async (id: string, query: NewsletterDeliveriesQuery = {}): Promise<NewsletterCampaignDetail> =>
+    (await api.get(`/dashboard/newsletter/campaigns/${encodeURIComponent(id)}`, { params: query })).data;
+
+export const sendNewsletterTest = async (): Promise<{ sent: boolean }> =>
+    (await api.post('/dashboard/newsletter/test')).data;
+
+export const retryNewsletterCampaign = async (id: string) =>
+    (await api.post(`/dashboard/newsletter/campaigns/${encodeURIComponent(id)}/retry`)).data;
 
 // AI Services (server-side Gemini proxy)
 export const validateContribution = async (word: string, definition: string) => {

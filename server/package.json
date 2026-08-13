@@ -10,7 +10,10 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "seed:current-news": "ts-node --compiler-options {\"module\":\"CommonJS\"} scripts/seed-current-news.ts",
-    "preview:emails": "ts-node scripts/preview-emails.ts"
+    "publish:news": "node scripts/publish-news.mjs",
+    "preview:emails": "ts-node scripts/preview-emails.ts",
+    "newsletter:send-daily": "ts-node --compiler-options {\"module\":\"CommonJS\"} scripts/send-daily-newsletter.ts",
+    "newsletter:confirm-legacy": "ts-node --compiler-options {\"module\":\"CommonJS\"} scripts/confirm-legacy-newsletter.ts"
   },
   "keywords": [],
   "author": "",

@@ -382,6 +382,87 @@ export interface ContributionInput {
   inflections?: Inflection[];
 }
 
+export type NewsletterSubscriberStatus = 'PENDING' | 'ACTIVE' | 'UNSUBSCRIBED' | 'BOUNCED' | 'COMPLAINED' | 'SUPPRESSED';
+export type NewsletterCampaignStatus = 'RUNNING' | 'COMPLETED' | 'PARTIAL' | 'FAILED' | 'SKIPPED';
+export type NewsletterDeliveryStatus = 'QUEUED' | 'SENDING' | 'SENT' | 'DELIVERED' | 'DELAYED' | 'FAILED' | 'BOUNCED' | 'COMPLAINED' | 'SUPPRESSED';
+
+export interface NewsletterProviderStatus {
+  configured: boolean;
+  webhookConfigured: boolean;
+  automaticSending: boolean;
+  sendHour: number;
+  timezone: string;
+}
+
+export interface NewsletterSubscriberSummary {
+  id: string;
+  email: string;
+  source: string | null;
+  status: NewsletterSubscriberStatus;
+  consentAt: string;
+  confirmationSentAt: string | null;
+  confirmedAt: string | null;
+  unsubscribedAt: string | null;
+  blockedAt: string | null;
+  blockedReason: string | null;
+  lastSentAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NewsletterCampaignSummary {
+  id: string;
+  dateKey: string;
+  termId: string | null;
+  termWord: string;
+  termDefinition: string;
+  termExample: string | null;
+  termGame: string | null;
+  termTags: string[];
+  subject: string;
+  status: NewsletterCampaignStatus;
+  skipReason: string | null;
+  startedAt: string;
+  finishedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  deliveryCounts: Partial<Record<NewsletterDeliveryStatus, number>>;
+  uniqueClicks: number;
+}
+
+export interface NewsletterDeliverySummary {
+  id: string;
+  status: NewsletterDeliveryStatus;
+  resendEmailId: string | null;
+  attempts: number;
+  lastError: string | null;
+  sentAt: string | null;
+  deliveredAt: string | null;
+  failedAt: string | null;
+  bouncedAt: string | null;
+  complainedAt: string | null;
+  suppressedAt: string | null;
+  firstClickedAt: string | null;
+  clickCount: number;
+  subscriber: Pick<NewsletterSubscriberSummary, 'id' | 'email' | 'source' | 'status'> | null;
+}
+
+export interface NewsletterCampaignDetail {
+  campaign: Omit<NewsletterCampaignSummary, 'deliveryCounts' | 'uniqueClicks'>;
+  deliveryCounts: Partial<Record<NewsletterDeliveryStatus, number>>;
+  deliveries: NewsletterDeliverySummary[];
+  pagination: PaginationMeta;
+}
+
+export interface NewsletterOverview {
+  provider: NewsletterProviderStatus;
+  subscribers: Partial<Record<NewsletterSubscriberStatus, number>>;
+  campaigns: Partial<Record<NewsletterCampaignStatus, number>>;
+  deliveries: Partial<Record<NewsletterDeliveryStatus, number>>;
+  estimatedClicks: number;
+  lastCampaign: Omit<NewsletterCampaignSummary, 'deliveryCounts' | 'uniqueClicks'> | null;
+}
+
 export interface BotProtectionStatus {
   enabled: boolean;
   challengeRequired: boolean;

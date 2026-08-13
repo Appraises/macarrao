@@ -9,7 +9,7 @@ import { Games } from './pages/Games';
 import { GameDetail } from './pages/GameDetail';
 import { Esports } from './pages/Esports';
 import { News as NewsPage } from './pages/News';
-import { NewsDetail } from './pages/NewsDetail';
+import { NewsDetail, newsDetailLoader } from './pages/NewsDetail';
 import { NotFound } from './pages/NotFound';
 import { TermsOfUse } from './pages/TermsOfUse';
 import { PrivacyPolicy } from './pages/PrivacyPolicy';
@@ -27,6 +27,8 @@ const MyContributions = lazyPage(() => import('./pages/MyContributions'), 'MyCon
 const MyContributionDetail = lazyPage(() => import('./pages/MyContributionDetail'), 'MyContributionDetail');
 const Login = lazyPage(() => import('./pages/Login'), 'Login');
 const VerifyEmail = lazyPage(() => import('./pages/VerifyEmail'), 'VerifyEmail');
+const NewsletterConfirm = lazyPage(() => import('./pages/NewsletterConfirm'), 'NewsletterConfirm');
+const NewsletterUnsubscribe = lazyPage(() => import('./pages/NewsletterUnsubscribe'), 'NewsletterUnsubscribe');
 const Profile = lazyPage(() => import('./pages/Profile'), 'Profile');
 const PublicProfile = lazyPage(() => import('./pages/PublicProfile'), 'PublicProfile');
 const MatchDetail = lazyPage(() => import('./pages/MatchDetail'), 'MatchDetail');
@@ -48,6 +50,7 @@ const DashboardTournaments = lazyPage(() => import('./pages/DASHBOARD/Tournament
 const DashboardEsports = lazyPage(() => import('./pages/DASHBOARD/EsportsAdmin'), 'EsportsAdmin');
 const DashboardPrivacyRequests = lazyPage(() => import('./pages/DASHBOARD/PrivacyRequests'), 'PrivacyRequests');
 const DashboardAnalytics = lazyPage(() => import('./pages/DASHBOARD/Analytics'), 'Analytics');
+const DashboardNewsletter = lazyPage(() => import('./pages/DASHBOARD/Newsletter'), 'Newsletter');
 
 import { Button } from './components/UI';
 import { PlusCircle, Menu, X, Twitter, Instagram, Facebook, Youtube, User as UserIcon, LogOut, Settings, Home as HomeIcon, Gamepad2, Newspaper, Trophy, BookOpen, ClipboardList } from 'lucide-react';
@@ -413,6 +416,7 @@ export const routes: RouteObject[] = [
           { index: true, element: <Navigate to="/dashboard/overview" replace /> },
           { path: 'overview', element: <Overview /> },
           { path: 'analytics', element: <DashboardAnalytics /> },
+          { path: 'newsletter', element: <DashboardNewsletter /> },
           { path: 'contributions', element: <Contributions /> },
           { path: 'users', element: <UsersList /> },
           { path: 'terms', element: <TermsList /> },
@@ -438,7 +442,7 @@ export const routes: RouteObject[] = [
           { path: 'games', element: <Games /> },
           { path: 'games/:slug', element: <GameDetail /> },
           { path: 'news', element: <NewsPage /> },
-          { path: 'news/:id', element: <NewsDetail /> },
+          { path: 'news/:slug', element: <NewsDetail />, loader: newsDetailLoader },
           { path: 'esports', element: <Esports /> },
           { path: 'esports/match/:id', element: <MatchDetail /> },
           { path: 'esports/tournament/:id', element: <TournamentDetail /> },
@@ -453,6 +457,8 @@ export const routes: RouteObject[] = [
           { path: 'forgot-password', element: <ForgotPassword /> },
           { path: 'reset-password', element: <ResetPassword /> },
           { path: 'verify-email', element: <VerifyEmail /> },
+          { path: 'newsletter/confirmar', element: <NewsletterConfirm /> },
+          { path: 'newsletter/descadastrar', element: <NewsletterUnsubscribe /> },
           { path: 'termos', element: <TermsOfUse /> },
           { path: 'privacidade', element: <PrivacyPolicy /> },
           // Catch-all 404 (rendered inside the main layout, marked noindex)

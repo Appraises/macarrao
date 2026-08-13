@@ -11,7 +11,8 @@
     "test:e2e:esports": "playwright test e2e/esports.spec.ts --reporter=line",
     "test:e2e:dictionary": "playwright test e2e/dictionary.spec.ts --reporter=line",
     "test:e2e:contributions": "playwright test e2e/contributions.spec.ts --reporter=line",
-    "test:e2e:analytics": "playwright test e2e/analytics.spec.ts --reporter=line"
+    "test:e2e:analytics": "playwright test e2e/analytics.spec.ts --reporter=line",
+    "test:e2e:newsletter": "playwright test e2e/newsletter.spec.ts --reporter=line"
   },
   "dependencies": {
     "@plausible-analytics/tracker": "^0.4.5",

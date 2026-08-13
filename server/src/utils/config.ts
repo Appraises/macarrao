@@ -10,11 +10,14 @@ if (!process.env.JWT_SECRET) {
 const JWT_SECRET: string = process.env.JWT_SECRET;
 const CORS_ORIGINS = (process.env.CORS_ORIGINS || 'http://localhost:3000,http://localhost:5173').split(',').map(o => o.trim());
 const TERMS_VERSION = process.env.TERMS_VERSION || '2026-07-13';
-const PRIVACY_VERSION = process.env.PRIVACY_VERSION || '2026-07-26';
+const PRIVACY_VERSION = process.env.PRIVACY_VERSION || '2026-08-10';
 const APP_URL = (process.env.APP_URL || 'http://localhost:3000').replace(/\/$/, '');
 const PUBLIC_API_URL = (process.env.PUBLIC_API_URL || '').replace(/\/$/, '');
 const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
 const EMAIL_FROM = process.env.EMAIL_FROM || 'Dicionario Gamer <onboarding@resend.dev>';
+const RESEND_WEBHOOK_SECRET = process.env.RESEND_WEBHOOK_SECRET || '';
+const NEWSLETTER_TOKEN_SECRET = process.env.NEWSLETTER_TOKEN_SECRET || JWT_SECRET;
+const NEWSLETTER_ENABLED = process.env.NEWSLETTER_ENABLED === 'true';
 const positiveInteger = (value: string | undefined, fallback: number) => {
     const parsed = Number(value);
     return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
@@ -51,11 +54,20 @@ if (TURNSTILE_ENABLED && !process.env.ABUSE_HASH_SECRET) {
 const PLACEHOLDER_SENDER = /seu-dominio|your-domain|example\.com|onboarding@resend\.dev/i;
 if (!RESEND_API_KEY) {
     console.warn('[config] AVISO: RESEND_API_KEY nao esta definida. NENHUM email sera enviado');
-    console.warn('[config]        (recuperacao de senha, verificacao de conta, LGPD e moderacao).');
+    console.warn('[config]        (recuperacao de senha, verificacao de conta, LGPD, moderacao e newsletter).');
 }
 if (PLACEHOLDER_SENDER.test(EMAIL_FROM)) {
     console.warn(`[config] AVISO: EMAIL_FROM usa um remetente de exemplo (${EMAIL_FROM}).`);
     console.warn('[config]        O Resend so entrega a partir de um dominio verificado na conta.');
+}
+if (NEWSLETTER_ENABLED && (!RESEND_API_KEY || !PUBLIC_API_URL)) {
+    console.warn('[config] AVISO: newsletter ativa sem RESEND_API_KEY ou PUBLIC_API_URL. O job diario sera ignorado.');
+}
+if (!RESEND_WEBHOOK_SECRET) {
+    console.warn('[config] AVISO: RESEND_WEBHOOK_SECRET ausente. Eventos da newsletter nao serao aceitos.');
+}
+if (!process.env.NEWSLETTER_TOKEN_SECRET) {
+    console.warn('[config] AVISO: NEWSLETTER_TOKEN_SECRET ausente; usando JWT_SECRET como fallback.');
 }
 // Where uploaded media lives. 'local' keeps files on the server's own disk, which is
 // fine on a VPS but loses every image on an ephemeral host and cannot be shared across
@@ -126,6 +138,9 @@ export {
     PUBLIC_API_URL,
     RESEND_API_KEY,
     EMAIL_FROM,
+    RESEND_WEBHOOK_SECRET,
+    NEWSLETTER_TOKEN_SECRET,
+    NEWSLETTER_ENABLED,
     TURNSTILE_ENABLED,
     TURNSTILE_SECRET_KEY,
     TURNSTILE_ALLOWED_HOSTNAMES,

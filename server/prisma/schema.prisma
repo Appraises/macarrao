@@ -127,6 +127,43 @@ enum NotificationEmailStatus {
   SKIPPED
 }
 
+enum NewsletterSubscriberStatus {
+  PENDING
+  ACTIVE
+  UNSUBSCRIBED
+  BOUNCED
+  COMPLAINED
+  SUPPRESSED
+}
+
+enum NewsletterCampaignStatus {
+  RUNNING
+  COMPLETED
+  PARTIAL
+  FAILED
+  SKIPPED
+}
+
+enum NewsletterDeliveryStatus {
+  QUEUED
+  SENDING
+  SENT
+  DELIVERED
+  DELAYED
+  FAILED
+  BOUNCED
+  COMPLAINED
+  SUPPRESSED
+}
+
+enum NewsletterBatchStatus {
+  PENDING
+  SENDING
+  SENT
+  FAILED
+  UNKNOWN
+}
+
 enum AnalyticsProvider {
   PLAUSIBLE
   SEARCH_CONSOLE
@@ -190,19 +227,19 @@ enum TermViewSource {
 }
 
 model User {
-  id                       String                @id @default(uuid())
+  id                       String                 @id @default(uuid())
   name                     String
-  email                    String                @unique
+  email                    String                 @unique
   password                 String
-  role                     String                @default("USER") // ADMIN, USER
-  level                    Int                   @default(1)
-  xp                       Int                   @default(0)
-  badges                   Json                  @default("[]")
+  role                     String                 @default("USER") // ADMIN, USER
+  level                    Int                    @default(1)
+  xp                       Int                    @default(0)
+  badges                   Json                   @default("[]")
   avatar                   String?
-  emailVerified            Boolean               @default(false)
+  emailVerified            Boolean                @default(false)
   verificationToken        String?
   verificationTokenExpires DateTime?
-  preferences              Json                  @default("{}")
+  preferences              Json                   @default("{}")
   resetPasswordToken       String?
   resetPasswordExpires     DateTime?
   termsAcceptedAt          DateTime?
@@ -210,31 +247,31 @@ model User {
   privacyAcknowledgedAt    DateTime?
   privacyVersion           String?
   description              String?
-  sessionVersion           Int                   @default(0)
+  sessionVersion           Int                    @default(0)
   anonymizedAt             DateTime?
   botVerifiedAt            DateTime?
-  createdAt                DateTime              @default(now())
-  updatedAt                DateTime              @updatedAt
+  createdAt                DateTime               @default(now())
+  updatedAt                DateTime               @updatedAt
   comments                 Comment[]
   terms                    Term[]
   termMeanings             TermMeaning[]
   termMedia                TermMedia[]
   badgesEarned             UserBadge[]
   termVotes                TermVote[]
-  termModerationEvents     TermModerationEvent[] @relation("TermModerationActor")
+  termModerationEvents     TermModerationEvent[]  @relation("TermModerationActor")
   notifications            Notification[]
   favoriteGameId           String?
-  favoriteGame             Game?                 @relation(fields: [favoriteGameId], references: [id])
-  createdNews              News[]                @relation("NewsCreator")
-  adminAuditLogs           AdminAuditLog[]       @relation("AdminAuditActor")
-  privacyRequests          PrivacyRequest[]      @relation("PrivacyRequestOwner")
-  assignedPrivacyRequests  PrivacyRequest[]      @relation("PrivacyRequestAssignee")
-  privacyRequestEvents     PrivacyRequestEvent[] @relation("PrivacyRequestEventActor")
+  favoriteGame             Game?                  @relation(fields: [favoriteGameId], references: [id])
+  createdNews              News[]                 @relation("NewsCreator")
+  adminAuditLogs           AdminAuditLog[]        @relation("AdminAuditActor")
+  privacyRequests          PrivacyRequest[]       @relation("PrivacyRequestOwner")
+  assignedPrivacyRequests  PrivacyRequest[]       @relation("PrivacyRequestAssignee")
+  privacyRequestEvents     PrivacyRequestEvent[]  @relation("PrivacyRequestEventActor")
   pickemEntries            EsportsPickemEntry[]
   brickBreakerBestScore    BrickBreakerBestScore?
   brickBreakerRuns         BrickBreakerRun[]
   activityDays             UserActivityDay[]
-  analyticsSyncRuns        AnalyticsSyncRun[]    @relation("AnalyticsSyncActor")
+  analyticsSyncRuns        AnalyticsSyncRun[]     @relation("AnalyticsSyncActor")
 
   @@index([createdAt])
   @@index([role, createdAt])
@@ -294,42 +331,43 @@ model MapCallout {
 }
 
 model Term {
-  id                 String                @id @default(uuid())
-  word               String
-  definition         String
-  phonetic           String?
-  pronunciationGuide String?
-  examples           Json                  @default("[]")
-  relatedTerms       Json?
-  aliases            Json                  @default("[]") // alternate spellings/forms; findability + SEO
-  meanings           TermMeaning[]
-  media              TermMedia[]
+  id                  String                @id @default(uuid())
+  word                String
+  definition          String
+  phonetic            String?
+  pronunciationGuide  String?
+  examples            Json                  @default("[]")
+  relatedTerms        Json?
+  aliases             Json                  @default("[]") // alternate spellings/forms; findability + SEO
+  meanings            TermMeaning[]
+  media               TermMedia[]
   // Denormalized approved origin note, so meta/prerender stay cheap. originHidden marks
   // terms that plainly need no origin (e.g. abbreviations like GF): panel disappears.
-  origin             String?
-  originHidden       Boolean               @default(false)
+  origin              String?
+  originHidden        Boolean               @default(false)
   // Denormalized from meanings so catalog cards, raw-SQL search and OG images stay cheap:
   // definition mirrors the top-voted meaning, gameIds lists every game across meanings.
-  gameIds            Json                  @default("[]")
-  gameId             String?
-  game               Game?                 @relation(fields: [gameId], references: [id])
-  upvotes            Int                   @default(0)
-  downvotes          Int                   @default(0)
-  tags               Json                  @default("[]")
-  status             TermStatus            @default(PENDING)
-  revision           Int                   @default(1)
-  moderatedAt        DateTime?
-  archivedAt         DateTime?
-  views              TermView[]
-  votes              TermVote[]
-  reports            Report[]
-  moderationEvents   TermModerationEvent[]
-  notifications      Notification[]
-  openedBySearches   InternalSearchEvent[]
-  authorId           String?
-  author             User?                 @relation(fields: [authorId], references: [id])
-  createdAt          DateTime              @default(now())
-  updatedAt          DateTime              @updatedAt
+  gameIds             Json                  @default("[]")
+  gameId              String?
+  game                Game?                 @relation(fields: [gameId], references: [id])
+  upvotes             Int                   @default(0)
+  downvotes           Int                   @default(0)
+  tags                Json                  @default("[]")
+  status              TermStatus            @default(PENDING)
+  revision            Int                   @default(1)
+  moderatedAt         DateTime?
+  archivedAt          DateTime?
+  views               TermView[]
+  votes               TermVote[]
+  reports             Report[]
+  moderationEvents    TermModerationEvent[]
+  notifications       Notification[]
+  openedBySearches    InternalSearchEvent[]
+  newsletterCampaigns NewsletterCampaign[]
+  authorId            String?
+  author              User?                 @relation(fields: [authorId], references: [id])
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
 
   @@index([word])
   @@index([gameId])
@@ -346,31 +384,31 @@ model Term {
 /// game or context. Ordering is by score; moderation and authorship are per meaning,
 /// so a pending new sense never takes the whole term off the air.
 model TermMeaning {
-  id         String     @id @default(uuid())
-  termId     String
-  term       Term       @relation(fields: [termId], references: [id], onDelete: Cascade)
-  definition String
-  examples   Json       @default("[]")
+  id          String     @id @default(uuid())
+  termId      String
+  term        Term       @relation(fields: [termId], references: [id], onDelete: Cascade)
+  definition  String
+  examples    Json       @default("[]")
   // Optional on purpose: plenty of entries have no useful inflection (interjections
   // like "gg", expressions), and legacy senses start without a class.
-  wordClass  WordClass?
+  wordClass   WordClass?
   // Tone/charge of this sense. Optional: unset reads as neutral and shows no badge.
-  register   Register?
+  register    Register?
   // Labelled forms: [{ label: "particípio", form: "gankado" }]. A loose list beats a
   // rigid conjugation table for slang, and each class uses the labels that fit it.
-  inflections Json      @default("[]")
-  gameId     String?
-  game       Game?      @relation(fields: [gameId], references: [id], onDelete: SetNull)
-  context    String? // free label when the sense is not game-bound: "competitivo", "streaming"
-  order      Int        @default(1)
-  upvotes    Int        @default(0)
-  downvotes  Int        @default(0)
-  status     TermStatus @default(PENDING)
-  authorId   String?
-  author     User?      @relation(fields: [authorId], references: [id], onDelete: SetNull)
-  votes      TermVote[]
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
+  inflections Json       @default("[]")
+  gameId      String?
+  game        Game?      @relation(fields: [gameId], references: [id], onDelete: SetNull)
+  context     String? // free label when the sense is not game-bound: "competitivo", "streaming"
+  order       Int        @default(1)
+  upvotes     Int        @default(0)
+  downvotes   Int        @default(0)
+  status      TermStatus @default(PENDING)
+  authorId    String?
+  author      User?      @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  votes       TermVote[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 
   @@index([termId, order])
   @@index([termId, status])
@@ -395,22 +433,22 @@ model UserBadge {
 }
 
 model TermMedia {
-  id        String        @id @default(uuid())
-  termId    String
-  term      Term          @relation(fields: [termId], references: [id], onDelete: Cascade)
-  kind      TermMediaKind
-  content   String? // origin text, or an image caption
-  url       String? // set for IMAGE
-  order     Int           @default(0)
-  status    TermStatus    @default(PENDING)
+  id         String        @id @default(uuid())
+  termId     String
+  term       Term          @relation(fields: [termId], references: [id], onDelete: Cascade)
+  kind       TermMediaKind
+  content    String? // origin text, or an image caption
+  url        String? // set for IMAGE
+  order      Int           @default(0)
+  status     TermStatus    @default(PENDING)
   // Set when an automated pre-screen (SafeSearch) flags an image for review.
-  flagged   Boolean       @default(false)
+  flagged    Boolean       @default(false)
   flagReason String?
-  authorId  String?
-  author    User?         @relation(fields: [authorId], references: [id], onDelete: SetNull)
-  reports   Report[]
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
+  authorId   String?
+  author     User?         @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  reports    Report[]
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
 
   @@index([termId, kind, status])
   @@index([status])
@@ -630,17 +668,17 @@ model TechnicalMetricSnapshot {
 }
 
 model TermVote {
-  id        String   @id @default(uuid())
+  id        String      @id @default(uuid())
   termId    String
-  term      Term     @relation(fields: [termId], references: [id], onDelete: Cascade)
+  term      Term        @relation(fields: [termId], references: [id], onDelete: Cascade)
   // Votes belong to a single sense - that is what ranks the meanings.
   meaningId String
   meaning   TermMeaning @relation(fields: [meaningId], references: [id], onDelete: Cascade)
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   value     Int // +1 = upvote, -1 = downvote
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
 
   @@unique([meaningId, userId]) // one vote per user per sense
   @@index([termId])
@@ -648,17 +686,17 @@ model TermVote {
 }
 
 model Report {
-  id         String   @id @default(uuid())
+  id         String     @id @default(uuid())
   termId     String
-  term       Term     @relation(fields: [termId], references: [id], onDelete: Cascade)
+  term       Term       @relation(fields: [termId], references: [id], onDelete: Cascade)
   // Set when the report targets a published image/origin rather than the term itself.
   mediaId    String?
   media      TermMedia? @relation(fields: [mediaId], references: [id], onDelete: Cascade)
   reason     String // incorreto, ofensivo, spam, duplicado, outro
   details    String?
   reporterId String? // user id when logged in, null for anonymous
-  status     String   @default("PENDING") // PENDING, RESOLVED, DISMISSED
-  createdAt  DateTime @default(now())
+  status     String     @default("PENDING") // PENDING, RESOLVED, DISMISSED
+  createdAt  DateTime   @default(now())
 
   @@index([status])
   @@index([termId])
@@ -1082,14 +1120,113 @@ model PlayerStat {
 }
 
 model NewsletterSubscriber {
-  id             String    @id @default(uuid())
-  email          String    @unique
-  source         String?   // where the signup happened, e.g. "home"
-  consentAt      DateTime  @default(now())
-  unsubscribedAt DateTime?
-  createdAt      DateTime  @default(now())
+  id                    String                     @id @default(uuid())
+  email                 String                     @unique
+  source                String?
+  status                NewsletterSubscriberStatus @default(PENDING)
+  consentAt             DateTime                   @default(now())
+  confirmationTokenHash String?                    @unique
+  confirmationExpiresAt DateTime?
+  confirmationSentAt    DateTime?
+  confirmedAt           DateTime?
+  unsubscribedAt        DateTime?
+  blockedAt             DateTime?
+  blockedReason         String?
+  lastSentAt            DateTime?
+  deliveries            NewsletterDelivery[]
+  createdAt             DateTime                   @default(now())
+  updatedAt             DateTime                   @updatedAt
 
-  @@index([createdAt])
+  @@index([status, createdAt])
+  @@index([source, createdAt])
+}
+
+model NewsletterCampaign {
+  id             String                    @id @default(uuid())
+  dateKey        String                    @unique
+  termId         String?
+  term           Term?                     @relation(fields: [termId], references: [id], onDelete: SetNull)
+  termWord       String
+  termDefinition String
+  termExample    String?
+  termGame       String?
+  termTags       Json                      @default("[]")
+  subject        String
+  status         NewsletterCampaignStatus  @default(RUNNING)
+  skipReason     String?
+  startedAt      DateTime                  @default(now())
+  finishedAt     DateTime?
+  deliveries     NewsletterDelivery[]
+  batches        NewsletterDispatchBatch[]
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
+
+  @@index([status, startedAt])
+  @@index([termId])
+}
+
+model NewsletterDelivery {
+  id                   String                   @id @default(uuid())
+  campaignId           String
+  campaign             NewsletterCampaign       @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  subscriberId         String?
+  subscriber           NewsletterSubscriber?    @relation(fields: [subscriberId], references: [id], onDelete: SetNull)
+  batchId              String?
+  batch                NewsletterDispatchBatch? @relation(fields: [batchId], references: [id], onDelete: SetNull)
+  status               NewsletterDeliveryStatus @default(QUEUED)
+  resendEmailId        String?                  @unique
+  clickTokenHash       String                   @unique
+  unsubscribeTokenHash String                   @unique
+  attempts             Int                      @default(0)
+  lastError            String?
+  sentAt               DateTime?
+  deliveredAt          DateTime?
+  delayedAt            DateTime?
+  failedAt             DateTime?
+  bouncedAt            DateTime?
+  complainedAt         DateTime?
+  suppressedAt         DateTime?
+  firstClickedAt       DateTime?
+  lastClickedAt        DateTime?
+  clickCount           Int                      @default(0)
+  createdAt            DateTime                 @default(now())
+  updatedAt            DateTime                 @updatedAt
+
+  @@unique([campaignId, subscriberId])
+  @@index([campaignId, status])
+  @@index([subscriberId, createdAt])
+  @@index([batchId])
+}
+
+model NewsletterDispatchBatch {
+  id             String                @id @default(uuid())
+  campaignId     String
+  campaign       NewsletterCampaign    @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  sequence       Int
+  idempotencyKey String                @unique
+  deliveryIds    Json                  @default("[]")
+  status         NewsletterBatchStatus @default(PENDING)
+  attempts       Int                   @default(0)
+  lastError      String?
+  startedAt      DateTime?
+  finishedAt     DateTime?
+  deliveries     NewsletterDelivery[]
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  @@unique([campaignId, sequence])
+  @@index([status, createdAt])
+}
+
+model NewsletterWebhookEvent {
+  id            String   @id
+  type          String
+  resendEmailId String?
+  occurredAt    DateTime
+  processedAt   DateTime @default(now())
+
+  @@index([resendEmailId])
+  @@index([processedAt])
 }
 
 model BrickBreakerBestScore {
@@ -1108,10 +1245,10 @@ model BrickBreakerBestScore {
 }
 
 model BrickBreakerRun {
-  id              String   @id @default(uuid())
+  id              String    @id @default(uuid())
   userId          String
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  startedAt       DateTime @default(now())
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  startedAt       DateTime  @default(now())
   expiresAt       DateTime
   completedAt     DateTime?
   score           Int?

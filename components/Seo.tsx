@@ -17,7 +17,7 @@ const DEFAULT_DESCRIPTION =
 // Falls back to the current origin at runtime.
 export const SITE_URL =
   ((import.meta as any).env?.VITE_SITE_URL as string | undefined)?.replace(/\/$/, '') ||
-  (typeof window !== 'undefined' ? window.location.origin : '');
+  (typeof window !== 'undefined' ? window.location.origin : 'https://dicionariogamer.com.br');
 
 const DEFAULT_IMAGE = '/og-default.png';
 

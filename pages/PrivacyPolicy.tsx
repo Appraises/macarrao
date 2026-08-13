@@ -64,6 +64,7 @@ export const PrivacyPolicy: React.FC = () => (
               <tr><td className="px-4 py-3 text-gray-200">Comunidade</td><td className="px-4 py-3">termos, definições, exemplos, comentários, votos e denúncias</td><td className="px-4 py-3">suas interações</td></tr>
               <tr><td className="px-4 py-3 text-gray-200">Brick Breaker</td><td className="px-4 py-3">melhor pontuação, tijolos destruídos, nível, duração e sessões recentes de partida</td><td className="px-4 py-3">suas partidas autenticadas</td></tr>
               <tr><td className="px-4 py-3 text-gray-200">Preferências</td><td className="px-4 py-3">configurações de perfil, notificações e privacidade</td><td className="px-4 py-3">suas escolhas</td></tr>
+              <tr><td className="px-4 py-3 text-gray-200">Newsletter</td><td className="px-4 py-3">email, consentimento, confirmação, descadastro, estado das entregas e cliques estimados</td><td className="px-4 py-3">sua inscrição e eventos técnicos do provedor</td></tr>
               <tr><td className="px-4 py-3 text-gray-200">Uso agregado</td><td className="px-4 py-3">página, origem, campanha, navegador, dispositivo e região aproximada</td><td className="px-4 py-3">Plausible Analytics</td></tr>
               <tr><td className="px-4 py-3 text-gray-200">Segurança</td><td className="px-4 py-3">IP em formato protegido por HMAC, horário, limites de uso, resultado anti-bot e falhas de acesso</td><td className="px-4 py-3">servidor, hospedagem e Cloudflare Turnstile</td></tr>
             </tbody>
@@ -81,6 +82,7 @@ export const PrivacyPolicy: React.FC = () => (
           <li><strong className="text-white">Operar a comunidade:</strong> publicar contribuições, registrar votos, moderar conteúdo e responder denúncias.</li>
           <li><strong className="text-white">Segurança e prevenção a fraude:</strong> proteger contas, aplicar limites de acesso e investigar abuso.</li>
           <li><strong className="text-white">Melhoria e analytics:</strong> medir audiência, desempenho de conteúdo, origem do tráfego e conversões.</li>
+          <li><strong className="text-white">Termo do Dia:</strong> enviar a newsletter somente após confirmação do endereço, com base no consentimento que pode ser revogado a qualquer momento.</li>
           <li><strong className="text-white">Cumprimento legal:</strong> atender obrigações, ordens válidas e exercer direitos em processos.</li>
         </ul>
         <p>
@@ -120,7 +122,7 @@ export const PrivacyPolicy: React.FC = () => (
         <p>Dados são compartilhados apenas quando necessários para operar o serviço ou cumprir a lei, incluindo:</p>
         <ul className="list-disc pl-5 space-y-3 marker:text-brand-500">
           <li><strong className="text-white">hospedagem e banco de dados:</strong> infraestrutura que mantém a aplicação, backups e logs;</li>
-          <li><strong className="text-white">Resend:</strong> envio de mensagens transacionais de verificação de email e recuperação de senha;</li>
+          <li><strong className="text-white">Resend:</strong> envio de mensagens transacionais, confirmação da newsletter e entrega do Termo do Dia, incluindo eventos técnicos de entrega, falha, bounce, reclamação e supressão;</li>
           <li><strong className="text-white">Plausible:</strong> métricas agregadas de audiência, com infraestrutura na União Europeia;</li>
           <li><strong className="text-white">Google Search Console, CrUX e PageSpeed:</strong> desempenho orgânico, indexação e qualidade técnica de páginas públicas;</li>
           <li><strong className="text-white">Sentry:</strong> diagnóstico de erros, desempenho e disponibilidade, configurado sem envio intencional de dados pessoais ou conteúdo de formulários;</li>
@@ -138,6 +140,8 @@ export const PrivacyPolicy: React.FC = () => (
       <LegalSection id="retencao" title="6. Por quanto tempo mantemos os dados">
         <ul className="list-disc pl-5 space-y-3 marker:text-brand-500">
           <li>Dados de conta permanecem enquanto a conta estiver ativa e pelo período necessário para obrigações legais e prevenção a fraude.</li>
+          <li>A inscrição no Termo do Dia permanece até o descadastro, bounce permanente, reclamação, supressão ou solicitação de eliminação. Tokens de confirmação expiram em 24 horas e são armazenados somente como hash.</li>
+          <li>O histórico técnico da newsletter registra entregas, falhas e cliques estimados sem pixel de abertura. Após a eliminação do assinante, estatísticas de campanha podem permanecer de forma desvinculada e agregada.</li>
           <li>Tokens de recuperação expiram em uma hora; tokens de sessão expiram segundo a configuração de segurança do serviço.</li>
           <li>Contribuições e comentários podem permanecer publicados para preservar a integridade do dicionário, inclusive de forma anonimizada após o encerramento da conta.</li>
           <li>Solicitações de direitos, protocolos e registros administrativos mínimos podem ser conservados para comprovar o atendimento e o exercício regular de direitos; dados de contato e textos livres são minimizados após a anonimização.</li>
