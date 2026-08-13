@@ -1,7 +1,7 @@
 import React from 'react';
 import { useLoaderData, Link, useNavigation, useParams } from 'react-router-dom';
 import { getNewsById, getNews } from '../src/services/api';
-import { ChevronRight, Share2, MessageSquare, Clock, Flame, CalendarDays } from 'lucide-react';
+import { ChevronRight, Share2, Clock, Flame, CalendarDays } from 'lucide-react';
 import { Button } from '../components/UI';
 import { CommentsSection } from '../components/CommentsSection';
 import { Seo } from '../components/Seo';
@@ -251,31 +251,20 @@ export const NewsDetail: React.FC = () => {
                         </div>
 
                         <footer className="mt-12 border-y border-white/10">
-                            <div className="flex flex-wrap items-center gap-x-5 gap-y-4 py-4">
-                                <div className="flex items-center gap-3">
-                                    <div
-                                        className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-brand-500/25 bg-brand-500/10 text-[11px] font-black text-brand-300"
-                                        aria-hidden="true"
-                                    >
-                                        {authorInitials}
-                                    </div>
+                            <div className="flex items-center justify-end py-4">
+                                <div className="ml-auto flex items-center gap-3 text-right">
                                     <div className="leading-tight">
                                         <p className="text-sm text-gray-500">
                                             Por <span className="font-bold text-white">{authorName}</span>
                                         </p>
                                         <p className="mt-1 text-xs text-gray-600">Redação Dicionário Gamer</p>
                                     </div>
-                                </div>
-
-                                <div className="flex items-center gap-1 border-l border-white/10 pl-4">
-                                    <a
-                                        href="#comentarios"
-                                        className="grid h-9 w-9 place-items-center rounded-full text-gray-400 transition-colors hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
-                                        title="Ir para os comentários"
-                                        aria-label="Ir para os comentários"
+                                    <div
+                                        className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-brand-500/25 bg-brand-500/10 text-[11px] font-black text-brand-300"
+                                        aria-hidden="true"
                                     >
-                                        <MessageSquare className="h-4 w-4" />
-                                    </a>
+                                        {authorInitials}
+                                    </div>
                                 </div>
                             </div>
 
@@ -291,28 +280,78 @@ export const NewsDetail: React.FC = () => {
 
                     {relatedNews.length > 0 && (
                         <aside className="border-t border-white/10 pt-5 lg:sticky lg:top-28">
-                            <h2 className="mb-5 flex items-center gap-2 text-sm font-black uppercase text-white">
-                                <Flame className="h-4 w-4 text-brand-400" />
-                                Leia também
-                            </h2>
-
-                            <div className="divide-y divide-white/10 border-b border-white/10">
-                                {relatedNews.map((item, index) => (
-                                    <Link
-                                        key={item.id}
-                                        to={`/news/${item.slug}/`}
-                                        className="group grid grid-cols-[32px_1fr] gap-3 py-5 first:pt-0"
-                                    >
-                                        <span className="text-xl font-black text-brand-500/60">{String(index + 1).padStart(2, '0')}</span>
-                                        <span>
-                                            <span className="mb-1.5 block text-[10px] font-bold uppercase text-gray-600">{item.category}</span>
-                                            <span className="block text-sm font-bold leading-5 text-gray-200 transition-colors group-hover:text-brand-400">
-                                                {item.headline}
-                                            </span>
-                                        </span>
-                                    </Link>
-                                ))}
+                            <div className="mb-5 flex items-end justify-between">
+                                <div>
+                                    <span className="mb-1 block text-[10px] font-black uppercase text-brand-400">
+                                        Continue lendo
+                                    </span>
+                                    <h2 className="text-lg font-black text-white">Leia também</h2>
+                                </div>
+                                <Flame className="mb-1 h-5 w-5 text-brand-400" aria-hidden="true" />
                             </div>
+
+                            <Link
+                                to={`/news/${relatedNews[0].slug}/`}
+                                className="group grid grid-cols-[112px_minmax(0,1fr)] gap-4 border-b border-white/10 pb-5 lg:block"
+                            >
+                                <span className="block aspect-[4/3] self-center overflow-hidden bg-dark-900 lg:aspect-[16/10]">
+                                    {relatedNews[0].image && (
+                                        <img
+                                            src={relatedNews[0].image}
+                                            alt=""
+                                            loading="lazy"
+                                            className="h-full w-full object-cover opacity-85 transition duration-300 group-hover:scale-[1.03] group-hover:opacity-100"
+                                        />
+                                    )}
+                                </span>
+                                <span className="min-w-0 self-center lg:mt-4 lg:block">
+                                    <span className="block text-[10px] font-black uppercase text-brand-400">
+                                        {relatedNews[0].category}
+                                    </span>
+                                    <span className="mt-1.5 block text-base font-black leading-6 text-gray-100 transition-colors group-hover:text-brand-300">
+                                        {relatedNews[0].headline}
+                                    </span>
+                                </span>
+                            </Link>
+
+                            {relatedNews.length > 1 && (
+                                <div className="divide-y divide-white/10 border-b border-white/10">
+                                    {relatedNews.slice(1).map((item) => (
+                                        <Link
+                                            key={item.id}
+                                            to={`/news/${item.slug}/`}
+                                            className="group grid grid-cols-[minmax(0,1fr)_64px] gap-3 py-4"
+                                        >
+                                            <span className="min-w-0 self-center">
+                                                <span className="mb-1.5 block text-[10px] font-black uppercase text-brand-400 transition-colors group-hover:text-brand-300">
+                                                    {item.category}
+                                                </span>
+                                                <span className="block text-sm font-bold leading-5 text-gray-200 transition-colors group-hover:text-white">
+                                                    {item.headline}
+                                                </span>
+                                            </span>
+                                            <span className="aspect-square self-center overflow-hidden bg-dark-900">
+                                                {item.image && (
+                                                    <img
+                                                        src={item.image}
+                                                        alt=""
+                                                        loading="lazy"
+                                                        className="h-full w-full object-cover opacity-70 transition duration-300 group-hover:scale-[1.05] group-hover:opacity-100"
+                                                    />
+                                                )}
+                                            </span>
+                                        </Link>
+                                    ))}
+                                </div>
+                            )}
+
+                            <Link
+                                to="/news"
+                                className="mt-4 inline-flex items-center gap-1 text-xs font-black uppercase text-brand-400 transition-colors hover:text-brand-300"
+                            >
+                                Todas as notícias
+                                <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+                            </Link>
                         </aside>
                     )}
                 </div>
