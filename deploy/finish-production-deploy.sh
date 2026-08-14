@@ -55,7 +55,7 @@ install -o root -g root -m 0644 \
 
 systemctl daemon-reload
 systemctl restart dicionario.service
-systemctl reload nginx
+bash "${APP_ROOT}/deploy/install-nginx-hardening.sh"
 
 if grep -q '^RESEND_WEBHOOK_SECRET=.' "${APP_ROOT}/server/.env" \
   && grep -q '^NEWSLETTER_ENABLED=true$' "${APP_ROOT}/server/.env"; then
