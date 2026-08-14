@@ -56,6 +56,15 @@ for config in "${!SITE_LOGS[@]}"; do
   rm -f "${tmp}"
 done
 
+for log_name in "${SITE_LOGS[@]}"; do
+  for log_type in access error; do
+    log_path="/var/log/nginx/${log_name}.${log_type}.log"
+    touch "${log_path}"
+    chown www-data:adm "${log_path}"
+    chmod 0640 "${log_path}"
+  done
+done
+
 if ! nginx -t; then
   for index in "${!modified_configs[@]}"; do
     cp -a "${backups[${index}]}" "${modified_configs[${index}]}"
