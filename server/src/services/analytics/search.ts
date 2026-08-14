@@ -1,6 +1,7 @@
 import { Prisma, TermViewSource } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import { createSearchToken, hashSearchQuery, parseSearchOrigin, sanitizeSearchQuery, verifySearchToken } from './privacy';
+import { engagementBucket } from './viewerIdentity';
 
 export interface SearchCaptureInput {
     query: string;
@@ -42,9 +43,11 @@ const viewSource = (value: unknown): TermViewSource => {
 
 export const recordTermViewWithSearch = async (input: {
     termId: string;
+    viewerHash: string;
     source?: unknown;
     searchToken?: unknown;
     position?: unknown;
+    now?: Date;
 }) => {
     const searchEventId = typeof input.searchToken === 'string' ? verifySearchToken(input.searchToken) : null;
     const numericPosition = Number(input.position);
@@ -52,11 +55,14 @@ export const recordTermViewWithSearch = async (input: {
         ? numericPosition
         : null;
 
+    const now = input.now || new Date();
+    const dedupeBucket = engagementBucket(now);
+
     return prisma.$transaction(async (tx) => {
         let validSearchEventId: string | null = null;
         if (searchEventId) {
             const event = await tx.internalSearchEvent.findFirst({
-                where: { id: searchEventId, expiresAt: { gt: new Date() } },
+                where: { id: searchEventId, expiresAt: { gt: now } },
                 select: { id: true, openedAt: true },
             });
             if (event) {
@@ -64,16 +70,26 @@ export const recordTermViewWithSearch = async (input: {
                 if (!event.openedAt) {
                     await tx.internalSearchEvent.update({
                         where: { id: event.id },
-                        data: { openedAt: new Date(), openedTermId: input.termId, openedPosition },
+                        data: { openedAt: now, openedTermId: input.termId, openedPosition },
                     });
                 }
             }
         }
 
-        return tx.termView.create({
-            data: {
+        return tx.termView.upsert({
+            where: {
+                termId_viewerHash_dedupeBucket: {
+                    termId: input.termId,
+                    viewerHash: input.viewerHash,
+                    dedupeBucket,
+                },
+            },
+            update: {},
+            create: {
                 termId: input.termId,
                 source: viewSource(input.source),
+                viewerHash: input.viewerHash,
+                dedupeBucket,
                 searchEventId: validSearchEventId,
             },
         });

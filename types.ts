@@ -307,6 +307,16 @@ export interface Term {
   relatedTerms?: string[];
   upvotes: number;
   downvotes: number;
+  trend?: 'up' | 'down' | 'stable';
+  trendScore?: number;
+  trendSignals?: {
+    uniqueViews6h: number;
+    uniqueViews24h: number;
+    successfulSearches24h: number;
+    recentUpvotes24h: number;
+    uniqueShares24h: number;
+    previousUniqueViews6h: number;
+  };
   tags: string[];
   aliases?: string[];
   keywords?: string[];
@@ -828,6 +838,13 @@ export interface News {
   image?: string;
   content?: string;
   author?: string;
+  authorProfile?: {
+    key: 'games' | 'industry' | 'rumors' | 'esports';
+    name: string;
+    beat: string;
+    bio: string;
+    disclosure: string;
+  } | null;
   status: NewsStatus;
   publishedAt?: string | null;
   scheduledAt?: string | null;

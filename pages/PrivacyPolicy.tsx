@@ -105,6 +105,12 @@ export const PrivacyPolicy: React.FC = () => (
           como UTM, podem ser usados para atribuição de origem.
         </p>
         <p>
+          Para impedir que recarregamentos artificiais manipulem os termos em alta, usamos um cookie HTTP-only
+          assinado que identifica aproximadamente um navegador. O banco recebe somente um código irreversível,
+          sem IP ou vínculo com a conta, e deduplica visualizações e compartilhamentos em intervalos de 30 minutos.
+          O cookie pode permanecer por até um ano e pode ser renovado quando o navegador volta ao site.
+        </p>
+        <p>
           Quando analytics está ativo, buscas no dicionário são normalizadas e sanitizadas para remover emails,
           telefones, URLs, identificadores e tokens. O texto é mantido por até 90 dias, não é ligado à conta, IP ou
           sessão e só aparece em relatórios quando há pelo menos três ocorrências no período.
@@ -113,8 +119,9 @@ export const PrivacyPolicy: React.FC = () => (
           <AnalyticsPreferenceControl />
         </div>
         <p>
-          O site também usa armazenamento local estritamente necessário para manter a sessão, o usuário autenticado
-          e suas preferências. Desativar ou limpar esse armazenamento pode encerrar sua sessão.
+          O site também usa cookies e armazenamento local estritamente necessários para segurança, integridade das
+          métricas, sessão, usuário autenticado e preferências. Desativar ou limpar esses dados pode encerrar sua
+          sessão ou reiniciar a identificação anônima usada contra manipulação.
         </p>
       </LegalSection>
 

@@ -1,6 +1,7 @@
 import { NewsStatus } from '@prisma/client';
 import sanitizeHtml from 'sanitize-html';
 import { cleanPlainText, isAllowedMediaUrl, parseOptionalDate, slugify } from './content';
+import { publicEditorialPersona } from '../config/editorialPersonas';
 
 const MAX_HEADLINE_LENGTH = 160;
 const MAX_CATEGORY_LENGTH = 50;
@@ -143,7 +144,8 @@ export const validateNewsPayload = (input: unknown, fallbackAuthor: string): Val
     };
 };
 
-export const sanitizeNewsRecord = <T extends { content?: string | null }>(record: T): T => ({
+export const sanitizeNewsRecord = <T extends { content?: string | null; author?: string | null }>(record: T) => ({
     ...record,
-    content: sanitizeNewsHtml(record.content)
+    content: sanitizeNewsHtml(record.content),
+    authorProfile: publicEditorialPersona(record.author)
 });

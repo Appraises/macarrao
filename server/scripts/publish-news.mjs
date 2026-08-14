@@ -3,6 +3,12 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 const ALLOWED_CATEGORIES = new Set(['LANÇAMENTOS', 'LANÃ‡AMENTOS', 'RUMORES', 'INDÚSTRIA', 'INDÃšSTRIA', 'NINTENDO', 'PLAYSTATION', 'XBOX', 'PC', 'E-SPORTS']);
 const MAX_ITEMS = 10;
+const PERSONAS = {
+    games: 'Lucas Andrade',
+    industry: 'Marina Costa',
+    rumors: 'Rafael Nunes',
+    esports: 'Gabriel Martins'
+};
 const STOP_WORDS = new Set([
     'a', 'ao', 'aos', 'as', 'com', 'da', 'das', 'de', 'do', 'dos', 'e', 'em',
     'entre', 'mais', 'na', 'nas', 'no', 'nos', 'o', 'os', 'para', 'por', 'que',
@@ -29,6 +35,14 @@ const normalizeForComparison = (value) => String(value || '')
     .replace(/&amp;/g, 'e')
     .replace(/[^a-z0-9]+/g, ' ')
     .trim();
+
+const authorForCategory = (category) => {
+    const normalized = normalizeForComparison(category).toUpperCase();
+    if (['RUMOR', 'RUMORES', 'VAZAMENTOS'].includes(normalized)) return PERSONAS.rumors;
+    if (['INDUSTRIA', 'NEGOCIOS', 'TECNOLOGIA', 'BASTIDORES'].includes(normalized)) return PERSONAS.industry;
+    if (['E SPORTS', 'ESPORTS', 'COMPETITIVO'].includes(normalized)) return PERSONAS.esports;
+    return PERSONAS.games;
+};
 
 const headlineTokens = (value) => new Set(
     normalizeForComparison(value)
@@ -70,7 +84,7 @@ const normalizeItem = (raw) => {
     const categoryInput = requiredText(raw.category, 'category', 40).toUpperCase();
     // PowerShell's native stdin bridge can replace non-ASCII characters on some hosts.
     const category = categoryInput === 'LAN?AMENTOS' ? 'LANÇAMENTOS' : categoryInput;
-    const author = requiredText(raw.author, 'author', 120);
+    const author = authorForCategory(category);
     const content = requiredText(raw.content, 'content');
     const image = raw.image == null ? null : requiredText(raw.image, 'image', 2000);
     const seoTitle = raw.seoTitle == null ? headline : requiredText(raw.seoTitle, 'seoTitle', 180);

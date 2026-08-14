@@ -13,6 +13,14 @@ import { analyticsEnabled } from '../services/analytics/privacy';
 import { getTermOfTheDay } from '../services/termOfDay';
 import { PUBLIC_API_URL } from '../utils/config';
 import { captureInternalSearch, recordTermViewWithSearch } from '../services/analytics/search';
+import { recordTermShare } from '../services/analytics/engagement';
+import {
+    consumeEngagementBudget,
+    hasClientEvent,
+    isLikelyAutomatedRequest,
+    resolveViewerHash,
+} from '../services/analytics/viewerIdentity';
+import { getTrendingTerms } from '../services/trendingTerms';
 import { getMyMeaningVotes, parseMeaningPayload, proposeTermMeaning, TermMeaningError, voteOnMeaning } from '../services/termMeanings';
 import {
     acceptMedia, declineMedia, getCurationView, listApprovedImages, listPendingForCurator,
@@ -563,10 +571,19 @@ router.put('/:id', authenticateToken, requireAdmin, async (req: AuthRequest, res
     }
 });
 
-// Record View
+// Record an approximate unique view. The signed browser cookie is converted to
+// an irreversible hash before persistence; neither IP nor user id is stored.
 router.post('/:id/view', async (req, res) => {
     const { id } = req.params;
+    if (!hasClientEvent(req, 'term-view') || isLikelyAutomatedRequest(req)) {
+        return res.status(202).json({ recorded: false });
+    }
+
     try {
+        const viewerHash = resolveViewerHash(req, res);
+        if (!consumeEngagementBudget(viewerHash, 'term-view', 120)) {
+            return res.status(429).json({ error: 'Muitas visualizacoes em pouco tempo.' });
+        }
         const term = await prisma.term.findFirst({
             where: { id, status: TermStatus.APPROVED, archivedAt: null },
             select: { id: true },
@@ -575,112 +592,51 @@ router.post('/:id/view', async (req, res) => {
 
         await recordTermViewWithSearch({
             termId: id,
+            viewerHash,
             source: req.body?.source,
             searchToken: req.body?.searchToken,
             position: req.body?.position,
         });
-        res.status(200).json({ message: 'View recorded' });
+        res.status(200).json({ recorded: true });
     } catch (error) {
         res.status(400).json({ error: 'Failed to record view' });
     }
 });
 
-// Get Trending Terms
-router.get('/trending/now', async (req, res) => {
+// Record a completed share separately from third-party analytics so it can
+// influence the local trend score without exposing a user or browser id.
+router.post('/:id/share', async (req, res) => {
+    const { id } = req.params;
+    if (!hasClientEvent(req, 'term-share') || isLikelyAutomatedRequest(req)) {
+        return res.status(202).json({ recorded: false });
+    }
+
     try {
-        const now = new Date();
-        const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-        const fortyEightHoursAgo = new Date(now.getTime() - 48 * 60 * 60 * 1000);
-
-        // Get views in last 24h
-        const recentViews = await prisma.termView.groupBy({
-            by: ['termId'],
-            where: {
-                createdAt: { gte: twentyFourHoursAgo }
-            },
-            _count: {
-                id: true
-            },
-            orderBy: {
-                _count: {
-                    id: 'desc'
-                }
-            },
-            take: 8
-        });
-
-        let termIds = recentViews.map((v: { termId: string }) => v.termId);
-
-        // FALLBACK: If we don't have enough trending terms, fill with top upvoted terms
-        if (termIds.length < 8) {
-            const needed = 8 - termIds.length;
-            const topTerms = await prisma.term.findMany({
-                where: {
-                    id: { notIn: termIds },
-                    status: TermStatus.APPROVED,
-                    archivedAt: null
-                },
-                orderBy: { upvotes: 'desc' },
-                take: needed
-            });
-            termIds = [...termIds, ...topTerms.map(t => t.id)];
+        const viewerHash = resolveViewerHash(req, res);
+        if (!consumeEngagementBudget(viewerHash, 'term-share', 30)) {
+            return res.status(429).json({ error: 'Muitos compartilhamentos em pouco tempo.' });
         }
-
-        // Get views in previous 24h (for trend calculation)
-        const previousViews = await prisma.termView.groupBy({
-            by: ['termId'],
-            where: {
-                createdAt: {
-                    gte: fortyEightHoursAgo,
-                    lt: twentyFourHoursAgo
-                }
-            },
-            _count: {
-                id: true
-            }
+        const term = await prisma.term.findFirst({
+            where: { id, status: TermStatus.APPROVED, archivedAt: null },
+            select: { id: true },
         });
+        if (!term) return res.status(404).json({ error: 'Termo nao encontrado.' });
 
-        const previousViewsMap = new Map(previousViews.map((v: { termId: string, _count: { id: number } }) => [v.termId, v._count.id]));
-
-        // Fetch full term details
-        const terms = await prisma.term.findMany({
-            where: { id: { in: termIds }, status: TermStatus.APPROVED, archivedAt: null },
-            include: { game: true }
-        });
-
-        const formattedTerms = terms.map(term => {
-            const recentCount = recentViews.find((v: { termId: string, _count: { id: number } }) => v.termId === term.id)?._count.id || 0;
-            const previousCount = previousViewsMap.get(term.id) || 0;
-
-            let trend: 'up' | 'down' | 'stable' = 'stable';
-            if (previousCount === 0) {
-                trend = recentCount > 0 ? 'up' : 'stable';
-            } else {
-                const change = (recentCount - previousCount) / previousCount;
-                if (change > 0.1) trend = 'up';
-                else if (change < -0.1) trend = 'down';
-            }
-
-            return {
-                ...term,
-                trend
-            };
-        });
-
-        // Sort: Trending first (by view count), then by upvotes (fallback ones)
-        formattedTerms.sort((a, b) => {
-            const countA = recentViews.find((v: { termId: string, _count: { id: number } }) => v.termId === a.id)?._count.id || 0;
-            const countB = recentViews.find((v: { termId: string, _count: { id: number } }) => v.termId === b.id)?._count.id || 0;
-
-            if (countA !== countB) {
-                return countB - countA; // Sort by views
-            }
-            return b.upvotes - a.upvotes; // Sort by upvotes if views are equal (or 0)
-        });
-
-        res.json(formattedTerms);
+        await recordTermShare({ termId: id, viewerHash, method: req.body?.method });
+        res.status(200).json({ recorded: true });
     } catch (error) {
-        console.error(error);
+        res.status(400).json({ error: 'Failed to record share' });
+    }
+});
+
+// The process holds one stable snapshot for fifteen minutes. Concurrent refreshes
+// share the same promise, preventing a traffic spike from duplicating six reports.
+router.get('/trending/now', async (_req, res) => {
+    try {
+        res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+        res.json(await getTrendingTerms());
+    } catch (error) {
+        console.error('[terms] trending:', error);
         res.status(500).json({ error: 'Failed to fetch trending terms' });
     }
 });

@@ -136,6 +136,7 @@ export const NewsDetail: React.FC = () => {
         ? `/og/news/${encodeURIComponent(newsItem.slug)}.png?v=${socialImageVersion}`
         : undefined;
     const authorName = newsItem.author || 'Equipe Dicionário Gamer';
+    const authorByline = newsItem.authorProfile?.beat || 'Redação Dicionário Gamer';
     const authorInitials = authorName
         .split(/\s+/)
         .filter(Boolean)
@@ -253,11 +254,11 @@ export const NewsDetail: React.FC = () => {
                         <footer className="mt-12 border-y border-white/10">
                             <div className="flex items-center justify-end py-4">
                                 <div className="ml-auto flex items-center gap-3 text-right">
-                                    <div className="leading-tight">
+                                    <div className="leading-tight" title={newsItem.authorProfile?.bio}>
                                         <p className="text-sm text-gray-500">
                                             Por <span className="font-bold text-white">{authorName}</span>
                                         </p>
-                                        <p className="mt-1 text-xs text-gray-600">Redação Dicionário Gamer</p>
+                                        <p className="mt-1 text-xs text-brand-300/70">{authorByline}</p>
                                     </div>
                                     <div
                                         className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-brand-500/25 bg-brand-500/10 text-[11px] font-black text-brand-300"

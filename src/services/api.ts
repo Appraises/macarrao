@@ -68,6 +68,7 @@ import { isAnalyticsEnabled } from '../lib/analytics';
 
 const api = axios.create({
     baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3001',
+    withCredentials: true,
 });
 
 type RetryableRequestConfig = InternalAxiosRequestConfig & {
@@ -664,8 +665,13 @@ export const updateTerm = async (id: string, data: any) => {
 };
 
 export const recordTermView = async (id: string, data: { source?: string; searchToken?: string | null; position?: number } = {}) => {
-    const response = await api.post(`/terms/${id}/view`, data);
+    const response = await api.post(`/terms/${id}/view`, data, { headers: { 'X-Client-Event': 'term-view' } });
     return response.data;
+};
+
+export const recordTermShare = async (id: string, method: 'native' | 'clipboard') => {
+    const response = await api.post(`/terms/${id}/share`, { method }, { headers: { 'X-Client-Event': 'term-share' } });
+    return response.data as { recorded: boolean };
 };
 
 export const getTrendingTerms = async () => {

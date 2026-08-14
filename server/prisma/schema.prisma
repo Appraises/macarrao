@@ -358,6 +358,7 @@ model Term {
   moderatedAt         DateTime?
   archivedAt          DateTime?
   views               TermView[]
+  shares              TermShare[]
   votes               TermVote[]
   reports             Report[]
   moderationEvents    TermModerationEvent[]
@@ -506,13 +507,31 @@ model TermView {
   termId        String
   term          Term                 @relation(fields: [termId], references: [id], onDelete: Cascade)
   source        TermViewSource       @default(UNKNOWN)
+  viewerHash    String?              @db.VarChar(64)
+  dedupeBucket  DateTime?
   searchEventId String?
   searchEvent   InternalSearchEvent? @relation(fields: [searchEventId], references: [id], onDelete: SetNull)
   createdAt     DateTime             @default(now())
 
+  @@unique([termId, viewerHash, dedupeBucket])
   @@index([termId, createdAt])
+  @@index([viewerHash, createdAt])
   @@index([source, createdAt])
   @@index([searchEventId])
+}
+
+model TermShare {
+  id           String   @id @default(uuid())
+  termId       String
+  term         Term     @relation(fields: [termId], references: [id], onDelete: Cascade)
+  viewerHash   String   @db.VarChar(64)
+  dedupeBucket DateTime
+  method       String   @db.VarChar(20)
+  createdAt    DateTime @default(now())
+
+  @@unique([termId, viewerHash, dedupeBucket])
+  @@index([termId, createdAt])
+  @@index([viewerHash, createdAt])
 }
 
 model InternalSearchEvent {
@@ -538,6 +557,7 @@ model InternalSearchEvent {
   @@index([origin, createdAt])
   @@index([openedAt, createdAt])
   @@index([openedTermId, createdAt])
+  @@index([openedTermId, openedAt])
 }
 
 model UserActivityDay {
@@ -682,6 +702,7 @@ model TermVote {
 
   @@unique([meaningId, userId]) // one vote per user per sense
   @@index([termId])
+  @@index([termId, updatedAt])
   @@index([meaningId])
 }
 

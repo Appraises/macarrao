@@ -32,13 +32,14 @@ import {
     updateNews,
     uploadNewsImage
 } from '../../src/services/api';
+import { EDITORIAL_PERSONAS, editorialPersonaForCategory } from '../../src/config/editorialPersonas';
 
 const EMPTY_FORM: NewsInput = {
     headline: '',
     content: '<p></p>',
     category: 'Geral',
     image: '',
-    author: '',
+    author: EDITORIAL_PERSONAS[0].name,
     slug: '',
     status: 'DRAFT',
     scheduledAt: null,
@@ -330,7 +331,10 @@ export const News: React.FC = () => {
                             <label className="block text-xs font-bold uppercase text-gray-500 mb-2">Categoria</label>
                             <select
                                 value={form.category}
-                                onChange={(event) => setForm({ ...form, category: event.target.value })}
+                                onChange={(event) => {
+                                    const category = event.target.value;
+                                    setForm({ ...form, category, author: editorialPersonaForCategory(category).name });
+                                }}
                                 className="w-full bg-dark-950 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-brand-500"
                             >
                                 <option>Geral</option>
@@ -338,17 +342,29 @@ export const News: React.FC = () => {
                                 <option>Atualizacoes</option>
                                 <option>Comunidade</option>
                                 <option>Lancamentos</option>
+                                <option>Industria</option>
+                                <option>Rumores</option>
+                                <option>PlayStation</option>
+                                <option>Xbox</option>
+                                <option>Nintendo</option>
+                                <option>PC</option>
                             </select>
                         </div>
                         <div>
                             <label className="block text-xs font-bold uppercase text-gray-500 mb-2">Autor</label>
-                            <input
-                                maxLength={80}
+                            <select
                                 value={form.author}
                                 onChange={(event) => setForm({ ...form, author: event.target.value })}
                                 className="w-full bg-dark-950 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-brand-500"
-                                placeholder="Em branco usa o administrador"
-                            />
+                            >
+                                {form.author && !EDITORIAL_PERSONAS.some((persona) => persona.name === form.author) && (
+                                    <option value={form.author}>{form.author} (legado)</option>
+                                )}
+                                {EDITORIAL_PERSONAS.map((persona) => (
+                                    <option key={persona.key} value={persona.name}>{persona.name} — {persona.beat}</option>
+                                ))}
+                            </select>
+                            <p className="mt-1 text-xs text-gray-500">A categoria recomenda uma persona, mas a pauta pode exigir outra assinatura.</p>
                         </div>
                     </div>
 

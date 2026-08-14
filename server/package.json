@@ -9,6 +9,7 @@
     "start": "node dist/index.js",
     "test": "vitest run",
     "test:watch": "vitest",
+    "seed:editorial-personas": "ts-node scripts/seed-editorial-personas.ts",
     "seed:current-news": "ts-node --compiler-options {\"module\":\"CommonJS\"} scripts/seed-current-news.ts",
     "publish:news": "node scripts/publish-news.mjs",
     "preview:emails": "ts-node scripts/preview-emails.ts",

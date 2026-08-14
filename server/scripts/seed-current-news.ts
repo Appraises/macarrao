@@ -1,8 +1,7 @@
 import { NewsStatus, PrismaClient } from '@prisma/client';
+import { editorialPersonaForCategory } from '../src/config/editorialPersonas';
 
 const prisma = new PrismaClient();
-
-const NEWS_AUTHOR = 'Lia Pixel';
 
 const sourceLink = (label: string, url: string) =>
     `<p><strong>Fonte consultada:</strong> <a href="${url}" target="_blank" rel="noopener noreferrer">${label}</a></p>`;
@@ -72,6 +71,7 @@ const NEWS = [
 
 async function main() {
     for (const item of NEWS) {
+        const author = editorialPersonaForCategory(item.category).name;
         await prisma.news.upsert({
             where: { slug: item.slug },
             update: {
@@ -79,7 +79,7 @@ async function main() {
                 category: item.category,
                 image: item.image,
                 content: item.content,
-                author: NEWS_AUTHOR,
+                author,
                 status: NewsStatus.PUBLISHED,
                 publishedAt: item.publishedAt,
                 archivedAt: null,
@@ -88,13 +88,13 @@ async function main() {
             },
             create: {
                 ...item,
-                author: NEWS_AUTHOR,
+                author,
                 status: NewsStatus.PUBLISHED
             }
         });
     }
 
-    console.log(`✅ ${NEWS.length} notícias atuais criadas/atualizadas por ${NEWS_AUTHOR}.`);
+    console.log(`✅ ${NEWS.length} notícias atuais distribuídas entre as personas editoriais.`);
 }
 
 main()

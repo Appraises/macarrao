@@ -6,7 +6,7 @@ import { ThumbsUp, ThumbsDown, Volume2, Share2, CheckCircle2, AlertCircle, Flag 
 import { DefinitionParser } from './DefinitionParser';
 import { Avatar } from './Avatar';
 import { useAuth } from '../src/context/AuthContext';
-import { voteMeaning, getMyMeaningVotes, reportTerm } from '../src/services/api';
+import { voteMeaning, getMyMeaningVotes, recordTermShare, reportTerm } from '../src/services/api';
 import { trackAnalyticsEvent } from '../src/lib/analytics';
 import { registerMeta, wordClassFull, wordClassShort } from './wordClass';
 import { cancelSpeech, getVoices, resolveSpeech, speakTerm, speechSupported, type ResolvedSpeech } from './speech';
@@ -84,6 +84,7 @@ export const TermCard: React.FC<TermCardProps> = ({ term }) => {
   const shareTerm = async () => {
     const url = `${window.location.origin}/term/${encodeURIComponent(term.word)}`;
     try {
+      const method = navigator.share ? 'native' : 'clipboard';
       if (navigator.share) {
         await navigator.share({ title: term.word, text: term.definition, url });
       } else {
@@ -91,7 +92,8 @@ export const TermCard: React.FC<TermCardProps> = ({ term }) => {
         setShareMsg('Link copiado!');
         setTimeout(() => setShareMsg(null), 2000);
       }
-      trackAnalyticsEvent('Term Shared', { method: navigator.share ? 'native' : 'clipboard' });
+      void recordTermShare(term.id, method).catch(() => undefined);
+      trackAnalyticsEvent('Term Shared', { method });
     } catch {
       // The native share dialog may be cancelled without being an error for the UI.
     }

@@ -1,6 +1,8 @@
 import { NewsStatus, PrismaClient, TermStatus } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import crypto from 'crypto';
+import { editorialPersonaForCategory } from '../src/config/editorialPersonas';
+import { upsertEditorialPersonas } from '../src/services/editorialPersonas';
 
 const prisma = new PrismaClient();
 const seedSlug = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -378,6 +380,9 @@ async function main() {
     });
     console.log('✅ Appraises editorial profile created');
 
+    const editorialPersonas = await upsertEditorialPersonas(prisma);
+    console.log(`✅ ${editorialPersonas.length} editorial personas created/updated`);
+
     // 2. Games
     const gameMap: Record<string, string> = {}; // slug -> id
     for (const game of GAMES) {
@@ -514,11 +519,13 @@ async function main() {
     // 5. News (short + full articles)
     for (const news of NEWS) {
         const slug = seedSlug(news.headline);
-        await prisma.news.upsert({ where: { slug }, update: {}, create: { ...news, slug, status: NewsStatus.PUBLISHED, publishedAt: new Date() } });
+        const author = editorialPersonaForCategory(news.category).name;
+        await prisma.news.upsert({ where: { slug }, update: { author }, create: { ...news, author, slug, status: NewsStatus.PUBLISHED, publishedAt: new Date() } });
     }
     for (const news of FULL_NEWS) {
         const slug = seedSlug(news.headline);
-        await prisma.news.upsert({ where: { slug }, update: {}, create: { ...news, slug, status: NewsStatus.PUBLISHED, publishedAt: new Date() } });
+        const author = editorialPersonaForCategory(news.category).name;
+        await prisma.news.upsert({ where: { slug }, update: { author }, create: { ...news, author, slug, status: NewsStatus.PUBLISHED, publishedAt: new Date() } });
     }
     console.log(`✅ ${NEWS.length + FULL_NEWS.length} news articles seeded`);
 

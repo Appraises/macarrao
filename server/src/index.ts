@@ -49,8 +49,9 @@ app.post('/webhooks/resend', express.raw({ type: 'application/json', limit: '256
 // of turning them into a misleading generic network error.
 app.use(cors({
     origin: CORS_ORIGINS,
+    credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Analytics-Enabled', 'X-Search-Origin'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Analytics-Enabled', 'X-Search-Origin', 'X-Client-Event'],
     exposedHeaders: ['Content-Disposition', 'Retry-After', 'RateLimit', 'RateLimit-Policy']
 }));
 
@@ -89,6 +90,7 @@ app.use('/uploads', express.static(UPLOAD_ROOT, {
 const io = new Server(httpServer, {
     cors: {
         origin: CORS_ORIGINS,
+        credentials: true,
         methods: ["GET", "POST"]
     }
 });

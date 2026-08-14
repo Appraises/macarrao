@@ -110,7 +110,7 @@ router.post('/login', loginLimiter, async (req, res) => {
         // An account erased under LGPD must not authenticate at all. The token middleware
         // already refuses these, so a login here handed back a working-looking session
         // plus the account record, and only the next request revealed it was dead.
-        if (!user || !passwordMatches || user.anonymizedAt) {
+        if (!user || !passwordMatches || user.anonymizedAt || user.email.endsWith('@system.dicionariogamer.invalid')) {
             // Without this line a credential-stuffing run leaves no trace at all: only
             // successful logins were ever recorded, so nobody could see 500 failures.
             console.warn(`[auth] login falhou ip=${req.ip} email=${maskEmail(email)}`);
