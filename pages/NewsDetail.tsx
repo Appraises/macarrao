@@ -125,10 +125,27 @@ export const NewsDetail: React.FC = () => {
         return match ? stripHtml(match[1]) : '';
     };
 
+    const extractImageCredit = (value?: string) => {
+        const source = String(value || '');
+        const match = source.match(/<p\b[^>]*>\s*<strong>\s*Cr[eé]ditos?(?:\s+da\s+imagem)?\s*:\s*<\/strong>\s*([\s\S]*?)<\/p>/i);
+
+        if (!match || match.index === undefined) {
+            return { content: source, credit: '' };
+        }
+
+        return {
+            content: `${source.slice(0, match.index)}${source.slice(match.index + match[0].length)}`.trim(),
+            credit: match[1].trim(),
+        };
+    };
+
     const cleanArticleContent = (value?: string) =>
         String(value || '').replace(/<p>\s*<strong>Resumo:<\/strong>[\s\S]*?<\/p>\s*/i, '');
 
     const summary = newsItem.seoDescription || extractSummary(newsItem.content);
+    const articleWithCredit = extractImageCredit(newsItem.content);
+    const articleContent = newsItem.image ? articleWithCredit.content : newsItem.content;
+    const imageCredit = newsItem.image ? articleWithCredit.credit : '';
     const readingMinutes = Math.max(1, Math.ceil(stripHtml(newsItem.content).split(/\s+/).filter(Boolean).length / 220));
     const socialRevision = newsItem.updatedAt || newsItem.publishedAt || newsItem.createdAt;
     const socialImageVersion = encodeURIComponent(socialRevision);
@@ -242,13 +259,18 @@ export const NewsDetail: React.FC = () => {
                             alt={newsItem.headline}
                             className="aspect-video w-full rounded-sm bg-dark-900 object-cover"
                         />
+                        {imageCredit && (
+                            <figcaption className="border-t border-white/[0.08] pt-2 text-[11px] leading-5 text-gray-500">
+                                Crédito da imagem: <span dangerouslySetInnerHTML={{ __html: imageCredit }} />
+                            </figcaption>
+                        )}
                     </figure>
                 )}
 
                 <div className="mx-auto grid max-w-6xl grid-cols-1 gap-14 px-4 pb-16 lg:grid-cols-[minmax(0,760px)_280px] lg:items-start lg:justify-between lg:gap-16 xl:gap-24">
                     <div className="min-w-0">
                         <div className="news-article-content">
-                            <div dangerouslySetInnerHTML={{ __html: cleanArticleContent(newsItem.content) }} />
+                            <div dangerouslySetInnerHTML={{ __html: cleanArticleContent(articleContent) }} />
                         </div>
 
                         <footer className="mt-12 border-y border-white/10">
