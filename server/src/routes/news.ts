@@ -45,6 +45,22 @@ const publicNewsWhere = (now = new Date()): Prisma.NewsWhereInput => ({
     publishedAt: { lte: now }
 });
 
+const withCommentCounts = async <T extends { id: string }>(records: T[]) => {
+    if (records.length === 0) return records.map((record) => ({ ...record, commentsCount: 0 }));
+
+    const counts = await prisma.comment.groupBy({
+        by: ['newsId'],
+        where: { newsId: { in: records.map((record) => record.id) } },
+        _count: { _all: true }
+    });
+    const countByNewsId = new Map(counts.map((item) => [item.newsId, item._count._all]));
+
+    return records.map((record) => ({
+        ...record,
+        commentsCount: countByNewsId.get(record.id) ?? 0
+    }));
+};
+
 const upload = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: 5 * 1024 * 1024, files: 1 }
@@ -135,7 +151,7 @@ router.get('/', async (req, res) => {
             const news = await prisma.news.findMany({ where, orderBy });
             res.setHeader('Deprecation', 'true');
             res.setHeader('X-Pagination-Deprecated', 'true');
-            return res.json(news.map(sanitizeNewsRecord));
+            return res.json((await withCommentCounts(news)).map(sanitizeNewsRecord));
         }
 
         const [news, total] = await prisma.$transaction([
@@ -149,7 +165,7 @@ router.get('/', async (req, res) => {
         ]);
 
         res.json({
-            items: news.map(sanitizeNewsRecord),
+            items: (await withCommentCounts(news)).map(sanitizeNewsRecord),
             pagination: buildPaginationMeta(total, parsed.value)
         });
     } catch {
@@ -202,7 +218,8 @@ router.get('/:idOrSlug', async (req, res) => {
             }
         });
         if (!news) return res.status(404).json({ error: 'Noticia nao encontrada.' });
-        res.json(sanitizeNewsRecord(news));
+        const commentsCount = await prisma.comment.count({ where: { newsId: news.id } });
+        res.json(sanitizeNewsRecord({ ...news, commentsCount }));
     } catch {
         res.status(500).json({ error: 'Falha ao buscar a noticia.' });
     }

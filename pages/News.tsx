@@ -158,7 +158,7 @@ export const News: React.FC = () => {
 
                                     <div className="flex items-center gap-1 text-gray-500 text-xs group-hover:text-brand-400 transition-colors">
                                         <MessageSquare className="w-3 h-3" />
-                                        <span className="font-bold">24</span>
+                                        <span className="font-bold">{item.commentsCount ?? 0}</span>
                                     </div>
                                 </div>
                             </div>

@@ -7,6 +7,8 @@ const mocks = vi.hoisted(() => ({
     termCount: vi.fn(),
     newsFindMany: vi.fn(),
     newsCount: vi.fn(),
+    commentGroupBy: vi.fn(),
+    commentCount: vi.fn(),
     newsUpdateMany: vi.fn(),
     auditCreateMany: vi.fn(),
     userFindMany: vi.fn(),
@@ -25,6 +27,10 @@ vi.mock('../src/lib/prisma', () => ({
             findMany: mocks.newsFindMany,
             count: mocks.newsCount,
             updateMany: mocks.newsUpdateMany
+        },
+        comment: {
+            groupBy: mocks.commentGroupBy,
+            count: mocks.commentCount
         },
         adminAuditLog: {
             createMany: mocks.auditCreateMany
@@ -114,6 +120,45 @@ describe('paginated route contracts', () => {
         expect(response.status).toBe(400);
         expect(body.error).toContain('menor ou igual a 100');
         expect(mocks.newsFindMany).not.toHaveBeenCalled();
+    });
+
+    it('returns the real comment count for public news cards', async () => {
+        mocks.newsFindMany
+            .mockResolvedValueOnce([])
+            .mockResolvedValueOnce([{ id: 'news-1', headline: 'Noticia publicada' }]);
+        mocks.newsCount.mockResolvedValue(1);
+        mocks.commentGroupBy.mockResolvedValue([]);
+
+        const { response, body } = await request(newsRouter, '/?page=1&pageSize=12');
+
+        expect(response.status).toBe(200);
+        expect(body.items).toEqual([{ id: 'news-1', headline: 'Noticia publicada', commentsCount: 0, content: '', authorProfile: null }]);
+        expect(mocks.commentGroupBy).toHaveBeenCalledWith({
+            by: ['newsId'],
+            where: { newsId: { in: ['news-1'] } },
+            _count: { _all: true }
+        });
+    });
+
+    it('keeps public news comment counts isolated per article', async () => {
+        mocks.newsFindMany
+            .mockResolvedValueOnce([])
+            .mockResolvedValueOnce([
+                { id: 'news-with-comments', headline: 'Noticia com comentarios' },
+                { id: 'news-without-comments', headline: 'Noticia sem comentarios' }
+            ]);
+        mocks.newsCount.mockResolvedValue(2);
+        mocks.commentGroupBy.mockResolvedValue([
+            { newsId: 'news-with-comments', _count: { _all: 3 } }
+        ]);
+
+        const { response, body } = await request(newsRouter, '/?page=1&pageSize=12');
+
+        expect(response.status).toBe(200);
+        expect(body.items.map((item: { id: string; commentsCount: number }) => [item.id, item.commentsCount])).toEqual([
+            ['news-with-comments', 3],
+            ['news-without-comments', 0]
+        ]);
     });
 
     it('rejects legacy private-status parameters on public term routes', async () => {
