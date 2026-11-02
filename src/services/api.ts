@@ -189,7 +189,7 @@ export interface ModerationDecisionInput {
 
 export interface NewsQuery extends PaginationQuery {
     category?: string;
-    sort?: 'createdAt' | 'updatedAt' | 'headline' | 'category';
+    sort?: 'createdAt' | 'updatedAt' | 'headline' | 'category' | 'publishedAt';
 }
 
 export interface AdminNewsQuery extends PaginationQuery {
@@ -413,7 +413,7 @@ export const getNews = async (query: NewsQuery = {}): Promise<PaginatedResponse<
             page: query.page ?? 1,
             pageSize: query.pageSize ?? 20,
             search: query.search || undefined,
-            sort: query.sort ?? 'createdAt',
+            sort: query.sort ?? 'publishedAt',
             order: query.order ?? 'desc',
             category: query.category || undefined
         }

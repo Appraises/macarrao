@@ -1,16 +1,53 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Badge } from '../UI';
-import { EsportsNews as EsportsNewsType } from '../../types';
-import { esportsService } from '../../services/esportsService';
+import { getNews } from '../../src/services/api';
+import type { News as NewsItem } from '../../types';
 import { SectionHeader } from './SectionHeader';
+
+const formatTimeAgo = (date?: string | null) => {
+    if (!date) return 'Recentemente';
+    const elapsedHours = Math.max(0, Math.floor((Date.now() - new Date(date).getTime()) / 3_600_000));
+    if (elapsedHours < 1) return 'Agora';
+    if (elapsedHours < 24) return `${elapsedHours}h atrás`;
+    const elapsedDays = Math.floor(elapsedHours / 24);
+    return `${elapsedDays}d atrás`;
+};
 
 export const NewsWidget: React.FC = () => {
     const navigate = useNavigate();
-    const [news, setNews] = useState<EsportsNewsType[]>([]);
+    const [news, setNews] = useState<NewsItem[]>([]);
+    const lastFetchedAt = useRef(0);
 
     useEffect(() => {
-        esportsService.getNews().then(data => setNews(data));
+        let active = true;
+        let loading = false;
+        const loadNews = () => {
+            if (loading || Date.now() - lastFetchedAt.current < 5 * 60 * 1000) return;
+            loading = true;
+            getNews({ page: 1, pageSize: 6, sort: 'publishedAt', order: 'desc' })
+                .then((data) => {
+                    if (!active) return;
+                    setNews(data.items);
+                    lastFetchedAt.current = Date.now();
+                })
+                .catch((error) => console.error('[home-news] Failed to load news:', error))
+                .finally(() => {
+                    loading = false;
+                });
+        };
+        const refreshWhenVisible = () => {
+            if (document.visibilityState === 'visible') loadNews();
+        };
+
+        loadNews();
+        document.addEventListener('visibilitychange', refreshWhenVisible);
+        window.addEventListener('pageshow', refreshWhenVisible);
+        return () => {
+            active = false;
+            document.removeEventListener('visibilitychange', refreshWhenVisible);
+            window.removeEventListener('pageshow', refreshWhenVisible);
+        };
     }, []);
 
     if (news.length === 0) return null;
@@ -33,7 +70,7 @@ export const NewsWidget: React.FC = () => {
                     </div>
                     <div className="px-4 pt-3 pb-4 border-b border-dark-800">
                         <h3 className="text-sm font-bold text-white leading-snug group-hover:text-brand-400 transition-colors">{featured.headline}</h3>
-                        <p className="text-[10px] text-gray-500 mt-1.5">{featured.timeAgo}{featured.author ? ` • ${featured.author}` : ''}</p>
+                        <p className="text-[10px] text-gray-500 mt-1.5">{formatTimeAgo(featured.publishedAt || featured.createdAt)}{featured.author ? ` • ${featured.author}` : ''}</p>
                     </div>
                 </div>
 
@@ -47,7 +84,7 @@ export const NewsWidget: React.FC = () => {
                         >
                             <span className="text-[9px] font-bold text-brand-500 uppercase tracking-wider">{item.category}</span>
                             <h4 className="text-xs font-bold text-gray-200 leading-snug group-hover:text-white line-clamp-2 mt-0.5">{item.headline}</h4>
-                            <p className="text-[9px] text-gray-500 mt-1">{item.timeAgo}{item.author ? ` • ${item.author}` : ''}</p>
+                            <p className="text-[9px] text-gray-500 mt-1">{formatTimeAgo(item.publishedAt || item.createdAt)}{item.author ? ` • ${item.author}` : ''}</p>
                         </div>
                     ))}
                 </div>

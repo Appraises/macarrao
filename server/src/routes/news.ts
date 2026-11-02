@@ -124,8 +124,8 @@ router.get('/', async (req, res) => {
     }
 
     const parsed = parsePagination(req.query, {
-            allowedSorts: ['createdAt', 'updatedAt', 'headline', 'category'] as const,
-        defaultSort: 'createdAt',
+        allowedSorts: ['createdAt', 'updatedAt', 'headline', 'category', 'publishedAt'] as const,
+        defaultSort: 'publishedAt',
         defaultOrder: 'desc'
     });
     if (!parsed.valid) return res.status(400).json({ error: parsed.error });
@@ -142,10 +142,16 @@ router.get('/', async (req, res) => {
             ];
         }
 
-        const orderBy = [
-            { [parsed.value.sort]: parsed.value.order },
-            { id: 'asc' }
-        ] as Prisma.NewsOrderByWithRelationInput[];
+        const orderBy = parsed.value.sort === 'publishedAt'
+            ? [
+                { publishedAt: parsed.value.order },
+                { createdAt: parsed.value.order },
+                { id: 'asc' }
+            ] as Prisma.NewsOrderByWithRelationInput[]
+            : [
+                { [parsed.value.sort]: parsed.value.order },
+                { id: 'asc' }
+            ] as Prisma.NewsOrderByWithRelationInput[];
 
         if (!parsed.value.requested) {
             const news = await prisma.news.findMany({ where, orderBy });

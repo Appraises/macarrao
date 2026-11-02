@@ -122,6 +122,24 @@ describe('paginated route contracts', () => {
         expect(mocks.newsFindMany).not.toHaveBeenCalled();
     });
 
+    it('orders public news by publication date, with stable chronological tie-breakers', async () => {
+        mocks.newsFindMany.mockResolvedValue([]);
+        mocks.newsCount.mockResolvedValue(0);
+
+        const { response } = await request(newsRouter, '/?page=1&pageSize=6&sort=publishedAt&order=desc');
+
+        expect(response.status).toBe(200);
+        expect(mocks.newsFindMany).toHaveBeenLastCalledWith(expect.objectContaining({
+            orderBy: [
+                { publishedAt: 'desc' },
+                { createdAt: 'desc' },
+                { id: 'asc' }
+            ],
+            skip: 0,
+            take: 6
+        }));
+    });
+
     it('returns the real comment count for public news cards', async () => {
         mocks.newsFindMany
             .mockResolvedValueOnce([])
