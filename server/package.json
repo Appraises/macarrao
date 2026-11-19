@@ -12,6 +12,10 @@
     "seed:editorial-personas": "ts-node scripts/seed-editorial-personas.ts",
     "seed:current-news": "ts-node --compiler-options {\"module\":\"CommonJS\"} scripts/seed-current-news.ts",
     "publish:news": "node scripts/publish-news.mjs",
+    "social:preview": "node scripts/preview-news-social.mjs",
+    "social:publish": "node scripts/publish-news-social.mjs",
+    "social:instagram-accounts": "node scripts/social/list-instagram-accounts.mjs",
+    "social:test": "node --test scripts/social/*.test.mjs",
     "preview:emails": "ts-node scripts/preview-emails.ts",
     "newsletter:send-daily": "ts-node --compiler-options {\"module\":\"CommonJS\"} scripts/send-daily-newsletter.ts",
     "newsletter:confirm-legacy": "ts-node --compiler-options {\"module\":\"CommonJS\"} scripts/confirm-legacy-newsletter.ts"
@@ -21,7 +25,10 @@
   "license": "ISC",
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1095.0",
+    "@expo-google-fonts/barlow-condensed": "0.4.1",
+    "@expo-google-fonts/space-grotesk": "0.4.1",
     "@prisma/client": "^5.10.0",
+    "@resvg/resvg-js": "2.6.2",
     "@sentry/node": "^10.65.0",
     "axios": "^1.13.2",
     "bcryptjs": "^3.0.3",
@@ -31,11 +38,13 @@
     "express-rate-limit": "^8.2.1",
     "google-auth-library": "^10.9.1",
     "helmet": "^8.1.0",
+    "ipaddr.js": "2.5.0",
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.2.0",
     "prisma": "^5.10.0",
     "resend": "^6.17.2",
     "sanitize-html": "^2.17.6",
+    "sharp": "0.35.5",
     "socket.io": "^4.8.1"
   },
   "devDependencies": {

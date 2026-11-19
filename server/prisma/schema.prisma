@@ -725,25 +725,26 @@ model Report {
 }
 
 model News {
-  id             String      @id @default(uuid())
+  id             String           @id @default(uuid())
   headline       String
-  slug           String      @unique
+  slug           String           @unique
   category       String
   image          String?
   content        String?
   author         String?
-  status         NewsStatus  @default(DRAFT)
+  status         NewsStatus       @default(DRAFT)
   publishedAt    DateTime?
   scheduledAt    DateTime?
   archivedAt     DateTime?
   seoTitle       String?
   seoDescription String?
   createdById    String?
-  createdBy      User?       @relation("NewsCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  createdBy      User?            @relation("NewsCreator", fields: [createdById], references: [id], onDelete: SetNull)
   tournamentId   String?
-  tournament     Tournament? @relation(fields: [tournamentId], references: [id], onDelete: SetNull)
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
+  tournament     Tournament?      @relation(fields: [tournamentId], references: [id], onDelete: SetNull)
+  socialPosts    NewsSocialPost[]
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
 
   @@index([category])
   @@index([createdAt])
@@ -751,6 +752,41 @@ model News {
   @@index([status, publishedAt])
   @@index([createdById])
   @@index([tournamentId, publishedAt])
+}
+
+enum NewsSocialChannel {
+  INSTAGRAM
+  X
+}
+
+enum NewsSocialStatus {
+  PENDING
+  PREPARING
+  PUBLISHING
+  PUBLISHED
+  FAILED
+  REVIEW
+  CANCELED
+}
+
+model NewsSocialPost {
+  id              String            @id @default(uuid())
+  newsId          String
+  news            News              @relation(fields: [newsId], references: [id], onDelete: Cascade)
+  channel         NewsSocialChannel
+  status          NewsSocialStatus  @default(PENDING)
+  attempts        Int               @default(0)
+  nextAttemptAt   DateTime          @default(now())
+  providerMediaId String?
+  providerPostId  String?
+  sourceUpdatedAt DateTime?
+  lastError       String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  publishedAt     DateTime?
+
+  @@unique([newsId, channel])
+  @@index([channel, status, nextAttemptAt])
 }
 
 model AdminAuditLog {

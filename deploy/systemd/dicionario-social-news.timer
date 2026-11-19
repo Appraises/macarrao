@@ -1,0 +1,11 @@
+[Unit]
+Description=Verifica noticias novas para publicar nas redes sociais
+
+[Timer]
+OnBootSec=1min
+OnUnitInactiveSec=1min
+AccuracySec=10s
+Unit=dicionario-social-news.service
+
+[Install]
+WantedBy=timers.target
