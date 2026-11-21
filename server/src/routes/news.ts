@@ -1,7 +1,4 @@
 import { NextFunction, Request, Response, Router } from 'express';
-import crypto from 'crypto';
-import path from 'path';
-import { mkdir, unlink, writeFile } from 'fs/promises';
 import multer from 'multer';
 import { NewsStatus, Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
@@ -9,7 +6,7 @@ import { authenticateToken, AuthRequest } from '../middleware/auth';
 import { requireAdmin } from '../middleware/roles';
 import { PUBLIC_API_URL } from '../utils/config';
 import { sanitizeNewsRecord, validateNewsPayload } from '../utils/news';
-import { NEWS_UPLOAD_DIR } from '../utils/uploads';
+import { removeUploadedMedia, resolveMediaUrl, storeImage } from '../services/media';
 import { buildPaginationMeta, parsePagination } from '../utils/pagination';
 import { writeAuditLog } from '../services/audit';
 
@@ -77,42 +74,6 @@ const acceptSingleImage = (req: Request, res: Response, next: NextFunction) => {
         if (error) return res.status(400).json({ error: 'Arquivo de imagem invalido.' });
         next();
     });
-};
-
-const detectImageType = (buffer: Buffer): { extension: string; mimeType: string } | null => {
-    if (buffer.length >= 8 && buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) {
-        return { extension: 'png', mimeType: 'image/png' };
-    }
-    if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
-        return { extension: 'jpg', mimeType: 'image/jpeg' };
-    }
-    if (buffer.length >= 6 && ['GIF87a', 'GIF89a'].includes(buffer.subarray(0, 6).toString('ascii'))) {
-        return { extension: 'gif', mimeType: 'image/gif' };
-    }
-    if (
-        buffer.length >= 12
-        && buffer.subarray(0, 4).toString('ascii') === 'RIFF'
-        && buffer.subarray(8, 12).toString('ascii') === 'WEBP'
-    ) {
-        return { extension: 'webp', mimeType: 'image/webp' };
-    }
-    return null;
-};
-
-const removeStoredImage = async (imageUrl?: string | null) => {
-    if (!imageUrl) return;
-
-    try {
-        const pathname = imageUrl.startsWith('http') ? new URL(imageUrl).pathname : imageUrl;
-        if (!pathname.startsWith('/uploads/news/')) return;
-        const filename = path.basename(pathname);
-        const filepath = path.join(NEWS_UPLOAD_DIR, filename);
-        await unlink(filepath);
-    } catch (error: any) {
-        if (error?.code !== 'ENOENT') {
-            console.error('[news] Failed to remove uploaded image:', error?.message || error);
-        }
-    }
 };
 
 // Public news feed. Content is sanitized again on read to protect against legacy rows.
@@ -188,21 +149,19 @@ router.post(
     async (req: AuthRequest, res) => {
         if (!req.file) return res.status(400).json({ error: 'Selecione uma imagem.' });
 
-        const detected = detectImageType(req.file.buffer);
-        if (!detected) {
-            return res.status(400).json({ error: 'Use uma imagem PNG, JPEG, GIF ou WebP valida.' });
-        }
-
         try {
-            await mkdir(NEWS_UPLOAD_DIR, { recursive: true });
-            const filename = `${Date.now()}-${crypto.randomUUID()}.${detected.extension}`;
-            await writeFile(path.join(NEWS_UPLOAD_DIR, filename), req.file.buffer, { flag: 'wx' });
+            // Same storage path as every other upload, so MEDIA_DRIVER=s3 also
+            // moves news covers off the VPS disk.
+            const stored = await storeImage(req.file, 'news');
+            if (!stored) {
+                return res.status(400).json({ error: 'Use uma imagem PNG, JPEG, GIF ou WebP valida.' });
+            }
 
             const baseUrl = PUBLIC_API_URL || `${req.protocol}://${req.get('host')}`;
             res.status(201).json({
-                url: `${baseUrl}/uploads/news/${filename}`,
-                mimeType: detected.mimeType,
-                size: req.file.size
+                url: resolveMediaUrl(stored.pathname, baseUrl),
+                mimeType: stored.mimeType,
+                size: stored.size
             });
         } catch (error) {
             console.error('[news] Upload failed:', error);
@@ -284,7 +243,7 @@ router.put('/:id', authenticateToken, requireAdmin, async (req: AuthRequest, res
             }, tx);
             return updated;
         });
-        if (existing.image !== news.image) await removeStoredImage(existing.image);
+        if (existing.image !== news.image) await removeUploadedMedia(existing.image, 'news');
         res.json(sanitizeNewsRecord(news));
     } catch (error) {
         if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
@@ -342,7 +301,7 @@ router.delete('/:id', authenticateToken, requireAdmin, async (req: AuthRequest, 
                 before: existing
             }, tx);
         });
-        await removeStoredImage(existing.image);
+        await removeUploadedMedia(existing.image, 'news');
         res.status(204).send();
     } catch (error) {
         console.error('[news] Failed to delete news:', error);

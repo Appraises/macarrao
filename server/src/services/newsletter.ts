@@ -6,6 +6,7 @@ import {
     NewsletterSubscriberStatus,
     Prisma,
 } from '@prisma/client';
+import { LOCK_BUSY, withAdvisoryLock } from '../lib/advisoryLock';
 import { prisma } from '../lib/prisma';
 import {
     APP_URL,
@@ -28,6 +29,7 @@ const CONFIRMATION_COOLDOWN_MS = 5 * 60 * 1000;
 const MAX_ATTEMPTS = 3;
 const BATCH_SIZE = 100;
 const LOCK_KEY = 1_349_907_421;
+const DISPATCH_LOCK_TIMEOUT_MS = 20 * 60 * 1000;
 
 type Db = Prisma.TransactionClient | typeof prisma;
 
@@ -283,6 +285,10 @@ const dispatch = async (db: Db, campaignId: string, deliveryIds?: string[]) => {
             });
             continue;
         }
+        // Each update commits on its own (see withAdvisoryLock), so a webhook that
+        // arrives seconds after the provider accepted the batch already finds
+        // the delivery by its resendEmailId.
+        const sentSubscriberIds: string[] = [];
         for (const success of result.ids) {
             const delivery = chunk[success.index];
             if (!delivery) continue;
@@ -290,9 +296,10 @@ const dispatch = async (db: Db, campaignId: string, deliveryIds?: string[]) => {
                 where: { id: delivery.id },
                 data: { status: NewsletterDeliveryStatus.SENT, resendEmailId: success.id, sentAt: now },
             });
-            if (delivery.subscriberId) {
-                await db.newsletterSubscriber.update({ where: { id: delivery.subscriberId }, data: { lastSentAt: now } });
-            }
+            if (delivery.subscriberId) sentSubscriberIds.push(delivery.subscriberId);
+        }
+        if (sentSubscriberIds.length) {
+            await db.newsletterSubscriber.updateMany({ where: { id: { in: sentSubscriberIds } }, data: { lastSentAt: now } });
         }
         for (const failure of result.errors) {
             const delivery = chunk[failure.index];
@@ -371,23 +378,22 @@ export const sendDailyNewsletter = async (value = new Date()) => {
     if (!NEWSLETTER_ENABLED || !RESEND_API_KEY || !PUBLIC_API_URL) {
         return { skipped: true, reason: 'Newsletter desativada ou provedor incompleto.' };
     }
-    return prisma.$transaction(async (tx) => {
-        const rows = await tx.$queryRaw<Array<{ locked: boolean }>>`SELECT pg_try_advisory_xact_lock(${LOCK_KEY}) AS locked`;
-        if (!rows[0]?.locked) return { skipped: true, reason: 'Outro disparo está em andamento.' };
-        return executeDaily(tx, value);
-    }, { maxWait: 5_000, timeout: 20 * 60 * 1000 });
+    const result = await withAdvisoryLock(LOCK_KEY, DISPATCH_LOCK_TIMEOUT_MS, () => executeDaily(prisma, value));
+    return result === LOCK_BUSY ? { skipped: true, reason: 'Outro disparo está em andamento.' } : result;
 };
 
-export const retryNewsletterCampaign = async (campaignId: string) => prisma.$transaction(async (tx) => {
-    const rows = await tx.$queryRaw<Array<{ locked: boolean }>>`SELECT pg_try_advisory_xact_lock(${LOCK_KEY}) AS locked`;
-    if (!rows[0]?.locked) throw new NewsletterError('Outro disparo está em andamento.', 409);
-    const eligible = await tx.newsletterDelivery.findMany({
-        where: { campaignId, status: NewsletterDeliveryStatus.FAILED, resendEmailId: null, attempts: { lt: MAX_ATTEMPTS } },
-        select: { id: true },
+export const retryNewsletterCampaign = async (campaignId: string) => {
+    const result = await withAdvisoryLock(LOCK_KEY, DISPATCH_LOCK_TIMEOUT_MS, async () => {
+        const eligible = await prisma.newsletterDelivery.findMany({
+            where: { campaignId, status: NewsletterDeliveryStatus.FAILED, resendEmailId: null, attempts: { lt: MAX_ATTEMPTS } },
+            select: { id: true },
+        });
+        if (!eligible.length) throw new NewsletterError('Não há falhas elegíveis para retentativa.', 409);
+        return dispatch(prisma, campaignId, eligible.map((item) => item.id));
     });
-    if (!eligible.length) throw new NewsletterError('Não há falhas elegíveis para retentativa.', 409);
-    return dispatch(tx, campaignId, eligible.map((item) => item.id));
-}, { maxWait: 5_000, timeout: 20 * 60 * 1000 });
+    if (result === LOCK_BUSY) throw new NewsletterError('Outro disparo está em andamento.', 409);
+    return result;
+};
 
 export const sendCurrentNewsletterPreview = async (adminEmail: string) => {
     const term = await getTermOfTheDay();

@@ -77,6 +77,33 @@ export const verifyNewsletterWebhook = (payload: string, headers: { id: string; 
     return new Resend(RESEND_API_KEY).webhooks.verify({ payload, headers, webhookSecret: RESEND_WEBHOOK_SECRET }) as any;
 };
 
+// A delivery is only findable once the dispatcher has stored the provider id.
+// Events for a recent newsletter email that arrive before that are rolled back
+// and answered with 5xx so Resend redelivers them instead of being dropped.
+const UNMATCHED_RETRY_WINDOW_MS = 6 * 60 * 60 * 1000;
+
+export class WebhookRetryableError extends Error {}
+
+const eventTags = (event: any): Map<string, string> => {
+    const tags = event?.data?.tags;
+    if (Array.isArray(tags)) {
+        return new Map(tags
+            .filter((tag: any) => typeof tag?.name === 'string' && typeof tag?.value === 'string')
+            .map((tag: any) => [tag.name, tag.value]));
+    }
+    if (tags && typeof tags === 'object') {
+        return new Map(Object.entries(tags).filter((entry): entry is [string, string] => typeof entry[1] === 'string'));
+    }
+    return new Map();
+};
+
+export const shouldRetryUnmatchedWebhook = (event: any, occurredAt: Date, now = Date.now()): boolean => {
+    if (now - occurredAt.getTime() > UNMATCHED_RETRY_WINDOW_MS) return false;
+    const category = eventTags(event).get('category');
+    // Transactional emails share the endpoint; without tags, recency alone decides.
+    return category === undefined || category === 'newsletter-daily';
+};
+
 export const processNewsletterWebhook = async (eventId: string, event: any) => {
     const type = typeof event?.type === 'string' ? event.type : '';
     const resendEmailId = typeof event?.data?.email_id === 'string' ? event.data.email_id : null;
@@ -90,7 +117,12 @@ export const processNewsletterWebhook = async (eventId: string, event: any) => {
                 where: { resendEmailId },
                 include: { subscriber: { select: { status: true, blockedAt: true, blockedReason: true } } },
             });
-            if (!delivery) return { ignored: true };
+            if (!delivery) {
+                if (shouldRetryUnmatchedWebhook(event, occurredAt)) {
+                    throw new WebhookRetryableError('Entrega ainda não registrada; aguardando reenvio do provedor.');
+                }
+                return { ignored: true };
+            }
 
             const status = resolveNewsletterDeliveryStatus(delivery.status, type);
             const data: Prisma.NewsletterDeliveryUpdateInput = { status };

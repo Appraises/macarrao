@@ -1,0 +1,12 @@
+[Unit]
+Description=Teste de restauracao do ultimo backup - Dicionario Gamer
+After=postgresql.service dicionario-backup.service
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=/usr/bin/bash /srv/dicionario/deploy/backup/verify-restore.sh
+TimeoutStartSec=1h
+Nice=10
+NoNewPrivileges=true
+PrivateTmp=true

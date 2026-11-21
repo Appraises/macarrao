@@ -1,0 +1,12 @@
+[Unit]
+Description=Backup diario - Dicionario Gamer
+
+[Timer]
+# Fora do horario do envio da newsletter (09:00) e dos picos de acesso.
+OnCalendar=*-*-* 03:30:00 America/Sao_Paulo
+Persistent=true
+RandomizedDelaySec=10min
+Unit=dicionario-backup.service
+
+[Install]
+WantedBy=timers.target

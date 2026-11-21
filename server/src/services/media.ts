@@ -1,17 +1,18 @@
 import crypto from 'crypto';
 import path from 'path';
 import { mkdir, unlink, writeFile } from 'fs/promises';
-import { GAME_UPLOAD_DIR, MAP_UPLOAD_DIR, TERM_UPLOAD_DIR } from '../utils/uploads';
+import { GAME_UPLOAD_DIR, MAP_UPLOAD_DIR, NEWS_UPLOAD_DIR, TERM_UPLOAD_DIR } from '../utils/uploads';
 import {
     MEDIA_DRIVER, MEDIA_S3_ACCESS_KEY_ID, MEDIA_S3_BUCKET, MEDIA_S3_ENDPOINT,
     MEDIA_S3_PUBLIC_URL, MEDIA_S3_REGION, MEDIA_S3_SECRET_ACCESS_KEY,
 } from '../utils/config';
 
-export type MediaFolder = 'games' | 'maps' | 'terms';
+export type MediaFolder = 'games' | 'maps' | 'news' | 'terms';
 
 const uploadDirectories: Record<MediaFolder, string> = {
     games: GAME_UPLOAD_DIR,
     maps: MAP_UPLOAD_DIR,
+    news: NEWS_UPLOAD_DIR,
     terms: TERM_UPLOAD_DIR
 };
 
@@ -145,6 +146,12 @@ export const removeUploadedMedia = async (mediaUrl: string | null | undefined, f
         const pathname = mediaUrl.startsWith('http') ? new URL(mediaUrl).pathname : mediaUrl;
         const filename = path.basename(pathname);
         if (!filename || !pathname.includes(`/${folder}/`)) return;
+        // Only delete files this app stored: an external cover URL that happens
+        // to contain "/<folder>/" must never map to one of our objects.
+        const s3Base = MEDIA_S3_PUBLIC_URL.replace(/\/$/, '');
+        const ownLocal = pathname.startsWith(`/uploads/${folder}/`);
+        const ownRemote = Boolean(s3Base) && mediaUrl.startsWith(`${s3Base}/${folder}/`);
+        if (!ownLocal && !ownRemote) return;
         await getDriver().remove(`${folder}/${filename}`);
     } catch (error: any) {
         // A file that is already gone is not a failure worth shouting about.

@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
     subscriberFindUniqueOrThrow: vi.fn(),
     subscriberCreate: vi.fn(),
     subscriberUpdate: vi.fn(),
+    subscriberUpdateMany: vi.fn(),
     subscriberFindMany: vi.fn(),
     deliveryFindUnique: vi.fn(),
     deliveryFindMany: vi.fn(),
@@ -55,6 +56,7 @@ vi.mock('../src/lib/prisma', () => {
             findUniqueOrThrow: mocks.subscriberFindUniqueOrThrow,
             create: mocks.subscriberCreate,
             update: mocks.subscriberUpdate,
+            updateMany: mocks.subscriberUpdateMany,
             findMany: mocks.subscriberFindMany,
         },
         newsletterDelivery: {
@@ -233,6 +235,10 @@ describe('daily newsletter dispatch', () => {
         const batch = mocks.sendBatch.mock.calls[0][0];
         expect(batch.recipients).toHaveLength(2);
         expect(batch.idempotencyKey).toMatch(/^newsletter\/2026-08-10\/[0-9a-f]{32}$/);
+        expect(mocks.subscriberUpdateMany).toHaveBeenCalledWith({
+            where: { id: { in: ['subscriber-1', 'subscriber-2'] } },
+            data: { lastSentAt: expect.any(Date) },
+        });
         expect(mocks.campaignUpdate).toHaveBeenLastCalledWith({
             where: { id: 'campaign-1' },
             data: { status: NewsletterCampaignStatus.COMPLETED, finishedAt: expect.any(Date) },
