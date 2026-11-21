@@ -98,7 +98,7 @@ export const GameDetail: React.FC = () => {
         return (
             <div className="flex flex-col items-center justify-center min-h-[60vh]">
                 <h2 className="text-2xl font-bold text-white mb-4">Jogo não encontrado</h2>
-                <Button onClick={() => navigate('/games')}>Voltar para Biblioteca</Button>
+                <Button onClick={() => navigate('/jogos')}>Voltar para Biblioteca</Button>
             </div>
         );
     }
@@ -111,20 +111,20 @@ export const GameDetail: React.FC = () => {
                 title={`${game.name} — Glossário e Mapas`}
                 description={`Glossário de gírias e termos de ${game.name}${game.genre ? ` (${game.genre})` : ''}, além de mapas táticos e callouts. Aprenda o vocabulário do jogo.`}
                 image={game.image}
-                path={`/games/${game.slug}`}
+                path={`/jogos/${game.slug}`}
                 type="article"
             />
             <JsonLd data={breadcrumbSchema([
                 { name: 'Início', path: '/' },
-                { name: 'Jogos', path: '/games' },
-                { name: game.name, path: `/games/${game.slug}` },
+                { name: 'Jogos', path: '/jogos' },
+                { name: game.name, path: `/jogos/${game.slug}` },
             ])} />
             {/* Hero Banner */}
             <div className="relative h-[40vh] w-full overflow-hidden border-b border-brand-500/20">
                 <img src={game.image} className="w-full h-full object-cover animate-in fade-in duration-1000" />
                 <div className="absolute inset-0 bg-gradient-to-b from-dark-950/30 via-dark-950/60 to-dark-950"></div>
                 <div className="absolute bottom-0 left-0 w-full p-4 md:p-8 max-w-7xl mx-auto">
-                    <Button variant="ghost" onClick={() => navigate('/games')} className="mb-4 pl-0 text-gray-300 hover:text-white hover:bg-black/20 w-fit">
+                    <Button variant="ghost" onClick={() => navigate('/jogos')} className="mb-4 pl-0 text-gray-300 hover:text-white hover:bg-black/20 w-fit">
                         <ArrowLeft className="w-4 h-4" /> Voltar para Biblioteca
                     </Button>
                     <h1 className="text-4xl md:text-7xl font-black text-white mb-4 tracking-tight drop-shadow-2xl">{game.name}</h1>

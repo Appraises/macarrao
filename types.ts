@@ -130,7 +130,7 @@ export interface Team {
 export interface Match {
   id: string;
   externalId?: string | null;
-  provider?: 'MANUAL' | 'LIQUIPEDIA';
+  provider?: 'MANUAL' | 'LIQUIPEDIA' | 'PANDASCORE';
   sourceUrl?: string | null;
   gameId?: string | null;
   game: string;
@@ -175,7 +175,7 @@ export interface Tournament {
   startAt?: string | null;
   endAt?: string | null;
   archivedAt?: string | null;
-  provider?: 'MANUAL' | 'LIQUIPEDIA';
+  provider?: 'MANUAL' | 'LIQUIPEDIA' | 'PANDASCORE';
   sourceUrl?: string | null;
   region?: string;
   country?: string;
@@ -219,7 +219,8 @@ export interface TournamentDetail extends Tournament {
 
 export interface EsportsAttribution { provider: string; license: string; url: string }
 export interface EsportsSource {
-  attribution: EsportsAttribution;
+  attribution: EsportsAttribution | null;
+  providers?: string[];
   configured: boolean;
   focus: { countries: string[]; keywords: string[]; teams: string[] };
   latestSync?: { status: string; finishedAt?: string | null; accepted: number; matchesUpserted: number; error?: string | null } | null;
@@ -982,7 +983,7 @@ export interface EsportsMatchAdmin {
   tournamentId?: string | null;
   game: string;
   competition: string;
-  provider?: 'MANUAL' | 'LIQUIPEDIA';
+  provider?: 'MANUAL' | 'LIQUIPEDIA' | 'PANDASCORE';
   stage?: string | null;
   round?: string | null;
   region?: string;

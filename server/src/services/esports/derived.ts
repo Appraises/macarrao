@@ -66,7 +66,7 @@ export const rebuildTournamentDerivedData = async (tournamentId: string) => {
         : matches.length && matches.every((match) => match.status === MatchStatus.FINISHED || match.status === MatchStatus.CANCELED) ? 'Finished' : 'Upcoming';
     await prisma.tournament.update({ where: { id: tournamentId }, data: { status } });
 
-    if (tournament.provider !== EsportsProvider.LIQUIPEDIA) return;
+    if (tournament.provider === EsportsProvider.MANUAL) return;
     const finished = matches.filter((match) => match.status === MatchStatus.FINISHED && match.scoreA !== null && match.scoreB !== null && match.teamAId && match.teamBId);
     if (!finished.length) return;
 

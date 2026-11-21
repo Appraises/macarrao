@@ -115,6 +115,16 @@ const ESPORTS_FOCUS_KEYWORDS = (process.env.ESPORTS_FOCUS_KEYWORDS || 'brasil,br
     .split(',').map((value) => value.trim().toLowerCase()).filter(Boolean);
 const ESPORTS_FOCUS_TEAMS = (process.env.ESPORTS_FOCUS_TEAMS || 'LOUD,paiN Gaming,FURIA,MIBR,Fluxo,RED Canids,Vivo Keyd,KaBuM,INTZ,Los Grandes,Liberty,2GAME,Corinthians Esports,w7m esports,Team Liquid Brazil')
     .split(',').map((value) => value.trim().toLowerCase()).filter(Boolean);
+const PANDASCORE_TOKEN = process.env.PANDASCORE_TOKEN || '';
+const PANDASCORE_API_BASE = (process.env.PANDASCORE_API_BASE || 'https://api.pandascore.co').replace(/\/$/, '');
+const PANDASCORE_GAMES = (process.env.PANDASCORE_GAMES || 'csgo,valorant,lol')
+    .split(',').map((value) => value.trim().toLowerCase()).filter(Boolean);
+const pandaTier = (value: string | undefined, fallback: string) => {
+    const tier = (value || '').trim().toLowerCase();
+    return ['s', 'a', 'b', 'c', 'd'].includes(tier) ? tier : fallback;
+};
+const PANDASCORE_MIN_TIER = pandaTier(process.env.PANDASCORE_MIN_TIER, 'a');
+const PANDASCORE_BR_MIN_TIER = pandaTier(process.env.PANDASCORE_BR_MIN_TIER, 'b');
 const ANALYTICS_HASH_SECRET = process.env.ANALYTICS_HASH_SECRET || JWT_SECRET;
 const PLAUSIBLE_SITE_ID = process.env.PLAUSIBLE_SITE_ID || '';
 const PLAUSIBLE_STATS_API_KEY = process.env.PLAUSIBLE_STATS_API_KEY || '';
@@ -171,6 +181,11 @@ export {
     ESPORTS_SYNC_WIKIS,
     ESPORTS_FOCUS_KEYWORDS,
     ESPORTS_FOCUS_TEAMS,
+    PANDASCORE_TOKEN,
+    PANDASCORE_API_BASE,
+    PANDASCORE_GAMES,
+    PANDASCORE_MIN_TIER,
+    PANDASCORE_BR_MIN_TIER,
     ANALYTICS_HASH_SECRET,
     PLAUSIBLE_SITE_ID,
     PLAUSIBLE_STATS_API_KEY,

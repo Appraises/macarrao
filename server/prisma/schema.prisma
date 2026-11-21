@@ -33,6 +33,7 @@ enum MatchStatus {
 enum EsportsProvider {
   MANUAL
   LIQUIPEDIA
+  PANDASCORE
 }
 
 enum EsportsSyncStatus {

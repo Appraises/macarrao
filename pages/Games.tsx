@@ -42,7 +42,7 @@ export const Games: React.FC = () => {
             <Seo
                 title="Biblioteca de Jogos"
                 description="Explore glossários dedicados, mapas e gírias específicas de cada universo gamer. Encontre os termos de FPS, MOBA, RPG e muito mais."
-                path="/games"
+                path="/jogos"
             />
             {/* Header */}
             <div className="mb-12 text-center animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -93,7 +93,7 @@ export const Games: React.FC = () => {
                     {filteredGames.map((game, idx) => (
                         <div
                             key={game.id}
-                            onClick={() => navigate(`/games/${game.slug}`)}
+                            onClick={() => navigate(`/jogos/${game.slug}`)}
                             className="group relative bg-dark-900 rounded-xl overflow-hidden border border-dark-700 hover:border-brand-500/50 transition-all cursor-pointer shadow-lg hover:shadow-brand-900/20 animate-in fade-in zoom-in-95 duration-500"
                             style={{ animationDelay: `${idx * 50}ms` }}
                         >

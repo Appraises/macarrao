@@ -19,7 +19,7 @@ export const GamesCarousel: React.FC<GamesCarouselProps> = ({ games }) => {
             <SectionHeader
                 title="Jogos em Destaque"
                 subtitle="Explore glossários, mapas e gírias"
-                to="/games"
+                to="/jogos"
                 linkLabel="Ver biblioteca"
             />
 
@@ -27,7 +27,7 @@ export const GamesCarousel: React.FC<GamesCarouselProps> = ({ games }) => {
                 {games.map(game => (
                     <div
                         key={game.id}
-                        onClick={() => navigate(`/games/${game.slug}`)}
+                        onClick={() => navigate(`/jogos/${game.slug}`)}
                         className="min-w-[160px] md:min-w-[180px] snap-start group relative overflow-hidden rounded-xl aspect-[3/4] cursor-pointer border border-dark-700 hover:border-brand-500 transition-all duration-300 flex-shrink-0 shadow-lg hover:shadow-[0_0_20px_rgba(14,165,233,0.25)]"
                     >
                         <img src={game.image} alt={game.name} className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
@@ -51,7 +51,7 @@ export const GamesCarousel: React.FC<GamesCarouselProps> = ({ games }) => {
                 ))}
 
                 <div
-                    onClick={() => navigate('/games')}
+                    onClick={() => navigate('/jogos')}
                     className="min-w-[100px] snap-start flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-dark-700 text-gray-500 hover:text-white hover:border-brand-500 hover:bg-white/5 transition-all cursor-pointer"
                 >
                     <div className="p-3 rounded-full bg-dark-800">

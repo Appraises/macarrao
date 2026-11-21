@@ -230,6 +230,11 @@ export const Esports: React.FC = () => {
                         Dados competitivos por <a href={data.source.attribution.url} target="_blank" rel="noreferrer" className="text-gray-500 hover:text-brand-400">{data.source.attribution.provider}</a>, {data.source.attribution.license}.
                     </p>
                 )}
+                {data?.source.providers?.includes('PandaScore') && (
+                    <p className="text-[11px] text-gray-600">
+                        Source: <a href="https://pandascore.co/" target="_blank" rel="noreferrer" className="text-gray-500 hover:text-brand-400">PandaScore</a>
+                    </p>
+                )}
             </main>
         </div>
     );

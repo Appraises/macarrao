@@ -85,7 +85,7 @@ export const TournamentDetail: React.FC = () => {
                         <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-xs text-gray-500">
                             <span className="flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5" /> {tournament.dates}</span>
                             <span className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" /> {tournament.location || 'Online'}</span>
-                            {tournament.provider === 'LIQUIPEDIA' && <span className="flex items-center gap-1.5 text-green-400"><Radio className="h-3.5 w-3.5" /> Atualizacao automatica</span>}
+                            {(tournament.provider === 'LIQUIPEDIA' || tournament.provider === 'PANDASCORE') && <span className="flex items-center gap-1.5 text-green-400"><Radio className="h-3.5 w-3.5" /> Atualizacao automatica</span>}
                         </div>
                     </div>
                     {tournament.sourceUrl && <a href={tournament.sourceUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2 border border-dark-700 px-3 py-2 text-xs text-gray-400 hover:border-brand-500 hover:text-white">Fonte <ExternalLink className="h-3.5 w-3.5" /></a>}
@@ -145,7 +145,9 @@ export const TournamentDetail: React.FC = () => {
 
                 {tab === 'News' && <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">{(tournament.news || []).map((item) => <button key={item.id} onClick={() => navigate(`/news/${item.slug || item.id}`)} className="overflow-hidden border border-dark-800 bg-dark-900 text-left hover:border-brand-500/50">{item.image && <img src={item.image} alt="" className="aspect-video w-full object-cover" />}<div className="p-4"><span className="text-[10px] font-bold uppercase text-brand-400">{item.timeAgo}</span><h3 className="mt-2 font-bold text-white">{item.headline}</h3></div></button>)}</div>}
 
-                {tournament.attribution && <p className="mt-8 text-xs text-gray-600">Dados por <a href={tournament.attribution.url} target="_blank" rel="noreferrer" className="text-gray-400">{tournament.attribution.provider}</a>, {tournament.attribution.license}.</p>}
+                {tournament.attribution?.provider === 'PandaScore'
+                    ? <p className="mt-8 text-xs text-gray-600">Source: <a href={tournament.attribution.url} target="_blank" rel="noreferrer" className="text-gray-400">PandaScore</a></p>
+                    : tournament.attribution && <p className="mt-8 text-xs text-gray-600">Dados por <a href={tournament.attribution.url} target="_blank" rel="noreferrer" className="text-gray-400">{tournament.attribution.provider}</a>, {tournament.attribution.license}.</p>}
             </main>
         </div>
     );

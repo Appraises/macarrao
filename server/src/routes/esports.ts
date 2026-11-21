@@ -2,55 +2,148 @@ import { ContentStatus, MatchStatus, NewsStatus, Prisma } from '@prisma/client';
 import { Router } from 'express';
 import { prisma } from '../lib/prisma';
 import { authenticateToken, AuthRequest } from '../middleware/auth';
-import { esportsAttribution, publicMatchInclude, toPublicMatch } from '../services/esports/dto';
+import { currentLiveMatchWhere, esportsAttribution, pandaScoreAttribution, publicMatchInclude, toPublicMatch } from '../services/esports/dto';
 import { brazilFocusDescription } from '../services/esports/focus';
-import { isLiquipediaConfigured } from '../services/esports/sync';
+import { configuredEsportsProviders, isEsportsFeedConfigured } from '../services/esports/sync';
+import { esportsGameCatalogQuery, esportsGameScope, isEsportsGameSlug } from '../services/esports/gameScope';
 import { sanitizeNewsRecord } from '../utils/news';
 
 const router = Router();
+// The synced feeds are already curated (top tiers plus Brazilian coverage),
+// so everything published is public; ?focus=br narrows to Brazilian matches.
 const publishedMatchWhere = (focus: unknown): Prisma.EsportsMatchWhereInput => ({
     publicationStatus: ContentStatus.PUBLISHED,
-    ...(focus === 'all' ? {} : { isBrazilFocused: true }),
+    ...(focus === 'br' ? { isBrazilFocused: true } : {}),
 });
 const publishedTournamentWhere = (focus: unknown): Prisma.TournamentWhereInput => ({
     publicationStatus: ContentStatus.PUBLISHED,
-    ...(focus === 'all' ? {} : { isBrazilFocused: true }),
+    ...(focus === 'br' ? { isBrazilFocused: true } : {}),
 });
 
-const toNews = <T extends { content?: string | null; publishedAt: Date | null; createdAt: Date }>(item: T) => {
+const publicNewsInclude = {
+    tournament: {
+        select: {
+            game: true,
+            gameRecord: { select: { name: true } },
+        },
+    },
+} satisfies Prisma.NewsInclude;
+
+const publicTournamentGame = { gameRecord: { select: { id: true, name: true, slug: true, image: true } } } satisfies Prisma.TournamentInclude;
+
+type NewsGameContext = {
+    headline?: string;
+    category?: string;
+    content?: string | null;
+    tournament?: { game: string; gameRecord?: { name: string } | null } | null;
+};
+
+const NEWS_GAME_PATTERNS: Array<[RegExp, string]> = [
+    [/counter[ -]?strike|\bcs2\b|cs:go|\bcsgo\b/i, 'Counter-Strike 2'],
+    [/\bvalorant\b|\bvct\b/i, 'Valorant'],
+    [/league of legends|\blol\b|\bcblol\b|\blta south\b/i, 'League of Legends'],
+    [/\bdota(?: 2)?\b/i, 'Dota 2'],
+    [/rainbow six|\bsiege\b|\br6\b/i, 'Rainbow Six Siege'],
+    [/rocket league/i, 'Rocket League'],
+    [/free ?fire/i, 'Free Fire'],
+    [/overwatch/i, 'Overwatch'],
+    [/\bpok[eé]mon unite\b/i, 'Pokémon UNITE'],
+    [/\bfortnite\b/i, 'Fortnite'],
+];
+
+const inferNewsGame = (item: NewsGameContext): string | null => {
+    const linkedGame = item.tournament?.gameRecord?.name || item.tournament?.game;
+    if (linkedGame) return linkedGame;
+    const searchable = `${item.headline || ''} ${item.category || ''} ${item.content || ''}`;
+    return NEWS_GAME_PATTERNS.find(([pattern]) => pattern.test(searchable))?.[1] || null;
+};
+
+const toNews = <T extends NewsGameContext & { publishedAt: Date | null; createdAt: Date }>(item: T) => {
     const hours = Math.max(0, Math.floor((Date.now() - (item.publishedAt || item.createdAt).getTime()) / 3_600_000));
+    const sanitized = sanitizeNewsRecord(item);
+    const { tournament: _tournament, ...publicItem } = sanitized;
     return {
-        ...sanitizeNewsRecord(item),
+        ...publicItem,
+        game: inferNewsGame(item),
         timeAgo: hours < 1 ? 'Agora' : hours < 24 ? `${hours}h atras` : `${Math.floor(hours / 24)}d atras`,
     };
 };
 
+const newsForOverview = async (now: Date, scope?: ReturnType<typeof esportsGameScope>) => {
+    const where = {
+        status: NewsStatus.PUBLISHED,
+        publishedAt: { lte: now },
+        category: { equals: 'E-Sports', mode: 'insensitive' as const },
+    };
+    const orderBy = [{ publishedAt: 'desc' as const }, { id: 'asc' as const }];
+    const scopedWhere: Prisma.NewsWhereInput = scope ? {
+        ...where,
+        OR: [
+            { tournament: { is: scope.where } },
+            ...(scope.hints.length ? [{ tournamentId: null, OR: scope.hints.flatMap((hint) => {
+                const contains = { contains: hint, mode: 'insensitive' as const };
+                return [{ headline: contains }, { category: contains }, { content: contains }];
+            }) }] : []),
+        ],
+    } : where;
+    const list = (options: { take: number; cursor?: { id: string }; skip?: number }) =>
+        prisma.news.findMany({ where: scopedWhere, orderBy, include: publicNewsInclude, ...options });
+    if (!scope) {
+        const news = await list({ take: 8 });
+        return news.length ? news : prisma.news.findMany({
+            where: { status: NewsStatus.PUBLISHED, publishedAt: { lte: now } },
+            orderBy, include: publicNewsInclude, take: 8,
+        });
+    }
+
+    // Older articles can be unlinked. Use the same classification as the response,
+    // and stop as soon as there are enough stories for the selected game.
+    const matches: Awaited<ReturnType<typeof list>> = [];
+    let cursor: { id: string } | undefined;
+    while (matches.length < 8) {
+        const batch = await list({ take: 40, ...(cursor ? { cursor, skip: 1 } : {}) });
+        matches.push(...batch.filter((item) => scope.matchesName(inferNewsGame(item))));
+        if (batch.length < 40) break;
+        cursor = { id: batch[batch.length - 1].id };
+    }
+    return matches.slice(0, 8);
+};
+
 router.get('/overview', async (req, res) => {
+    const { game } = req.query;
+    if (game !== undefined && !isEsportsGameSlug(game)) {
+        return res.status(400).json({ error: 'O filtro de jogo deve ser um slug valido.' });
+    }
     try {
-        const matchWhere = publishedMatchWhere(req.query.focus);
-        const tournamentWhere = publishedTournamentWhere(req.query.focus);
+        const scope = typeof game === 'string' ? esportsGameScope(game, await prisma.game.findMany(esportsGameCatalogQuery)) : undefined;
+        const gameWhere = scope ? { AND: [scope.where] } : {};
+        const matchWhere = { ...publishedMatchWhere(req.query.focus), ...gameWhere };
+        const tournamentWhere = { ...publishedTournamentWhere(req.query.focus), ...gameWhere };
         const now = new Date();
-        const [live, upcoming, results, tournaments, rankings, news, latestSync] = await Promise.all([
-            prisma.esportsMatch.findMany({ where: { ...matchWhere, status: MatchStatus.LIVE }, include: publicMatchInclude, orderBy: { scheduledAt: 'asc' }, take: 12 }),
+        const [live, upcoming, results, tournaments, pastTournaments, rankings, news, latestSync] = await Promise.all([
+            prisma.esportsMatch.findMany({ where: { ...matchWhere, ...currentLiveMatchWhere(now) }, include: publicMatchInclude, orderBy: { scheduledAt: 'asc' }, take: 12 }),
             prisma.esportsMatch.findMany({ where: { ...matchWhere, status: MatchStatus.SCHEDULED, scheduledAt: { gte: now } }, include: publicMatchInclude, orderBy: { scheduledAt: 'asc' }, take: 16 }),
             prisma.esportsMatch.findMany({ where: { ...matchWhere, status: MatchStatus.FINISHED }, include: publicMatchInclude, orderBy: [{ scheduledAt: 'desc' }, { updatedAt: 'desc' }], take: 12 }),
-            prisma.tournament.findMany({ where: { ...tournamentWhere, OR: [{ endAt: null }, { endAt: { gte: now } }] }, orderBy: [{ startAt: 'asc' }, { name: 'asc' }], take: 12 }),
-            prisma.teamRanking.findMany({ where: { teamRecord: { isBrazilian: true, status: ContentStatus.PUBLISHED } }, include: { teamRecord: true, gameRecord: true }, orderBy: [{ game: 'asc' }, { rank: 'asc' }], take: 20 }),
-            prisma.news.findMany({ where: { status: NewsStatus.PUBLISHED, publishedAt: { lte: now }, category: { equals: 'E-Sports', mode: 'insensitive' } }, orderBy: { publishedAt: 'desc' }, take: 8 }),
+            prisma.tournament.findMany({ where: { ...tournamentWhere, status: { not: 'Finished' }, OR: [{ endAt: null }, { endAt: { gte: now } }] }, include: publicTournamentGame, orderBy: [{ startAt: 'asc' }, { name: 'asc' }], take: 12 }),
+            prisma.tournament.findMany({ where: { ...tournamentWhere, status: 'Finished' }, include: publicTournamentGame, orderBy: [{ endAt: { sort: 'desc', nulls: 'last' } }, { id: 'asc' }], take: 5 }),
+            prisma.teamRanking.findMany({ where: { teamRecord: { isBrazilian: true, status: ContentStatus.PUBLISHED }, ...gameWhere }, include: { teamRecord: true, gameRecord: true }, orderBy: [{ game: 'asc' }, { rank: 'asc' }], take: 20 }),
+            newsForOverview(now, scope),
             prisma.esportsSyncRun.findFirst({ orderBy: { startedAt: 'desc' } }),
         ]);
-        // A faixa "Live News" prioriza noticias de e-sports, mas nao deve ficar vazia:
-        // sem noticia da categoria, cai para as ultimas publicadas em geral.
-        const tickerNews = news.length
-            ? news
-            : await prisma.news.findMany({ where: { status: NewsStatus.PUBLISHED, publishedAt: { lte: now } }, orderBy: { publishedAt: 'desc' }, take: 8 });
         res.json({
-            matches: [...live, ...upcoming].map(toPublicMatch),
-            results: results.map(toPublicMatch),
+            matches: [...live, ...upcoming].map((match) => toPublicMatch(match, now)),
+            results: results.map((match) => toPublicMatch(match, now)),
             tournaments,
+            pastTournaments,
             rankings: rankings.map((item) => ({ id: item.id, rank: item.rank, team: item.teamRecord || { id: item.teamId, name: item.teamName, country: item.teamCountry, logo: null }, points: item.points, trend: item.trend, game: item.gameRecord || { id: item.gameId, name: item.game, slug: null } })),
-            news: tickerNews.map(toNews),
-            source: { attribution: esportsAttribution, configured: isLiquipediaConfigured(), focus: brazilFocusDescription(), latestSync },
+            news: news.map(toNews),
+            source: {
+                attribution: configuredEsportsProviders().includes('Liquipedia') ? esportsAttribution : null,
+                providers: configuredEsportsProviders(),
+                configured: isEsportsFeedConfigured(),
+                focus: brazilFocusDescription(),
+                latestSync,
+            },
         });
     } catch (error) {
         console.error('[esports] overview:', error);
@@ -95,9 +188,11 @@ router.get('/tournaments/:idOrSlug', async (req, res) => {
             teams: tournament.teams.map((item) => item.team || { id: item.teamId, name: item.name, country: item.country, logo: null }),
             standings: tournament.standings.map((item) => ({ id: item.id, rank: item.rank, teamId: item.teamId, team: { id: item.teamId, name: item.teamName, country: item.teamCountry, logo: item.teamLogo }, played: item.played, wins: item.wins, losses: item.losses, points: item.points, diff: item.diff, streak: item.streak })),
             bracket: tournament.bracket.map((item) => ({ id: item.id, matchId: item.esportsMatchId, matchKey: item.matchKey, round: item.round, teamA: { id: item.teamAId, name: item.teamAName, score: item.teamAScore, isWinner: item.teamAWinner }, teamB: { id: item.teamBId, name: item.teamBName, score: item.teamBScore, isWinner: item.teamBWinner }, date: item.date, status: item.status })),
-            matches: tournament.matches.map(toPublicMatch),
-            news: tournament.news.map(toNews),
-            attribution: tournament.provider === 'LIQUIPEDIA' ? esportsAttribution : null,
+            matches: tournament.matches.map((match) => toPublicMatch(match)),
+            news: tournament.news.map((item) => toNews({ ...item, tournament: { game: tournament.game, gameRecord: tournament.gameRecord } })),
+            attribution: tournament.provider === 'LIQUIPEDIA'
+                ? esportsAttribution
+                : tournament.provider === 'PANDASCORE' ? pandaScoreAttribution : null,
         });
     } catch (error) {
         console.error('[esports] tournament detail:', error);
@@ -110,13 +205,15 @@ router.get('/matches', async (req, res) => {
         const where = publishedMatchWhere(req.query.focus);
         const filter = typeof req.query.filter === 'string' ? req.query.filter : '';
         const status = typeof req.query.status === 'string' ? req.query.status.toUpperCase() : '';
+        const now = new Date();
         if (filter === 'live') where.status = MatchStatus.LIVE;
         else if (filter === 'upcoming') where.status = MatchStatus.SCHEDULED;
         else if (Object.values(MatchStatus).includes(status as MatchStatus)) where.status = status as MatchStatus;
         if (typeof req.query.gameId === 'string' && req.query.gameId) where.gameId = req.query.gameId;
         if (typeof req.query.tournamentId === 'string' && req.query.tournamentId) where.tournamentId = req.query.tournamentId;
+        if (where.status === MatchStatus.LIVE) Object.assign(where, currentLiveMatchWhere(now));
         const matches = await prisma.esportsMatch.findMany({ where, include: publicMatchInclude, orderBy: [{ scheduledAt: 'asc' }, { id: 'asc' }], take: 100 });
-        res.json(matches.map(toPublicMatch));
+        res.json(matches.map((match) => toPublicMatch(match, now)));
     } catch (error) {
         console.error('[esports] matches:', error);
         res.status(500).json({ error: 'Falha ao carregar partidas.' });
@@ -141,7 +238,7 @@ router.get('/news', async (req, res) => {
     try {
         const where: Prisma.NewsWhereInput = { status: NewsStatus.PUBLISHED, publishedAt: { lte: new Date() }, category: { equals: 'E-Sports', mode: 'insensitive' } };
         if (typeof req.query.tournamentId === 'string' && req.query.tournamentId) where.tournamentId = req.query.tournamentId;
-        const news = await prisma.news.findMany({ where, orderBy: [{ publishedAt: 'desc' }, { id: 'asc' }], take: 30 });
+        const news = await prisma.news.findMany({ where, include: publicNewsInclude, orderBy: [{ publishedAt: 'desc' }, { id: 'asc' }], take: 30 });
         res.json(news.map(toNews));
     } catch (error) {
         console.error('[esports] news:', error);

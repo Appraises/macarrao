@@ -10,7 +10,8 @@ import { normalizeStaticOutputPaths } from './scripts/static-output';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Static, content-rich pages always included in the prerender + sitemap.
-const STATIC_ROUTES = ['/', '/dicionario', '/games', '/news', '/esports', '/termos', '/privacidade'];
+const STATIC_ROUTES = ['/', '/dicionario', '/jogos', '/news', '/esports', '/termos', '/privacidade'];
+const LEGACY_STATIC_ROUTES = ['/games'];
 
 type TermLite = { word: string; definition?: string; tags?: unknown };
 type NewsLite = {
@@ -218,9 +219,9 @@ export default defineConfig(({ mode }) => {
       // host's index.html fallback.
       includedRoutes: async () => {
         [terms, news] = await Promise.all([fetchTerms(apiUrl), fetchPublishedNews(apiUrl)]);
-        return [...STATIC_ROUTES, ...uniquePaths(terms), ...uniqueNewsPaths(news)];
+        return [...STATIC_ROUTES, ...LEGACY_STATIC_ROUTES, ...uniquePaths(terms), ...uniqueNewsPaths(news)];
       },
-      // `/games` -> dist/games/index.html, served reliably by any static host.
+      // Static hosts can serve the canonical `/jogos` route and legacy redirect.
       dirStyle: 'nested',
       // After rendering: emit the sitemap and per-term OG images.
       onFinished: async (dir) => {

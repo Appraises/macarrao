@@ -1,4 +1,5 @@
-import { Prisma } from '@prisma/client';
+import { EsportsProvider, MatchStatus, Prisma } from '@prisma/client';
+import { ESPORTS_SYNC_INTERVAL_MINUTES } from '../../utils/config';
 
 export const publicMatchInclude = {
     gameRecord: { select: { id: true, name: true, slug: true, image: true } },
@@ -9,7 +10,25 @@ export const publicMatchInclude = {
 
 export type PublicMatchRecord = Prisma.EsportsMatchGetPayload<{ include: typeof publicMatchInclude }>;
 
-export const toPublicMatch = (match: PublicMatchRecord) => ({
+const LIVE_FRESHNESS_MS = 2 * ESPORTS_SYNC_INTERVAL_MINUTES * 60_000;
+
+export const currentLiveMatchWhere = (now: Date): Prisma.EsportsMatchWhereInput => ({
+    status: MatchStatus.LIVE,
+    OR: [
+        { provider: EsportsProvider.MANUAL },
+        // Synced providers only stay live while their feed keeps refreshing.
+        { provider: { not: EsportsProvider.MANUAL }, lastSyncedAt: { gt: new Date(now.getTime() - LIVE_FRESHNESS_MS) } },
+    ],
+});
+
+const publicLiveStatus = (match: Pick<PublicMatchRecord, 'status' | 'provider' | 'lastSyncedAt'>, now: Date) => {
+    if (match.status !== MatchStatus.LIVE) return { isLive: false, liveStatusExpiresAt: null };
+    if (match.provider === EsportsProvider.MANUAL) return { isLive: true, liveStatusExpiresAt: null };
+    const expiresAt = match.lastSyncedAt && new Date(match.lastSyncedAt.getTime() + LIVE_FRESHNESS_MS);
+    return { isLive: expiresAt !== null && expiresAt > now, liveStatusExpiresAt: expiresAt?.toISOString() ?? null };
+};
+
+export const toPublicMatch = (match: PublicMatchRecord, now = new Date()) => ({
     id: match.id,
     externalId: match.externalId,
     provider: match.provider,
@@ -27,7 +46,7 @@ export const toPublicMatch = (match: PublicMatchRecord) => ({
     teamB: match.teamB || { id: match.teamBId, name: match.teamBName, country: match.teamBCountry, logo: match.teamBLogo },
     scheduledAt: match.scheduledAt?.toISOString() || null,
     status: match.status,
-    isLive: match.status === 'LIVE',
+    ...publicLiveStatus(match, now),
     bestOf: match.bestOf,
     scoreA: match.scoreA,
     scoreB: match.scoreB,
@@ -37,3 +56,4 @@ export const toPublicMatch = (match: PublicMatchRecord) => ({
 });
 
 export const esportsAttribution = { provider: 'Liquipedia', license: 'CC BY-SA 3.0', url: 'https://liquipedia.net/' };
+export const pandaScoreAttribution = { provider: 'PandaScore', license: 'Source: PandaScore', url: 'https://pandascore.co/' };

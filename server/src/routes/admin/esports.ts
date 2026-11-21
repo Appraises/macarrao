@@ -5,7 +5,7 @@ import { AuthRequest } from '../../middleware/auth';
 import { writeAuditLog } from '../../services/audit';
 import { rebuildTournamentDerivedData } from '../../services/esports/derived';
 import { emitEsportsUpdate } from '../../services/esports/realtime';
-import { isLiquipediaConfigured, syncEsports } from '../../services/esports/sync';
+import { configuredEsportsProviders, isEsportsFeedConfigured, syncEsports } from '../../services/esports/sync';
 import { MatchPayload, RankingPayload, validateMatchPayload, validatePlayerPayload, validateRankingPayload, validateTeamPayload } from '../../utils/esports';
 import { buildPaginationMeta, parsePagination } from '../../utils/pagination';
 
@@ -21,7 +21,7 @@ const rankingInclude = { gameRecord: { select: { id: true, name: true, slug: tru
 router.get('/sync', async (_req, res) => {
     try {
         const runs = await prisma.esportsSyncRun.findMany({ orderBy: { startedAt: 'desc' }, take: 20 });
-        res.json({ configured: isLiquipediaConfigured(), runs });
+        res.json({ configured: isEsportsFeedConfigured(), providers: configuredEsportsProviders(), runs });
     } catch {
         res.status(500).json({ error: 'Falha ao consultar as sincronizacoes.' });
     }
