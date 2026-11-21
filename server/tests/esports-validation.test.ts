@@ -43,6 +43,20 @@ describe('esports content validation', () => {
         expect(result.valid).toBe(false);
     });
 
+    it('accepts official HTTP(S) sources and refuses unsafe or credential-bearing links', () => {
+        const match = {
+            gameId, game: 'Valorant', competition: 'Copa', teamAId, teamAName: 'Alpha',
+            teamBId, teamBName: 'Beta', scheduledAt: '2026-11-06T12:00:00Z',
+        };
+        expect(validateMatchPayload(match)).toMatchObject({ valid: true });
+        expect(validateMatchPayload({ ...match, sourceUrl: ' https://valorantesports.com/pt-BR ' }))
+            .toMatchObject({ valid: true, data: { sourceUrl: 'https://valorantesports.com/pt-BR', scoreA: null, scoreB: null } });
+        expect(validateMatchPayload({ ...match, sourceUrl: '' })).toMatchObject({ valid: true, data: { sourceUrl: null } });
+        for (const sourceUrl of ['javascript:alert(1)', 'https://', 'https://admin:secret@example.com', 123]) {
+            expect(validateMatchPayload({ ...match, sourceUrl }).valid).toBe(false);
+        }
+    });
+
     it('validates ranking position, points and trend', () => {
         expect(validateRankingPayload({ gameId, teamId: teamAId, game: 'Valorant', teamName: 'Alpha', teamCountry: 'br', rank: 1, points: 100, trend: 'up' }).valid).toBe(true);
         expect(validateRankingPayload({ gameId, teamId: teamAId, rank: 0, points: -1, trend: 'sideways' }).valid).toBe(false);

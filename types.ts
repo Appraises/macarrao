@@ -134,6 +134,8 @@ export interface Match {
   sourceUrl?: string | null;
   gameId?: string | null;
   game: string;
+  gameImage?: string | null;
+  gameSlug?: string | null;
   tournamentId?: string | null;
   tournamentSlug?: string | null;
   competition: string;
@@ -147,6 +149,7 @@ export interface Match {
   date: string;
   scheduledAt?: string | null;
   isLive?: boolean;
+  liveStatusExpiresAt?: string | null;
   scoreA?: number | null;
   scoreB?: number | null;
   bestOf?: number | null;
@@ -166,6 +169,8 @@ export interface Tournament {
   gameId?: string | null;
   name: string;
   game: string;
+  gameImage?: string | null;
+  gameSlug?: string | null;
   logo?: string; // URL or placeholder
   status: 'Live' | 'Upcoming' | 'Playoffs' | 'Group Stage' | 'Finished';
   dates: string;
@@ -196,11 +201,20 @@ export interface StandingRow {
 
 export interface BracketMatch {
   id: string;
+  matchId?: string | null;
+  matchKey?: string;
   round: string; // e.g. "Quarterfinals", "Semifinals", "Lower Final", "Grand Final"
-  teamA: { name: string; score: number | null; isWinner?: boolean };
-  teamB: { name: string; score: number | null; isWinner?: boolean };
+  teamA: { id?: string | null; name: string; logo?: string | null; score: number | null; isWinner?: boolean };
+  teamB: BracketMatch['teamA'];
   date?: string;
   status?: 'Scheduled' | 'Live' | 'Finished' | string;
+}
+
+export interface TournamentPrizeDistribution {
+  currency: string;
+  total: number;
+  sourceUrl: string;
+  rows: { from: number; to: number; amountPerTeam: number }[];
 }
 
 export interface TournamentDetail extends Tournament {
@@ -210,6 +224,7 @@ export interface TournamentDetail extends Tournament {
   format: string; // e.g. "Double Elimination", "Bo3"
   teams: Team[];
   standings?: StandingRow[];
+  prizeDistribution?: TournamentPrizeDistribution;
   bracket?: BracketMatch[];
   matches?: Match[];
   news?: EsportsNews[];
@@ -627,7 +642,7 @@ export interface AppNotification {
   updatedAt: string;
 }
 
-export type AnalyticsProvider = 'PLAUSIBLE' | 'SEARCH_CONSOLE' | 'SENTRY' | 'CRUX' | 'PAGESPEED';
+export type AnalyticsProvider = 'INTERNAL' | 'SEARCH_CONSOLE' | 'SENTRY' | 'CRUX' | 'PAGESPEED';
 export type AnalyticsProviderState = 'READY' | 'STALE' | 'NOT_CONFIGURED' | 'ERROR';
 
 export interface MetricValue {
@@ -838,6 +853,7 @@ export interface News {
   image?: string;
   content?: string;
   author?: string;
+  commentsCount?: number;
   authorProfile?: {
     key: 'games' | 'industry' | 'rumors' | 'esports';
     name: string;
@@ -866,6 +882,8 @@ export interface EsportsNews {
   timeAgo: string;
   image?: string;
   author?: string;
+  game?: string | null;
+  tournamentId?: string | null;
 }
 
 export interface TeamRanking {
@@ -875,6 +893,8 @@ export interface TeamRanking {
   points: number;
   trend: 'up' | 'down' | 'stable';
   game: string;
+  gameImage?: string | null;
+  gameSlug?: string | null;
 }
 
 export type MatchAdminStatus = 'SCHEDULED' | 'LIVE' | 'FINISHED' | 'CANCELED';
@@ -978,6 +998,7 @@ export interface TournamentAdmin extends Tournament {
 
 export interface EsportsMatchAdmin {
   id: string;
+  sourceUrl?: string | null;
   gameId: string;
   tournamentId?: string | null;
   game: string;

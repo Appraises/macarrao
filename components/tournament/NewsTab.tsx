@@ -49,7 +49,7 @@ export const NewsTab: React.FC<{ news: EsportsNews[] }> = ({ news }) => {
             {news.map((item) => (
                 <Link
                     key={item.id}
-                    to={`/news/${item.slug || item.id}`}
+                    to={`/noticias/${item.slug || item.id}`}
                     className="group overflow-hidden rounded-lg border border-dark-800 bg-dark-900 transition-all hover:border-brand-500/50"
                 >
                     <div className="relative h-40 overflow-hidden bg-dark-950">

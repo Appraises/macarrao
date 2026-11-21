@@ -158,7 +158,7 @@ export const validatePlayerPayload = (input: unknown): ValidationResult<PlayerPa
     return { valid: true, data: { teamId: teamId || null, name, nickname, slug, country: text(body.country, 8).toLowerCase() || 'xx', role: text(body.role, 50) || null, photo: photo || null, status, archivedAt: status === ContentStatus.ARCHIVED ? new Date() : null } };
 };
 
-export interface MatchPayload { gameId: string; tournamentId: string | null; game: string; competition: string; stage: string | null; round: string | null; region: string; isBrazilFocused: boolean; teamAId: string; teamAName: string; teamACountry: string; teamALogo: string | null; teamBId: string; teamBName: string; teamBCountry: string; teamBLogo: string | null; scheduledAt: Date; bestOf: number | null; streamUrl: string | null; vodUrl: string | null; status: MatchStatus; publicationStatus: ContentStatus; archivedAt: Date | null; time: string; date: string; isLive: boolean; scoreA: number | null; scoreB: number | null; oddsA: number | null; oddsB: number | null }
+export interface MatchPayload { gameId: string; tournamentId: string | null; game: string; competition: string; stage: string | null; round: string | null; region: string; isBrazilFocused: boolean; teamAId: string; teamAName: string; teamACountry: string; teamALogo: string | null; teamBId: string; teamBName: string; teamBCountry: string; teamBLogo: string | null; scheduledAt: Date; bestOf: number | null; streamUrl: string | null; vodUrl: string | null; sourceUrl?: string | null; status: MatchStatus; publicationStatus: ContentStatus; archivedAt: Date | null; time: string; date: string; isLive: boolean; scoreA: number | null; scoreB: number | null; oddsA: number | null; oddsB: number | null }
 export const validateMatchPayload = (input: unknown): ValidationResult<MatchPayload> => {
     if (!input || typeof input !== 'object') return { valid: false, error: 'Dados da partida invalidos.' };
     const body = input as Record<string, unknown>; const gameId = text(body.gameId, 40); const tournamentId = text(body.tournamentId, 40); const teamAId = text(body.teamAId, 40); const teamBId = text(body.teamBId, 40); const scheduledAt = parseOptionalDate(body.scheduledAt); const status = (typeof body.status === 'string' ? body.status : MatchStatus.SCHEDULED) as MatchStatus; const publicationStatus = (typeof body.publicationStatus === 'string' ? body.publicationStatus : ContentStatus.DRAFT) as ContentStatus;
@@ -173,9 +173,21 @@ export const validateMatchPayload = (input: unknown): ValidationResult<MatchPayl
     if ((teamALogo && !isAllowedMediaUrl(teamALogo)) || (teamBLogo && !isAllowedMediaUrl(teamBLogo))) return { valid: false, error: 'O logo de uma das equipes e invalido.' };
     const streamUrl = optionalMedia(body.streamUrl); const vodUrl = optionalMedia(body.vodUrl); const bestOf = body.bestOf === null || body.bestOf === '' || body.bestOf === undefined ? null : integer(body.bestOf, -1);
     if ((streamUrl && !isAllowedMediaUrl(streamUrl)) || (vodUrl && !isAllowedMediaUrl(vodUrl))) return { valid: false, error: 'A URL da transmissao ou do VOD e invalida.' };
+    const source = optionalMedia(body.sourceUrl);
+    if (body.sourceUrl != null && (typeof body.sourceUrl !== 'string' || source.length > 2048 || (source && !/^https?:\/\//i.test(source)))) {
+        return { valid: false, error: 'A URL da fonte da partida e invalida.' };
+    }
+    if (source) {
+        try {
+            const url = new URL(source);
+            if (url.username || url.password) return { valid: false, error: 'A URL da fonte nao pode conter credenciais.' };
+        } catch {
+            return { valid: false, error: 'A URL da fonte da partida e invalida.' };
+        }
+    }
     if (bestOf !== null && (bestOf < 1 || bestOf > 15 || bestOf % 2 === 0)) return { valid: false, error: 'O formato deve ser uma melhor de numero impar entre 1 e 15.' };
     const displayDate = scheduledAt.toISOString().slice(0, 10); const displayTime = status === MatchStatus.LIVE ? 'Live' : status === MatchStatus.FINISHED ? 'Completed' : scheduledAt.toISOString().slice(11, 16);
-    return { valid: true, data: { gameId, tournamentId: tournamentId || null, game: text(body.game, 100), competition: text(body.competition, 140), stage: text(body.stage, 100) || null, round: text(body.round, 100) || null, region: text(body.region, 30).toUpperCase() || 'BR', isBrazilFocused: body.isBrazilFocused !== false, teamAId, teamAName: text(body.teamAName, 100), teamACountry: text(body.teamACountry, 8).toLowerCase() || 'xx', teamALogo: teamALogo || null, teamBId, teamBName: text(body.teamBName, 100), teamBCountry: text(body.teamBCountry, 8).toLowerCase() || 'xx', teamBLogo: teamBLogo || null, scheduledAt, bestOf, streamUrl: streamUrl || null, vodUrl: vodUrl || null, status, publicationStatus, archivedAt: publicationStatus === ContentStatus.ARCHIVED ? new Date() : null, time: displayTime, date: displayDate, isLive: status === MatchStatus.LIVE, scoreA, scoreB, oddsA: typeof body.oddsA === 'number' ? body.oddsA : null, oddsB: typeof body.oddsB === 'number' ? body.oddsB : null } };
+    return { valid: true, data: { gameId, tournamentId: tournamentId || null, game: text(body.game, 100), competition: text(body.competition, 140), stage: text(body.stage, 100) || null, round: text(body.round, 100) || null, region: text(body.region, 30).toUpperCase() || 'BR', isBrazilFocused: body.isBrazilFocused !== false, teamAId, teamAName: text(body.teamAName, 100), teamACountry: text(body.teamACountry, 8).toLowerCase() || 'xx', teamALogo: teamALogo || null, teamBId, teamBName: text(body.teamBName, 100), teamBCountry: text(body.teamBCountry, 8).toLowerCase() || 'xx', teamBLogo: teamBLogo || null, scheduledAt, bestOf, streamUrl: streamUrl || null, vodUrl: vodUrl || null, ...(body.sourceUrl !== undefined ? { sourceUrl: source || null } : {}), status, publicationStatus, archivedAt: publicationStatus === ContentStatus.ARCHIVED ? new Date() : null, time: displayTime, date: displayDate, isLive: status === MatchStatus.LIVE, scoreA, scoreB, oddsA: typeof body.oddsA === 'number' ? body.oddsA : null, oddsB: typeof body.oddsB === 'number' ? body.oddsB : null } };
 };
 
 export interface RankingPayload { gameId: string; teamId: string; game: string; teamName: string; teamCountry: string; rank: number; points: number; trend: string }

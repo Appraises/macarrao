@@ -1,10 +1,11 @@
-import { MatchStatus } from '@prisma/client';
+import { EsportsProvider, MatchStatus } from '@prisma/client';
 import {
     LIQUIPEDIA_API_BASE,
     LIQUIPEDIA_API_KEY,
     LIQUIPEDIA_USER_AGENT,
     ESPORTS_SYNC_WIKIS,
 } from '../../utils/config';
+import { isBrazilFocusedMatch } from './focus';
 import { EsportsProviderClient, ProviderMatch, ProviderSnapshot, ProviderTeam } from './provider';
 
 type JsonRecord = Record<string, any>;
@@ -33,6 +34,7 @@ const asText = (...values: unknown[]): string => {
     return '';
 };
 const asNumber = (value: unknown): number | null => {
+    if (typeof value !== 'number' && (typeof value !== 'string' || !value.trim())) return null;
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : null;
 };
@@ -83,17 +85,15 @@ const parseDate = (value: unknown): Date | null => {
     return Number.isNaN(parsed.getTime()) ? null : parsed;
 };
 
-const mapStatus = (row: JsonRecord, scheduledAt: Date): MatchStatus => {
+const mapStatus = (row: JsonRecord): MatchStatus => {
     const status = asText(row.status).toLowerCase();
-    if (status.includes('cancel')) return MatchStatus.CANCELED;
-    if (status.includes('live') || status.includes('ongoing')) return MatchStatus.LIVE;
-    if (row.finished === true || row.finished === 1 || row.finished === '1' || status.includes('finish')) return MatchStatus.FINISHED;
-    const elapsed = Date.now() - scheduledAt.getTime();
-    if (elapsed >= 0 && elapsed <= 8 * 60 * 60 * 1000) return MatchStatus.LIVE;
+    if (status.includes('cancel') || status === 'notplayed') return MatchStatus.CANCELED;
+    if (row.finished === true || row.finished === 1 || row.finished === '1' || status === 'finished') return MatchStatus.FINISHED;
+    if (status === 'live' || status === 'ongoing' || status === 'running') return MatchStatus.LIVE;
     return MatchStatus.SCHEDULED;
 };
 
-const mapMatch = (wiki: string, row: JsonRecord): ProviderMatch | null => {
+export const mapLiquipediaMatch = (wiki: string, row: JsonRecord): ProviderMatch | null => {
     const scheduledAt = parseDate(row.date);
     const opponents = asArray(row.match2opponents);
     if (!scheduledAt || opponents.length < 2) return null;
@@ -105,7 +105,7 @@ const mapMatch = (wiki: string, row: JsonRecord): ProviderMatch | null => {
 
     const teamA = mapTeam(wiki, opponents[0], 'TBD');
     const teamB = mapTeam(wiki, opponents[1], 'TBD');
-    const status = mapStatus(row, scheduledAt);
+    const status = mapStatus(row);
     const bracket = asObject(row.match2bracketdata);
     const matchSource = `https://liquipedia.net/${wiki}/Match:${encodeURIComponent(externalMatchId)}`;
     const tournamentSource = `https://liquipedia.net/${wiki}/${parent.replace(/ /g, '_')}`;
@@ -113,6 +113,7 @@ const mapMatch = (wiki: string, row: JsonRecord): ProviderMatch | null => {
     return {
         externalId: `${wiki}:${externalMatchId}`,
         gameWiki: wiki,
+        gameAliases: aliasesForLiquipediaWiki(wiki),
         tournament: {
             externalId: `${wiki}:${parent}`,
             gameWiki: wiki,
@@ -166,11 +167,20 @@ const fetchWiki = async (wiki: string): Promise<{ fetched: number; matches: Prov
     const payload = await response.json() as JsonRecord;
     if (payload.error) throw new Error(`Liquipedia ${wiki}: ${asText(payload.error.message, payload.error) || 'erro desconhecido'}`);
     const rows = Array.isArray(payload.result) ? payload.result : [];
-    return { fetched: rows.length, matches: rows.map((row) => mapMatch(wiki, row)).filter(Boolean) as ProviderMatch[] };
+    return { fetched: rows.length, matches: rows.map((row) => mapLiquipediaMatch(wiki, row)).filter((item): item is ProviderMatch => item !== null) };
 };
 
 export class LiquipediaProvider implements EsportsProviderClient {
+    readonly key = EsportsProvider.LIQUIPEDIA;
+    readonly label = 'Liquipedia';
+    readonly slugPrefix = 'liquipedia';
+    readonly games = ESPORTS_SYNC_WIKIS;
     readonly configured = Boolean(LIQUIPEDIA_API_KEY);
+
+    // The Liquipedia feed is Brazil-only coverage.
+    accepts(match: ProviderMatch) {
+        return isBrazilFocusedMatch(match);
+    }
 
     async fetchSnapshot(): Promise<ProviderSnapshot> {
         if (!this.configured) return { fetched: 0, matches: [] };

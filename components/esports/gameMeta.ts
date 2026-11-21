@@ -23,6 +23,37 @@ export const gameLabel = (name?: string | null): string => {
 // A stable, human key for grouping/filtering (short label works well and dedupes CS2/CS:GO etc).
 export const gameKey = (name?: string | null): string => gameLabel(name);
 
+export const gameSlug = (label: string): string =>
+    label.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+const GAME_COVERS: Record<string, string> = {
+    CS2: '/esports/games/cs2-cover.webp',
+    Valorant: '/esports/games/valorant-cover.jpg',
+    LoL: '/esports/games/lol-cover.webp',
+    'Dota 2': '/esports/games/dota2-cover.webp',
+};
+
+export const gameCover = (name?: string | null, image?: string | null): string | null => {
+    const label = gameLabel(name);
+    return GAME_COVERS[label] || image || null;
+};
+
+const GAME_LOGOS: Record<string, string> = {
+    CS2: '/esports/games/cs2.svg',
+    Valorant: '/esports/games/valorant.svg',
+    LoL: '/esports/games/lol.svg',
+    'Dota 2': '/esports/games/dota2.svg',
+    Fortnite: '/esports/games/fortnite.svg',
+};
+
+export const gameLogo = (name?: string | null): string | null => GAME_LOGOS[gameLabel(name)] || null;
+
+export const officialSchedules = [
+    { key: 'cs2', label: 'CS2', url: 'https://blast.tv/cs/tournaments' },
+    { key: 'valorant', label: 'Valorant', url: 'https://valorantesports.com/pt-BR/leagues/vct_americas%2Cgame_changers_series_brazil' },
+    { key: 'lol', label: 'LoL', url: 'https://lolesports.com/pt-BR' },
+] as const;
+
 // Per-game accent (brand-neutral, semantic-free). Falls back to the site brand color.
 type Accent = { text: string; bg: string; border: string; dot: string };
 const ACCENTS: Record<string, Accent> = {

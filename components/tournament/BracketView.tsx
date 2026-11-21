@@ -1,5 +1,7 @@
 import React, { useLayoutEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { BracketMatch } from '../../types';
+import { TeamCrest } from './TeamCrest';
 
 /**
  * Deterministic bracket layout engine + readonly bracket view.
@@ -17,6 +19,12 @@ import { BracketMatch } from '../../types';
 
 const CONNECT_W = 48; // px between round columns (where connectors live)
 const TITLE_H = 28;   // px reserved for the round title row
+const ROUND_LABELS: Record<string, string> = {
+    quarterfinals: 'Quartas de final', quarterfinal: 'Quartas de final',
+    semifinals: 'Semifinais', semifinal: 'Semifinais',
+    'grand final': 'Grande final', final: 'Final',
+};
+const roundLabel = (name: string) => ROUND_LABELS[name.trim().toLowerCase()] || name;
 
 // ---------------------------------------------------------------------------
 // Generic grid (also used by the Pick'em tab)
@@ -46,7 +54,7 @@ export function BracketGrid<T>({ rounds, renderMatch, baseSlot = 136 }: BracketG
                     <React.Fragment key={`${name}-${idx}`}>
                         <div className="flex flex-col">
                             <span style={{ height: TITLE_H }} className="text-[10px] uppercase font-bold text-gray-500 tracking-widest pl-1">
-                                {name}
+                                {roundLabel(name)}
                             </span>
                             <div style={{ height: H }} className="flex flex-col">
                                 {matches.map((m, i) => (
@@ -220,7 +228,7 @@ export function DoubleElimBracket<T>({ upperRounds, lowerRounds, renderMatch, ba
                     <div data-bsec="upper">
                         {hasLower && (
                             <span className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-4">
-                                Upper Bracket
+                                Chave superior
                             </span>
                         )}
                         <BracketGrid rounds={restUpper} renderMatch={renderMatch} baseSlot={baseSlot} />
@@ -229,7 +237,7 @@ export function DoubleElimBracket<T>({ upperRounds, lowerRounds, renderMatch, ba
                 {hasLower && (
                     <div data-bsec="lower" className="pt-8 border-t border-dark-800">
                         <span className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-4">
-                            Lower Bracket
+                            Chave inferior
                         </span>
                         <BracketGrid rounds={lowerRounds} renderMatch={renderMatch} baseSlot={baseSlot} />
                     </div>
@@ -238,7 +246,7 @@ export function DoubleElimBracket<T>({ upperRounds, lowerRounds, renderMatch, ba
             {finalRound && (
                 <div data-bsec="final" className="flex flex-col" style={{ marginLeft: CONNECT_W }}>
                     <span style={{ height: TITLE_H }} className="text-[10px] uppercase font-bold text-gray-500 tracking-widest pl-1">
-                        {finalRound[0]}
+                        {roundLabel(finalRound[0])}
                     </span>
                     <div className="flex-1 flex flex-col justify-center" data-blast="1">
                         {renderMatch(finalRound[1][0])}
@@ -295,19 +303,16 @@ const TeamRow: React.FC<{
     team: BracketMatch['teamA'];
     finished: boolean;
 }> = ({ team, finished }) => {
-    const isTbd = !team.name || team.name === 'TBD';
+    const pending = !team.name || /^(?:tbd$|a definir$|vencedor)/i.test(team.name);
+    const name = !team.name || team.name === 'TBD' ? 'A definir' : team.name;
     const won = !!team.isWinner;
-    const lost = finished && !won && !isTbd;
+    const lost = finished && !won && !pending;
     return (
         <div className={`flex justify-between items-center gap-2 px-3 h-9 ${won ? 'bg-brand-500/10' : ''}`}>
             <div className="flex items-center gap-2 min-w-0">
-                <div className="w-5 h-5 rounded-sm bg-dark-950 border border-dark-700 flex items-center justify-center flex-shrink-0">
-                    <span className={`text-[8px] font-black ${isTbd ? 'text-gray-600' : 'text-gray-400'}`}>
-                        {isTbd ? '–' : team.name.slice(0, 2).toUpperCase()}
-                    </span>
-                </div>
-                <span className={`text-xs font-bold truncate ${won ? 'text-white' : lost ? 'text-gray-500' : isTbd ? 'text-gray-600' : 'text-gray-300'}`}>
-                    {isTbd ? 'TBD' : team.name}
+                <TeamCrest logo={team.logo} pending={pending} />
+                <span title={name} className={`text-xs ${pending ? 'font-medium text-gray-400' : `truncate font-bold ${won ? 'text-white' : lost ? 'text-gray-400' : 'text-gray-300'}`}`}>
+                    {name}
                 </span>
             </div>
             <span className={`text-xs font-mono font-bold flex-shrink-0 ${won ? 'text-brand-400' : 'text-gray-500'}`}>
@@ -317,11 +322,14 @@ const TeamRow: React.FC<{
     );
 };
 
+const bracketTime = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
+
 const MatchCard: React.FC<{ match: BracketMatch }> = ({ match }) => {
     const finished = match.status === 'Finished';
     const live = match.status === 'Live';
-    return (
-        <div className={`bg-dark-950 border rounded w-56 overflow-hidden ${live ? 'border-red-500/50 shadow-[0_0_12px_rgba(239,68,68,0.15)]' : 'border-dark-700'}`}>
+    const date = Date.parse(match.date || '');
+    const card = (
+        <div className={`w-56 overflow-hidden rounded-md border bg-dark-950 ${live ? 'border-red-500/50' : 'border-dark-700'}`}>
             <div className="divide-y divide-dark-800">
                 <TeamRow team={match.teamA} finished={finished} />
                 <TeamRow team={match.teamB} finished={finished} />
@@ -332,24 +340,25 @@ const MatchCard: React.FC<{ match: BracketMatch }> = ({ match }) => {
                         <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span> Ao vivo
                     </span>
                 ) : (
-                    <span className="text-[9px] font-bold text-gray-600 uppercase tracking-wider">
+                    <span className="text-[10px] font-bold text-gray-400">
                         {finished ? 'Encerrado' : 'Agendado'}
                     </span>
                 )}
-                {match.date && <span className="text-[9px] text-gray-600 font-mono">{match.date}</span>}
+                {match.date && <time dateTime={Number.isFinite(date) ? new Date(date).toISOString() : undefined} className="font-mono text-[10px] text-gray-400">{Number.isFinite(date) ? bracketTime.format(date) : match.date}</time>}
             </div>
         </div>
     );
+    return match.matchId ? <Link to={`/esports/match/${match.matchId}`} className="block rounded-md hover:ring-1 hover:ring-brand-400 focus-visible:outline-brand-400">{card}</Link> : card;
 };
 
 export const BracketView: React.FC<BracketViewProps> = ({ bracket }) => {
     if (!bracket || bracket.length === 0) return null;
 
-    const upper = bracket.filter((m) => !isLowerRound(m.round, m.id));
-    const lower = bracket.filter((m) => isLowerRound(m.round, m.id));
+    const upper = bracket.filter((m) => !isLowerRound(m.round, m.matchKey));
+    const lower = bracket.filter((m) => isLowerRound(m.round, m.matchKey));
 
     return (
-        <div className="bg-dark-900 border border-dark-800 p-6 rounded-lg overflow-x-auto">
+        <div role="region" aria-label="Rodadas do chaveamento" tabIndex={0} className="overflow-x-auto rounded-md border border-dark-800 bg-dark-900 p-3 focus-visible:outline-brand-400 sm:p-5">
             <DoubleElimBracket
                 upperRounds={groupRounds(upper)}
                 lowerRounds={groupRounds(lower)}

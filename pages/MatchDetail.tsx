@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { esportsService } from '../services/esportsService';
+import { esportsService, isCurrentLiveMatch } from '../services/esportsService';
 import { Match } from '../types';
-import { ArrowLeft, Calendar, Trophy, Monitor, Clock, Swords } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, Calendar, Trophy, Monitor, Clock, Swords } from 'lucide-react';
 import { Button, Badge } from '../components/UI';
 
 export const MatchDetail: React.FC = () => {
@@ -10,20 +10,30 @@ export const MatchDetail: React.FC = () => {
     const navigate = useNavigate();
     const [match, setMatch] = useState<Match | null>(null);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(false);
+    const [now, setNow] = useState(Date.now);
 
     useEffect(() => {
+        let active = true;
+        setMatch(null);
         const fetchMatch = async (showLoading = false) => {
             if (!id) return;
+            setNow(Date.now());
             if (showLoading) setLoading(true);
             try {
-                setMatch(await esportsService.getMatchDetails(id));
+                const result = await esportsService.getMatchDetails(id);
+                if (!active) return;
+                setMatch(result);
+                setError(false);
+            } catch {
+                if (active) setError(true);
             } finally {
-                if (showLoading) setLoading(false);
+                if (active && showLoading) setLoading(false);
             }
         };
         void fetchMatch(true);
         const timer = window.setInterval(() => void fetchMatch(), 20_000);
-        return () => window.clearInterval(timer);
+        return () => { active = false; window.clearInterval(timer); };
     }, [id]);
 
     if (loading) {
@@ -40,14 +50,23 @@ export const MatchDetail: React.FC = () => {
     if (!match) {
         return (
             <div className="min-h-screen bg-dark-950 flex flex-col items-center justify-center gap-6">
-                <h2 className="text-2xl font-bold text-white">Partida não encontrada</h2>
+                <h2 className="text-2xl font-bold text-white">{error ? 'Partida indisponível no momento' : 'Partida não encontrada'}</h2>
                 <Button onClick={() => navigate('/esports')}>Voltar para E-Sports</Button>
             </div>
         );
     }
 
-    const isLive = match.status === 'LIVE';
-    const hasScore = isLive || match.status === 'FINISHED';
+    const isLive = isCurrentLiveMatch(match, now);
+    const unconfirmedLive = match.status === 'LIVE' && !isLive;
+    const showScoreboard = match.status === 'LIVE' || match.status === 'FINISHED';
+    const hasScore = match.scoreA != null && match.scoreB != null;
+    const sourceUrl = (() => {
+        if (!match.sourceUrl) return null;
+        try {
+            const url = new URL(match.sourceUrl);
+            return ['https:', 'http:'].includes(url.protocol) && !url.username && !url.password ? url.href : null;
+        } catch { return null; }
+    })();
     const embedUrl = (() => {
         if (!match.streamUrl) return null;
         try {
@@ -68,11 +87,11 @@ export const MatchDetail: React.FC = () => {
     return (
         <div className="min-h-screen bg-dark-950 text-gray-100 font-sans pb-20">
             {/* Header / Banner */}
-            <div className="relative h-64 md:h-80 overflow-hidden">
+            <div className="relative overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-b from-brand-900/20 to-dark-950 z-10"></div>
                 <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80')] bg-cover bg-center opacity-10"></div>
 
-                <div className="relative z-20 max-w-7xl mx-auto px-4 h-full flex flex-col justify-center">
+                <div className="relative z-20 mx-auto flex min-h-64 max-w-7xl flex-col justify-center px-4 py-6 md:min-h-80">
                     <Button
                         variant="ghost"
                         onClick={() => navigate('/esports')}
@@ -96,15 +115,15 @@ export const MatchDetail: React.FC = () => {
 
                         {/* Score / VS */}
                         <div className="flex flex-col items-center justify-center min-w-[200px]">
-                            {hasScore ? (
+                            {showScoreboard ? (
                                 <div className="flex flex-col items-center gap-2">
-                                    <Badge color="brand" className={isLive ? 'animate-pulse' : ''}>{isLive ? 'AO VIVO' : 'ENCERRADA'}</Badge>
-                                    <div className="text-5xl md:text-7xl font-mono font-black text-white flex items-center gap-4 drop-shadow-[0_0_20px_rgba(59,130,246,0.5)]">
+                                    <Badge color="brand" className={isLive ? 'animate-pulse' : ''}>{isLive ? 'AO VIVO' : unconfirmedLive ? 'STATUS NÃO CONFIRMADO' : 'ENCERRADA'}</Badge>
+                                    {hasScore && <div className="text-5xl md:text-7xl font-mono font-black text-white flex items-center gap-4 drop-shadow-[0_0_20px_rgba(59,130,246,0.5)]">
                                         <span className="text-brand-500">{match.scoreA}</span>
                                         <span className="text-gray-700 text-3xl">:</span>
                                         <span className="text-brand-500">{match.scoreB}</span>
-                                    </div>
-                                    <span className={`font-bold text-sm uppercase tracking-widest ${isLive ? 'text-green-400 animate-pulse' : 'text-gray-500'}`}>{isLive ? 'Em andamento' : 'Resultado final'}</span>
+                                    </div>}
+                                    <span className="text-center text-sm font-semibold text-slate-400">{!hasScore ? 'Placar indisponível' : unconfirmedLive || error ? 'Último placar registrado' : isLive ? 'Em andamento' : 'Resultado final'}</span>
                                 </div>
                             ) : (
                                 <div className="flex flex-col items-center gap-2">
@@ -208,6 +227,9 @@ export const MatchDetail: React.FC = () => {
                         <Button className="w-full mt-6" variant="outline" disabled={!match.tournamentId} onClick={() => match.tournamentSlug || match.tournamentId ? navigate(`/esports/tournament/${match.tournamentSlug || match.tournamentId}`) : undefined}>
                             Ver Chaveamento Completo
                         </Button>
+                        {sourceUrl && <a href={sourceUrl} target="_blank" rel="noreferrer" className="mt-3 inline-flex min-h-9 items-center gap-1.5 text-sm font-semibold text-brand-300 hover:underline">
+                            Fonte da partida <ArrowUpRight size={15} aria-hidden="true" />
+                        </a>}
                     </div>
                 </div>
 

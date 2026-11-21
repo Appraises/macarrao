@@ -1,5 +1,5 @@
-// Dev-only demo data: seeds a few "E-Sports" news so the Esports page ticker
-// ("Live News") has content. The ticker on /esports prioritizes this category
+// Dev-only demo data: seeds a few "E-Sports" news so the Esports page carousel
+// has content. The carousel on /esports prioritizes this category
 // and only falls back to general news when none exist. Idempotent.
 // Run:    node scripts/seed-demo-esports-news.mjs
 // Remove: node scripts/seed-demo-esports-news.mjs --remove

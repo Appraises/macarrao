@@ -5,6 +5,7 @@
 // Run:    node scripts/seed-demo-esports.mjs
 // Remove: node scripts/seed-demo-esports.mjs --remove
 import { PrismaClient } from '@prisma/client';
+import { teamLogoByKey } from './esports-team-logos.mjs';
 
 const prisma = new PrismaClient();
 const MARK = 'demo-esports-';
@@ -84,8 +85,8 @@ async function seed() {
         const slug = `${MARK}${team.key}`;
         const row = await prisma.esportsTeam.upsert({
             where: { slug },
-            update: { name: team.name, country: team.country, isBrazilian: team.br, status: 'PUBLISHED' },
-            create: { slug, name: team.name, country: team.country, isBrazilian: team.br, status: 'PUBLISHED' },
+            update: { name: team.name, country: team.country, isBrazilian: team.br, logo: teamLogoByKey(team.key), status: 'PUBLISHED' },
+            create: { slug, name: team.name, country: team.country, isBrazilian: team.br, logo: teamLogoByKey(team.key), status: 'PUBLISHED' },
         });
         teamId[team.key] = row.id;
     }
@@ -116,8 +117,8 @@ async function seed() {
                 provider: 'MANUAL', externalId,
                 game: m.game, gameId: gameId(m.game),
                 competition: m.comp, isBrazilFocused: true, publicationStatus: 'PUBLISHED', region: 'AMERICAS',
-                teamAId: teamId[m.a], teamAName: teamA.name, teamACountry: teamA.country,
-                teamBId: teamId[m.b], teamBName: teamB.name, teamBCountry: teamB.country,
+                teamAId: teamId[m.a], teamAName: teamA.name, teamACountry: teamA.country, teamALogo: teamLogoByKey(m.a),
+                teamBId: teamId[m.b], teamBName: teamB.name, teamBCountry: teamB.country, teamBLogo: teamLogoByKey(m.b),
                 status: m.status, isLive: m.status === 'LIVE',
                 scoreA: m.sa ?? null, scoreB: m.sb ?? null, bestOf: m.bo ?? null,
                 streamUrl: m.stream ?? null, scheduledAt,

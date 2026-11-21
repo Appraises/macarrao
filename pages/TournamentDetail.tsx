@@ -96,7 +96,7 @@ export const TournamentDetail: React.FC = () => {
             </header>
 
             <main className="mx-auto max-w-[1400px] px-5 py-8">
-                {tab === 'Overview' && <OverviewTab tournament={tournament} />}
+                {tab === 'Overview' && <OverviewTab tournament={tournament} onShowMatches={() => setTab('Matches')} />}
                 {tab === 'Matches' && <MatchesTab matches={tournament.matches || []} />}
                 {tab === 'Stats' && <StatsTab tournamentGame={tournament.game} tournamentId={tournament.id} />}
                 {tab === 'News' && <NewsTab news={tournament.news || []} />}
@@ -143,7 +143,7 @@ export const TournamentDetail: React.FC = () => {
                     </div>
                 )}
 
-                {tab === 'News' && <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">{(tournament.news || []).map((item) => <button key={item.id} onClick={() => navigate(`/news/${item.slug || item.id}`)} className="overflow-hidden border border-dark-800 bg-dark-900 text-left hover:border-brand-500/50">{item.image && <img src={item.image} alt="" className="aspect-video w-full object-cover" />}<div className="p-4"><span className="text-[10px] font-bold uppercase text-brand-400">{item.timeAgo}</span><h3 className="mt-2 font-bold text-white">{item.headline}</h3></div></button>)}</div>}
+                {tab === 'News' && <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">{(tournament.news || []).map((item) => <button key={item.id} onClick={() => navigate(`/noticias/${item.slug || item.id}`)} className="overflow-hidden border border-dark-800 bg-dark-900 text-left hover:border-brand-500/50">{item.image && <img src={item.image} alt="" className="aspect-video w-full object-cover" />}<div className="p-4"><span className="text-[10px] font-bold uppercase text-brand-400">{item.timeAgo}</span><h3 className="mt-2 font-bold text-white">{item.headline}</h3></div></button>)}</div>}
 
                 {tournament.attribution && <p className="mt-8 text-xs text-gray-600">Dados por <a href={tournament.attribution.url} target="_blank" rel="noreferrer" className="text-gray-400">{tournament.attribution.provider}</a>, {tournament.attribution.license}.</p>}
             </main>

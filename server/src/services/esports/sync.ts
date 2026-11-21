@@ -1,108 +1,112 @@
 import { createHash } from 'crypto';
 import { ContentStatus, EsportsProvider, EsportsSyncRun, EsportsSyncStatus, MatchStatus } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
-import { ESPORTS_SYNC_INTERVAL_MINUTES, ESPORTS_SYNC_WIKIS } from '../../utils/config';
+import { ESPORTS_SYNC_INTERVAL_MINUTES } from '../../utils/config';
 import { slugify } from '../../utils/content';
 import { rebuildTournamentDerivedData } from './derived';
 import { isBrazilFocusedMatch, isBrazilianCountry } from './focus';
-import { aliasesForLiquipediaWiki, LiquipediaProvider } from './liquipedia';
-import { ProviderMatch, ProviderTeam } from './provider';
+import { LiquipediaProvider } from './liquipedia';
+import { PandaScoreProvider } from './pandascore';
+import { EsportsProviderClient, ProviderMatch, ProviderTeam } from './provider';
 import { emitEsportsUpdate } from './realtime';
 
-const provider = new LiquipediaProvider();
+// PandaScore first: it carries the international S/A tier feed; Liquipedia
+// adds deeper Brazilian coverage when its key is configured.
+const providers: EsportsProviderClient[] = [new PandaScoreProvider(), new LiquipediaProvider()];
 let activeSync: Promise<EsportsSyncRun> | null = null;
 const shortHash = (value: string) => createHash('sha1').update(value).digest('hex').slice(0, 10);
 const statusLabel = (status: MatchStatus) => status === MatchStatus.LIVE ? 'Live' : status === MatchStatus.FINISHED ? 'Finished' : 'Upcoming';
+const bracketPrefix = (client: EsportsProviderClient) => client.key === EsportsProvider.LIQUIPEDIA ? 'lp' : client.slugPrefix;
 
-const findGame = (wiki: string) => {
-    const aliases = aliasesForLiquipediaWiki(wiki);
-    return prisma.game.findFirst({
-        where: {
+const findGame = (aliases: string[]) => prisma.game.findFirst({
+    where: {
+        status: ContentStatus.PUBLISHED,
+        OR: [{ slug: { in: aliases } }, ...aliases.map((name) => ({ name: { equals: name, mode: 'insensitive' as const } }))],
+    },
+    select: { id: true, name: true, slug: true },
+});
+
+const upsertTeam = async (client: EsportsProviderClient, team: ProviderTeam) => {
+    const key = { provider: client.key, externalId: team.externalId };
+    const current = await prisma.esportsTeam.findUnique({
+        where: { provider_externalId: key },
+        select: { logo: true },
+    });
+    // Curated local crests (public/esports/teams) win over provider logos.
+    const logo = current?.logo?.startsWith('/esports/teams/') ? current.logo : team.logo;
+
+    return prisma.esportsTeam.upsert({
+        where: { provider_externalId: key },
+        create: {
+            provider: client.key,
+            externalId: team.externalId,
+            sourceUrl: team.sourceUrl,
+            name: team.name,
+            slug: `${client.slugPrefix}-${slugify(team.name) || 'team'}-${shortHash(team.externalId)}`,
+            country: team.country || 'xx',
+            isBrazilian: isBrazilianCountry(team.country),
+            logo,
             status: ContentStatus.PUBLISHED,
-            OR: [{ slug: { in: aliases } }, ...aliases.map((name) => ({ name: { equals: name, mode: 'insensitive' as const } }))],
         },
-        select: { id: true, name: true, slug: true },
+        update: {
+            sourceUrl: team.sourceUrl,
+            name: team.name,
+            country: team.country || 'xx',
+            isBrazilian: isBrazilianCountry(team.country),
+            logo,
+            status: ContentStatus.PUBLISHED,
+            archivedAt: null,
+        },
     });
 };
 
-const upsertTeam = (team: ProviderTeam) => prisma.esportsTeam.upsert({
-    where: { provider_externalId: { provider: EsportsProvider.LIQUIPEDIA, externalId: team.externalId } },
-    create: {
-        provider: EsportsProvider.LIQUIPEDIA,
-        externalId: team.externalId,
-        sourceUrl: team.sourceUrl,
-        name: team.name,
-        slug: `liquipedia-${slugify(team.name) || 'team'}-${shortHash(team.externalId)}`,
-        country: team.country || 'xx',
-        isBrazilian: isBrazilianCountry(team.country),
-        logo: team.logo,
-        status: ContentStatus.PUBLISHED,
-    },
-    update: {
-        sourceUrl: team.sourceUrl,
-        name: team.name,
-        country: team.country || 'xx',
-        isBrazilian: isBrazilianCountry(team.country),
-        logo: team.logo,
-        status: ContentStatus.PUBLISHED,
-        archivedAt: null,
-    },
-});
-
-const upsertMatch = async (match: ProviderMatch) => {
-    const game = await findGame(match.gameWiki);
+const upsertMatch = async (client: EsportsProviderClient, match: ProviderMatch) => {
+    const game = await findGame(match.gameAliases);
     if (!game) return null;
-    const [teamA, teamB] = await Promise.all([upsertTeam(match.teamA), upsertTeam(match.teamB)]);
+    const brazilFocused = isBrazilFocusedMatch(match);
+    const [teamA, teamB] = await Promise.all([upsertTeam(client, match.teamA), upsertTeam(client, match.teamB)]);
     const now = new Date();
+    const tournamentKey = { provider: client.key, externalId: match.tournament.externalId };
     const previous = await prisma.tournament.findUnique({
-        where: { provider_externalId: { provider: EsportsProvider.LIQUIPEDIA, externalId: match.tournament.externalId } },
-        select: { startAt: true, endAt: true },
+        where: { provider_externalId: tournamentKey },
+        select: { startAt: true, endAt: true, isBrazilFocused: true },
     });
-    const startAt = !previous?.startAt || match.scheduledAt < previous.startAt ? match.scheduledAt : previous.startAt;
-    const endAt = !previous?.endAt || match.scheduledAt > previous.endAt ? match.scheduledAt : previous.endAt;
+    const startAt = match.tournament.startAt
+        ?? (!previous?.startAt || match.scheduledAt < previous.startAt ? match.scheduledAt : previous.startAt);
+    const endAt = match.tournament.endAt
+        ?? (!previous?.endAt || match.scheduledAt > previous.endAt ? match.scheduledAt : previous.endAt);
+    // One Brazilian match is enough to mark the event as Brazilian coverage.
+    const tournamentBrazilian = brazilFocused || Boolean(previous?.isBrazilFocused);
+    const region = tournamentBrazilian ? 'BR' : match.tournament.region || 'GLOBAL';
+    const shared = {
+        sourceUrl: match.tournament.sourceUrl || null,
+        name: match.tournament.name,
+        gameId: game.id,
+        game: game.name,
+        region,
+        country: tournamentBrazilian ? 'br' : 'xx',
+        isBrazilFocused: tournamentBrazilian,
+        logo: match.tournament.logo,
+        image: match.tournament.logo,
+        status: statusLabel(match.status),
+        dates: `${startAt.toISOString().slice(0, 10)} - ${endAt.toISOString().slice(0, 10)}`,
+        startAt,
+        endAt,
+        publicationStatus: ContentStatus.PUBLISHED,
+        location: match.tournament.location,
+        lastSyncedAt: now,
+        ...(match.tournament.prizePool ? { prizePool: match.tournament.prizePool } : {}),
+    };
     const tournament = await prisma.tournament.upsert({
-        where: { provider_externalId: { provider: EsportsProvider.LIQUIPEDIA, externalId: match.tournament.externalId } },
+        where: { provider_externalId: tournamentKey },
         create: {
-            provider: EsportsProvider.LIQUIPEDIA,
+            provider: client.key,
             externalId: match.tournament.externalId,
-            sourceUrl: match.tournament.sourceUrl,
-            name: match.tournament.name,
-            slug: `liquipedia-${slugify(match.tournament.slugSeed) || shortHash(match.tournament.externalId)}`,
-            gameId: game.id,
-            game: game.name,
-            region: 'BR',
-            country: 'br',
-            isBrazilFocused: true,
-            logo: match.tournament.logo,
-            image: match.tournament.logo,
-            status: statusLabel(match.status),
-            dates: `${startAt.toISOString().slice(0, 10)} - ${endAt.toISOString().slice(0, 10)}`,
-            startAt,
-            endAt,
-            publicationStatus: ContentStatus.PUBLISHED,
-            location: match.tournament.location,
-            description: `Cobertura brasileira de ${match.tournament.name}.`,
-            lastSyncedAt: now,
+            slug: `${client.slugPrefix}-${slugify(match.tournament.slugSeed) || shortHash(match.tournament.externalId)}`,
+            description: tournamentBrazilian ? `Cobertura brasileira de ${match.tournament.name}.` : `Cobertura de ${match.tournament.name}.`,
+            ...shared,
         },
-        update: {
-            sourceUrl: match.tournament.sourceUrl,
-            name: match.tournament.name,
-            gameId: game.id,
-            game: game.name,
-            region: 'BR',
-            country: 'br',
-            isBrazilFocused: true,
-            logo: match.tournament.logo,
-            image: match.tournament.logo,
-            status: statusLabel(match.status),
-            dates: `${startAt.toISOString().slice(0, 10)} - ${endAt.toISOString().slice(0, 10)}`,
-            startAt,
-            endAt,
-            publicationStatus: ContentStatus.PUBLISHED,
-            archivedAt: null,
-            location: match.tournament.location,
-            lastSyncedAt: now,
-        },
+        update: { ...shared, archivedAt: null },
     });
     await prisma.tournamentTeam.createMany({
         data: [
@@ -113,15 +117,15 @@ const upsertMatch = async (match: ProviderMatch) => {
     });
 
     const data = {
-        sourceUrl: match.sourceUrl,
+        sourceUrl: match.sourceUrl || null,
         gameId: game.id,
         tournamentId: tournament.id,
         game: game.name,
         competition: tournament.name,
         stage: match.stage,
         round: match.round,
-        region: 'BR',
-        isBrazilFocused: true,
+        region: brazilFocused ? 'BR' : match.tournament.region || 'GLOBAL',
+        isBrazilFocused: brazilFocused,
         teamAId: teamA.id,
         teamAName: teamA.name,
         teamACountry: teamA.country,
@@ -145,8 +149,8 @@ const upsertMatch = async (match: ProviderMatch) => {
         lastSyncedAt: now,
     };
     const saved = await prisma.esportsMatch.upsert({
-        where: { provider_externalId: { provider: EsportsProvider.LIQUIPEDIA, externalId: match.externalId } },
-        create: { provider: EsportsProvider.LIQUIPEDIA, externalId: match.externalId, ...data },
+        where: { provider_externalId: { provider: client.key, externalId: match.externalId } },
+        create: { provider: client.key, externalId: match.externalId, ...data },
         update: data,
     });
 
@@ -167,7 +171,7 @@ const upsertMatch = async (match: ProviderMatch) => {
             date: match.scheduledAt.toISOString(),
             status: statusLabel(match.status),
         };
-        const matchKey = `lp-${shortHash(match.externalId)}`;
+        const matchKey = `${bracketPrefix(client)}-${shortHash(match.externalId)}`;
         await prisma.bracketMatch.upsert({
             where: { tournamentId_matchKey: { tournamentId: tournament.id, matchKey } },
             create: { tournamentId: tournament.id, matchKey, ...bracketData },
@@ -177,21 +181,16 @@ const upsertMatch = async (match: ProviderMatch) => {
     return { tournamentId: tournament.id };
 };
 
-const performSync = async () => {
-    const run = await prisma.esportsSyncRun.create({ data: { provider: EsportsProvider.LIQUIPEDIA, games: ESPORTS_SYNC_WIKIS } });
-    if (!provider.configured) return prisma.esportsSyncRun.update({
-        where: { id: run.id },
-        data: { status: EsportsSyncStatus.SKIPPED, error: 'LIQUIPEDIA_API_KEY nao configurada.', finishedAt: new Date() },
-    });
-
+const performSync = async (client: EsportsProviderClient) => {
+    const run = await prisma.esportsSyncRun.create({ data: { provider: client.key, games: client.games } });
     try {
-        const snapshot = await provider.fetchSnapshot();
-        const accepted = snapshot.matches.filter(isBrazilFocusedMatch);
+        const snapshot = await client.fetchSnapshot();
+        const accepted = snapshot.matches.filter((match) => client.accepts(match));
         const tournaments = new Set<string>();
         const teams = new Set<string>();
         let matchesUpserted = 0;
         for (const match of accepted) {
-            const saved = await upsertMatch(match);
+            const saved = await upsertMatch(client, match);
             if (!saved) continue;
             matchesUpserted += 1;
             tournaments.add(saved.tournamentId);
@@ -199,6 +198,7 @@ const performSync = async () => {
             teams.add(match.teamB.externalId);
         }
         for (const tournamentId of tournaments) await rebuildTournamentDerivedData(tournamentId);
+        const warnings = snapshot.warnings?.length ? snapshot.warnings.join(' | ').slice(0, 1000) : null;
         const result = await prisma.esportsSyncRun.update({
             where: { id: run.id },
             data: {
@@ -208,6 +208,7 @@ const performSync = async () => {
                 tournamentsUpserted: tournaments.size,
                 teamsUpserted: teams.size,
                 matchesUpserted,
+                error: warnings,
                 finishedAt: new Date(),
             },
         });
@@ -219,13 +220,37 @@ const performSync = async () => {
             where: { id: run.id },
             data: { status: EsportsSyncStatus.FAILED, error: message, finishedAt: new Date() },
         });
-        throw Object.assign(new Error(message), { syncRun: result });
+        throw Object.assign(new Error(`${client.label}: ${message}`), { syncRun: result });
     }
+};
+
+const syncAll = async (): Promise<EsportsSyncRun> => {
+    const configured = providers.filter((client) => client.configured);
+    if (!configured.length) {
+        const run = await prisma.esportsSyncRun.create({ data: { provider: providers[0].key, games: providers[0].games } });
+        return prisma.esportsSyncRun.update({
+            where: { id: run.id },
+            data: { status: EsportsSyncStatus.SKIPPED, error: 'Nenhum provedor configurado (PANDASCORE_TOKEN ou LIQUIPEDIA_API_KEY).', finishedAt: new Date() },
+        });
+    }
+    // Each provider gets its own run; one failing does not stop the others.
+    let lastRun: EsportsSyncRun | null = null;
+    let firstError: unknown = null;
+    for (const client of configured) {
+        try {
+            lastRun = await performSync(client);
+        } catch (error) {
+            firstError ??= error;
+        }
+    }
+    if (!lastRun) throw firstError;
+    if (firstError) console.error('[esports-sync]', firstError instanceof Error ? firstError.message : firstError);
+    return lastRun;
 };
 
 export const syncEsports = () => {
     if (activeSync) return activeSync;
-    activeSync = performSync().finally(() => { activeSync = null; });
+    activeSync = syncAll().finally(() => { activeSync = null; });
     return activeSync;
 };
 
@@ -236,4 +261,5 @@ export const startEsportsSyncScheduler = () => {
     startup.unref();
 };
 
-export const isLiquipediaConfigured = () => provider.configured;
+export const isEsportsFeedConfigured = () => providers.some((client) => client.configured);
+export const configuredEsportsProviders = () => providers.filter((client) => client.configured).map((client) => client.label);
