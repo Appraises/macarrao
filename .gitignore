@@ -28,3 +28,9 @@ server/uploads/
 *.njsproj
 *.sln
 *.sw?
+
+# Local scratch: release staging, screenshots, ad-hoc dumps and agent runs.
+/tmp/
+server/tmp/
+.codex-run/
+/api.json
