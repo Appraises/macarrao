@@ -15,15 +15,15 @@ O analytics deve responder, no mínimo:
 - Qual é a taxa de conversão entre visita, cadastro e contribuição.
 - Quais URLs inexistentes geram erros 404.
 
-Plausible foi escolhido por ser leve, não usar cookies analíticos ou identificadores persistentes e oferecer métricas de aquisição, conteúdo, conversão e retenção agregada.
+O analytics é first-party e roda no backend do Dicionário Gamer. Ele não depende de uma conta externa para coletar ou consultar as métricas.
 
 ## 2. Arquitetura implementada
 
-- O tracker oficial `@plausible-analytics/tracker` é inicializado uma vez no layout raiz.
+- O cliente envia pageviews e eventos permitidos para `POST /analytics/events`.
 - Pageviews de navegação React Router são capturados automaticamente.
-- O tracker só é iniciado quando `VITE_PLAUSIBLE_DOMAIN` está preenchido.
-- Localhost não é capturado por padrão.
-- O opt-out usa a chave reconhecida pelo tracker (`plausible_ignore`).
+- O servidor cria o cookie HTTP-only assinado `dg_viewer` e persiste apenas o HMAC do identificador.
+- O backend armazena eventos curtos, sem IP, conta, user agent bruto ou JSON livre.
+- O job local agrega os eventos no PostgreSQL e elimina os registros crus após o prazo configurado.
 - O controle fica disponível na Política de Privacidade e no rodapé.
 - Nome, email, nick, ID de usuário, comentários e textos de contribuição não são enviados.
 
@@ -41,7 +41,7 @@ Plausible foi escolhido por ser leve, não usar cookies analíticos ou identific
 | `Term Reported` | Denúncia registrada | motivo, termo público |
 | `404` | Página inexistente exibida | URL capturada pelo pageview |
 
-Os eventos devem ser cadastrados como Goals no painel do Plausible com os nomes exatamente iguais.
+Os eventos são armazenados como dimensões agregadas no PostgreSQL e podem ser consultados na aba Aquisição do painel.
 
 ## 4. Funis recomendados
 
@@ -50,7 +50,7 @@ Os eventos devem ser cadastrados como Goals no painel do Plausible com os nomes 
 3. `Account Created` -> `/contribuir` -> `Contribution Submitted`.
 4. Página `/term/*` -> `Term Vote` ou `Term Reported`.
 
-Conectar o Google Search Console ao Plausible para cruzar consultas orgânicas, páginas de entrada e posição no Google. O texto digitado na busca interna não deve ser enviado como propriedade livre.
+O Search Console continua sendo uma integração opcional separada. O texto digitado na busca interna não deve ser enviado como propriedade livre.
 
 ## 5. Configuração antes do lançamento
 
@@ -58,9 +58,6 @@ No ambiente de produção do frontend:
 
 ```env
 VITE_SITE_URL=https://seu-dominio.com.br
-VITE_PLAUSIBLE_DOMAIN=seu-dominio.com.br
-VITE_PLAUSIBLE_ENDPOINT=https://plausible.io/api/event
-VITE_PLAUSIBLE_CAPTURE_LOCALHOST=false
 VITE_LEGAL_CONTROLLER_NAME=Nome legal do responsável
 VITE_LEGAL_CONTACT_EMAIL=privacidade@seu-dominio.com.br
 ```
@@ -74,13 +71,12 @@ PRIVACY_VERSION=2026-07-13
 
 Depois:
 
-1. Criar o site no Plausible usando o domínio final.
-2. Fazer deploy com as variáveis acima.
-3. Usar o verificador de instalação do Plausible.
-4. Criar todos os Goals da tabela de eventos.
-5. Conectar o Search Console.
-6. Excluir acessos da equipe usando o opt-out do rodapé.
-7. Testar uma navegação real e confirmar pageviews, origem e eventos no painel em tempo real.
+1. Gerar um `ANALYTICS_HASH_SECRET` exclusivo no backend.
+2. Fazer deploy com `ANALYTICS_ENABLED=true`.
+3. Aplicar a migração do analytics local.
+4. Conectar o Search Console se necessário.
+5. Excluir acessos da equipe usando o opt-out do rodapé.
+6. Testar uma navegação real e confirmar pageviews, origem e eventos no painel.
 
 ## 6. Entregas legais
 
@@ -129,9 +125,10 @@ As variáveis de integração ficam somente no backend:
 
 ```env
 ANALYTICS_HASH_SECRET=segredo-exclusivo-e-aleatorio
+ANALYTICS_ENABLED=true
+ANALYTICS_EVENT_RETENTION_DAYS=60
+ANALYTICS_VISITOR_RETENTION_DAYS=400
 ANALYTICS_SYNC_ENABLED=true
-PLAUSIBLE_SITE_ID=seu-dominio.com.br
-PLAUSIBLE_STATS_API_KEY=
 GOOGLE_SEARCH_CONSOLE_SITE_URL=sc-domain:seu-dominio.com.br
 GOOGLE_SERVICE_ACCOUNT_JSON_BASE64=
 GOOGLE_PAGESPEED_API_KEY=
@@ -150,15 +147,13 @@ No frontend, `VITE_SENTRY_DSN` habilita a captura sem PII. `SENTRY_AUTH_TOKEN`, 
 
 Com `ANALYTICS_SYNC_ENABLED=true`, o backend executa no fuso `America/Sao_Paulo`:
 
-- Plausible a cada hora, reprocessando os últimos sete dias.
-- Sentry a cada 15 minutos.
+- Analytics interno a cada 15 minutos, reprocessando os últimos sete dias.
+- Sentry a cada 15 minutos, quando `ANALYTICS_SYNC_ENABLED=true`.
 - Search Console diariamente às 05:00, com inspeção limitada a 200 URLs.
 - CrUX e PageSpeed às segundas-feiras, às 06:00.
 - Remoção do texto de buscas com mais de 90 dias diariamente, às 04:00.
 
 Os jobs usam lock consultivo do PostgreSQL, upsert idempotente, timeout, retentativas exponenciais e histórico em `AnalyticsSyncRun`. Também podem ser iniciados pelo botão de sincronização, com cooldown de cinco minutos e auditoria administrativa.
-
-Cadastre no Plausible os goals `Visit Classified`, `Search Submitted`, `Search No Results`, `Search Result Click`, `Search Suggestion Selected`, `Term Opened`, `Term Shared`, `Account Created`, `Contribution Submitted`, `Bot Challenge Shown`, `Bot Challenge Passed`, `Bot Challenge Failed`, `Contribution Rate Limited` e `404`.
 
 Um provedor sem credenciais aparece como `NOT_CONFIGURED`; falhas externas não impedem as métricas internas e os últimos dados sincronizados continuam disponíveis.
 
@@ -166,4 +161,4 @@ Um provedor sem credenciais aparece como `NOT_CONFIGURED`; falhas externas não 
 
 A busca interna só é persistida quando a requisição contém `X-Analytics-Enabled: true`. O registro não contém IP, sessão nem usuário. A consulta é normalizada, protegida por HMAC e redigida quando contém email, telefone, URL, UUID, token ou mais de 80 caracteres.
 
-Consultas textuais só aparecem no painel quando atingem pelo menos três ocorrências no período. Após 90 dias, o texto é apagado e apenas o hash e os contadores agregados permanecem. O token que vincula uma busca à abertura de um termo é assinado, expira em 30 minutos e não é enviado ao Plausible.
+Consultas textuais só aparecem no painel quando atingem pelo menos três ocorrências no período. Após 90 dias, o texto é apagado e apenas o hash e os contadores agregados permanecem. O token que vincula uma busca à abertura de um termo é assinado, expira em 30 minutos e não é enviado ao analytics local.

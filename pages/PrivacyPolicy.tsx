@@ -65,7 +65,7 @@ export const PrivacyPolicy: React.FC = () => (
               <tr><td className="px-4 py-3 text-gray-200">Brick Breaker</td><td className="px-4 py-3">melhor pontuação, tijolos destruídos, nível, duração e sessões recentes de partida</td><td className="px-4 py-3">suas partidas autenticadas</td></tr>
               <tr><td className="px-4 py-3 text-gray-200">Preferências</td><td className="px-4 py-3">configurações de perfil, notificações e privacidade</td><td className="px-4 py-3">suas escolhas</td></tr>
               <tr><td className="px-4 py-3 text-gray-200">Newsletter</td><td className="px-4 py-3">email, consentimento, confirmação, descadastro, estado das entregas e cliques estimados</td><td className="px-4 py-3">sua inscrição e eventos técnicos do provedor</td></tr>
-              <tr><td className="px-4 py-3 text-gray-200">Uso agregado</td><td className="px-4 py-3">página, origem, campanha, navegador, dispositivo e região aproximada</td><td className="px-4 py-3">Plausible Analytics</td></tr>
+              <tr><td className="px-4 py-3 text-gray-200">Uso agregado</td><td className="px-4 py-3">página, origem, campanha, navegador e dispositivo</td><td className="px-4 py-3">analytics próprio do Dicionário Gamer</td></tr>
               <tr><td className="px-4 py-3 text-gray-200">Segurança</td><td className="px-4 py-3">IP em formato protegido por HMAC, horário, limites de uso, resultado anti-bot e falhas de acesso</td><td className="px-4 py-3">servidor, hospedagem e Cloudflare Turnstile</td></tr>
             </tbody>
           </table>
@@ -94,10 +94,9 @@ export const PrivacyPolicy: React.FC = () => (
 
       <LegalSection id="analytics" title="4. Analytics, cookies e armazenamento local">
         <p>
-          Utilizamos Plausible Analytics para entender se a estratégia de conteúdo e SEO está funcionando. A
-          ferramenta mede visualizações, fontes de tráfego, campanhas, país ou região aproximada, dispositivo e
-          eventos de conversão. O endereço IP é processado para gerar um identificador diário agregado, mas não é
-          armazenado pelo Plausible; não são usados cookies analíticos nem identificadores persistentes entre dias.
+          Utilizamos um sistema próprio de analytics para entender se a estratégia de conteúdo e SEO está funcionando.
+          Ele mede visualizações, fontes de tráfego, campanhas, dispositivo e eventos de conversão dentro da nossa
+          própria infraestrutura. Não armazenamos endereço IP, e-mail, conta ou user agent bruto para essa finalidade.
         </p>
         <p>
           Eventos do produto não incluem nome, email, texto livre de comentários, definição enviada ou ID da conta.
@@ -130,7 +129,7 @@ export const PrivacyPolicy: React.FC = () => (
         <ul className="list-disc pl-5 space-y-3 marker:text-brand-500">
           <li><strong className="text-white">hospedagem e banco de dados:</strong> infraestrutura que mantém a aplicação, backups e logs;</li>
           <li><strong className="text-white">Resend:</strong> envio de mensagens transacionais, confirmação da newsletter e entrega do Termo do Dia, incluindo eventos técnicos de entrega, falha, bounce, reclamação e supressão;</li>
-          <li><strong className="text-white">Plausible:</strong> métricas agregadas de audiência, com infraestrutura na União Europeia;</li>
+          <li><strong className="text-white">analytics próprio:</strong> métricas agregadas processadas na infraestrutura do Dicionário Gamer;</li>
           <li><strong className="text-white">Google Search Console, CrUX e PageSpeed:</strong> desempenho orgânico, indexação e qualidade técnica de páginas públicas;</li>
           <li><strong className="text-white">Sentry:</strong> diagnóstico de erros, desempenho e disponibilidade, configurado sem envio intencional de dados pessoais ou conteúdo de formulários;</li>
           <li><strong className="text-white">Cloudflare Turnstile:</strong> verificação anti-bot no cadastro e, conforme o risco, em contribuições; o token temporário e o endereço IP são enviados à Cloudflare para validação;</li>
@@ -154,7 +153,7 @@ export const PrivacyPolicy: React.FC = () => (
           <li>Solicitações de direitos, protocolos e registros administrativos mínimos podem ser conservados para comprovar o atendimento e o exercício regular de direitos; dados de contato e textos livres são minimizados após a anonimização.</li>
           <li>Logs técnicos são mantidos pelo período necessário para segurança, diagnóstico e cumprimento legal.</li>
           <li>Contadores antiabuso protegidos por HMAC expiram ao final de sua janela e são eliminados periodicamente; o horário da última verificação anti-bot permanece enquanto a conta estiver ativa.</li>
-          <li>Métricas agregadas permanecem no Plausible enquanto a conta analítica estiver ativa ou até sua exclusão pelo operador.</li>
+          <li>Eventos técnicos crus de analytics são eliminados após o período configurado; os rollups agregados podem permanecer para análise histórica.</li>
           <li>O texto sanitizado de consultas internas é eliminado após 90 dias; hashes e totais agregados podem permanecer para análise histórica sem identificação do visitante.</li>
           <li>Registros diários de atividade autenticada são incluídos na exportação e removidos quando a conta é anonimizada.</li>
           <li>O melhor resultado do Brick Breaker permanece enquanto a conta estiver ativa; sessões expiradas são eliminadas após sete dias e todos os dados do jogo são removidos na anonimização.</li>

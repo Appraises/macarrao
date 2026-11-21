@@ -1,8 +1,8 @@
 import { AnalyticsProvider, AnalyticsSyncStatus, AnalyticsSyncTrigger, Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
-import { ANALYTICS_SYNC_ENABLED } from '../../utils/config';
+import { ANALYTICS_ENABLED, ANALYTICS_SYNC_ENABLED } from '../../utils/config';
 import { redactExpiredSearchText } from './search';
-import { plausibleConfigured, syncPlausible } from './plausible';
+import { syncLocalAnalytics } from './local';
 import { searchConsoleConfigured, syncSearchConsole, syncUrlInspections } from './searchConsole';
 import { qualityConfigured, sentryConfigured, syncCrux, syncPageSpeed, syncSentry } from './quality';
 
@@ -11,14 +11,14 @@ const startOfUtcDate = (value: Date) => new Date(`${value.toISOString().slice(0,
 const daysAgo = (days: number) => startOfUtcDate(new Date(Date.now() - days * DAY));
 
 export const analyticsProviderConfigured = (provider: AnalyticsProvider) => {
-    if (provider === 'PLAUSIBLE') return plausibleConfigured();
+    if (provider === 'INTERNAL') return ANALYTICS_ENABLED;
     if (provider === 'SEARCH_CONSOLE') return searchConsoleConfigured();
     if (provider === 'SENTRY') return sentryConfigured();
     return qualityConfigured();
 };
 
 const providerRunner = async (provider: AnalyticsProvider) => {
-    if (provider === 'PLAUSIBLE') return syncPlausible(daysAgo(7), daysAgo(0));
+    if (provider === 'INTERNAL') return syncLocalAnalytics(daysAgo(7), daysAgo(0));
     if (provider === 'SEARCH_CONSOLE') {
         const metrics = await syncSearchConsole(daysAgo(9), daysAgo(2));
         const inspections = await syncUrlInspections();
@@ -78,13 +78,12 @@ const executeAnalyticsSync = async (provider: AnalyticsProvider, trigger: Analyt
     }
 };
 
-export const runAnalyticsSync = async (provider: AnalyticsProvider, trigger: AnalyticsSyncTrigger = 'SCHEDULED', actorId?: string) => prisma.$transaction(async (tx) => {
-    const [lock] = await tx.$queryRaw<Array<{ locked: boolean }>>(Prisma.sql`
-        SELECT pg_try_advisory_xact_lock(hashtext(${`dicionario-gamer:analytics:${provider}`})) AS locked
-    `);
-    if (!lock?.locked) return { skipped: true, reason: 'Ja existe uma sincronizacao em andamento.' };
-    return executeAnalyticsSync(provider, trigger, actorId);
-}, { maxWait: 5_000, timeout: 15 * 60 * 1000 });
+// Mutual exclusion comes from the partial unique index
+// "AnalyticsSyncRun_one_running_provider_key" (one RUNNING row per provider):
+// a concurrent run fails its insert with P2002 and is skipped. No transaction
+// is held open, so a sync never pins one of the API's pooled connections.
+export const runAnalyticsSync = async (provider: AnalyticsProvider, trigger: AnalyticsSyncTrigger = 'SCHEDULED', actorId?: string) =>
+    executeAnalyticsSync(provider, trigger, actorId);
 
 const scheduleState = new Map<string, string>();
 const timeParts = () => Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
@@ -102,10 +101,10 @@ const schedulerTick = () => {
     const day = `${parts.year}-${parts.month}-${parts.day}`;
     const hour = Number(parts.hour || 0);
     const quarter = `${day}-${parts.hour}-${Math.floor(new Date().getMinutes() / 15)}`;
-    runOnce('sentry', quarter, ['SENTRY']);
-    runOnce('plausible', `${day}-${parts.hour}`, ['PLAUSIBLE']);
-    if (hour === 5) runOnce('search-console', day, ['SEARCH_CONSOLE']);
-    if (hour === 6 && parts.weekday === 'Mon') runOnce('quality', day, ['CRUX', 'PAGESPEED']);
+    if (ANALYTICS_SYNC_ENABLED) runOnce('sentry', quarter, ['SENTRY']);
+    if (ANALYTICS_ENABLED) runOnce('internal', quarter, ['INTERNAL']);
+    if (ANALYTICS_SYNC_ENABLED && hour === 5) runOnce('search-console', day, ['SEARCH_CONSOLE']);
+    if (ANALYTICS_SYNC_ENABLED && hour === 6 && parts.weekday === 'Mon') runOnce('quality', day, ['CRUX', 'PAGESPEED']);
     if (hour === 4 && scheduleState.get('retention') !== day) {
         scheduleState.set('retention', day);
         void redactExpiredSearchText().catch((error) => console.error('[analytics] Search retention cleanup failed:', error));
@@ -113,8 +112,8 @@ const schedulerTick = () => {
 };
 
 export const startAnalyticsScheduler = () => {
-    if (!ANALYTICS_SYNC_ENABLED) {
-        console.info('[analytics] Scheduler disabled. Set ANALYTICS_SYNC_ENABLED=true to enable it.');
+    if (!ANALYTICS_ENABLED && !ANALYTICS_SYNC_ENABLED) {
+        console.info('[analytics] Scheduler disabled. Set ANALYTICS_ENABLED=true to enable local analytics.');
         return;
     }
     setTimeout(schedulerTick, 10_000);

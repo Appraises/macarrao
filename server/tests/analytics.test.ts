@@ -18,6 +18,7 @@ import {
     percentile,
     type OverviewAttentionInput,
 } from '../src/services/analytics/reporting';
+import { analyticsSessionHash, engagementBucket } from '../src/services/analytics/viewerIdentity';
 
 afterEach(() => vi.useRealTimers());
 
@@ -67,6 +68,17 @@ describe('analytics search privacy', () => {
     it('limits retained text even after redaction', () => {
         expect(sanitizeSearchQuery('x'.repeat(120))).toHaveLength(80);
         expect(sanitizeSearchQuery('550e8400-e29b-41d4-a716-446655440000')).toBe('[identificador]');
+    });
+});
+
+describe('first-party analytics identity', () => {
+    it('keeps sessions deterministic inside a bucket and opaque', () => {
+        const now = new Date('2026-10-01T12:14:00.000Z');
+        const hash = analyticsSessionHash('a'.repeat(64), now);
+        expect(hash).toBe(analyticsSessionHash('a'.repeat(64), new Date('2026-10-01T12:29:59.000Z')));
+        expect(hash).not.toContain('a'.repeat(20));
+        expect(hash).toHaveLength(64);
+        expect(engagementBucket(now, 30).toISOString()).toBe('2026-10-01T12:00:00.000Z');
     });
 });
 
@@ -179,7 +191,7 @@ describe('analytics decision overview', () => {
 
         const crowded = attentionInput();
         crowded.providers = [
-            { provider: 'PLAUSIBLE', state: 'ERROR' },
+            { provider: 'INTERNAL', state: 'ERROR' },
             { provider: 'SEARCH_CONSOLE', state: 'ERROR' },
             { provider: 'SENTRY', state: 'STALE' },
             { provider: 'CRUX', state: 'NOT_CONFIGURED' },

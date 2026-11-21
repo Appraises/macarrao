@@ -46,7 +46,8 @@ const MetricCard: React.FC<{ label: string; metric?: MetricValue; value?: string
 
 const ProviderStatus: React.FC<{ provider: ProviderFreshness }> = ({ provider }) => {
   const tone = provider.state === 'READY' ? 'text-emerald-400' : provider.state === 'STALE' ? 'text-amber-400' : provider.state === 'ERROR' ? 'text-rose-400' : 'text-gray-500';
-  const content = <><span className="h-1.5 w-1.5 rounded-full bg-current" />{provider.provider.replace('_', ' ')}{provider.dashboardUrl && <ExternalLink className="h-3 w-3" />}</>;
+  const label = provider.provider === 'INTERNAL' ? 'Analytics próprio' : provider.provider.replace('_', ' ');
+  const content = <><span className="h-1.5 w-1.5 rounded-full bg-current" />{label}{provider.dashboardUrl && <ExternalLink className="h-3 w-3" />}</>;
   return provider.dashboardUrl
     ? <a href={provider.dashboardUrl} target="_blank" rel="noreferrer" title={provider.message || `Abrir ${provider.provider}`} className={`inline-flex items-center gap-1.5 text-xs font-semibold hover:underline ${tone}`}>{content}</a>
     : <span title={provider.message || undefined} className={`inline-flex items-center gap-1.5 text-xs font-semibold ${tone}`}>{content}</span>;

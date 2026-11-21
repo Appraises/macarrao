@@ -1,6 +1,6 @@
 import { Prisma, SearchConsoleDimensionKind, TrafficDimensionKind } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
-import { GOOGLE_SEARCH_CONSOLE_SITE_URL, PLAUSIBLE_SITE_ID, SENTRY_ORG } from '../../utils/config';
+import { GOOGLE_SEARCH_CONSOLE_SITE_URL, SENTRY_ORG } from '../../utils/config';
 import { analyticsProviderConfigured } from './sync';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -41,8 +41,8 @@ export const percentile = (values: number[], percent: number) => {
 };
 
 export const analyticsStatus = async () => {
-    const providers = ['PLAUSIBLE', 'SEARCH_CONSOLE', 'SENTRY', 'CRUX', 'PAGESPEED'] as const;
-    const thresholds: Record<typeof providers[number], number> = { PLAUSIBLE: 2, SEARCH_CONSOLE: 48, SENTRY: 1, CRUX: 48, PAGESPEED: 24 * 8 };
+    const providers = ['INTERNAL', 'SEARCH_CONSOLE', 'SENTRY', 'CRUX', 'PAGESPEED'] as const;
+    const thresholds: Record<typeof providers[number], number> = { INTERNAL: 2, SEARCH_CONSOLE: 48, SENTRY: 1, CRUX: 48, PAGESPEED: 24 * 8 };
     return Promise.all(providers.map(async (provider) => {
         const configured = analyticsProviderConfigured(provider);
         const latest = await prisma.analyticsSyncRun.findFirst({ where: { provider }, orderBy: { startedAt: 'desc' } });
@@ -50,9 +50,7 @@ export const analyticsStatus = async () => {
         if (!configured) state = 'NOT_CONFIGURED';
         else if (latest?.status === 'FAILED') state = 'ERROR';
         else if (!latest?.finishedAt || Date.now() - latest.finishedAt.getTime() > thresholds[provider] * 60 * 60 * 1000) state = 'STALE';
-        const dashboardUrl = provider === 'PLAUSIBLE' && PLAUSIBLE_SITE_ID
-            ? `https://plausible.io/${encodeURIComponent(PLAUSIBLE_SITE_ID)}`
-            : provider === 'SEARCH_CONSOLE' && GOOGLE_SEARCH_CONSOLE_SITE_URL
+        const dashboardUrl = provider === 'SEARCH_CONSOLE' && GOOGLE_SEARCH_CONSOLE_SITE_URL
                 ? `https://search.google.com/search-console?resource_id=${encodeURIComponent(GOOGLE_SEARCH_CONSOLE_SITE_URL)}`
                 : provider === 'SENTRY' && SENTRY_ORG
                     ? `https://sentry.io/organizations/${encodeURIComponent(SENTRY_ORG)}/issues/`
@@ -91,7 +89,7 @@ export interface OverviewAttentionInput {
 const ATTENTION_ORDER: Record<OverviewAttentionSeverity, number> = { CRITICAL: 0, WARNING: 1, INFO: 2 };
 const providerTab = (provider: string): OverviewAttentionTab => provider === 'SEARCH_CONSOLE'
     ? 'seo'
-    : provider === 'PLAUSIBLE' ? 'traffic' : 'quality';
+    : provider === 'INTERNAL' ? 'traffic' : 'quality';
 
 export const buildOverviewAttention = (input: OverviewAttentionInput): OverviewAttentionAlert[] => {
     const alerts: Array<OverviewAttentionAlert & { priority: number }> = [];

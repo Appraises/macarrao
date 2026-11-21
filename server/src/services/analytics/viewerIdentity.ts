@@ -60,7 +60,7 @@ export const isLikelyAutomatedRequest = (req: Pick<Request, 'get'>) => {
     return !userAgent || AUTOMATION_PATTERN.test(userAgent);
 };
 
-export const hasClientEvent = (req: Pick<Request, 'get'>, event: 'term-view' | 'term-share') =>
+export const hasClientEvent = (req: Pick<Request, 'get'>, event: 'term-view' | 'term-share' | 'analytics') =>
     req.get('x-client-event') === event;
 
 export const resolveViewerHash = (req: Request, res: Response) => {
@@ -76,6 +76,11 @@ export const engagementBucket = (now = new Date(), minutes = 30) => {
     const bucketMs = minutes * 60 * 1000;
     return new Date(Math.floor(now.getTime() / bucketMs) * bucketMs);
 };
+
+// Sessions are short-lived HMAC projections of the anonymous visitor hash.
+// The session value is never sent to the browser or stored with an account.
+export const analyticsSessionHash = (viewerHash: string, now = new Date()) =>
+    hmac('analytics-session', `${viewerHash}:${engagementBucket(now, 30).toISOString()}`);
 
 type FrequencyEntry = { startedAt: number; count: number };
 const frequency = new Map<string, FrequencyEntry>();

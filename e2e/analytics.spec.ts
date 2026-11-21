@@ -7,7 +7,7 @@ const breakdown = (key: string, value = 100) => ({ key, visitors: value, visits:
 const seoRow = (key: string, clicks = 30) => ({ key, clicks, impressions: 500, ctr: clicks / 500, position: 7.2 });
 
 const providers = [
-  { provider: 'PLAUSIBLE', configured: true, state: 'READY', lastSyncedAt: now, lastStatus: 'SUCCEEDED', dashboardUrl: 'https://plausible.io/dicionariogamer.test' },
+  { provider: 'INTERNAL', configured: true, state: 'READY', lastSyncedAt: now, lastStatus: 'SUCCEEDED', dashboardUrl: null },
   { provider: 'SEARCH_CONSOLE', configured: true, state: 'STALE', lastSyncedAt: now, lastStatus: 'SUCCEEDED' },
   { provider: 'SENTRY', configured: false, state: 'NOT_CONFIGURED', lastSyncedAt: null, lastStatus: null },
   { provider: 'CRUX', configured: true, state: 'READY', lastSyncedAt: now, lastStatus: 'SUCCEEDED' },
@@ -172,7 +172,7 @@ test('analytics dashboard keeps periods in the URL and exposes complete reports'
   await expect(page.locator('.recharts-line-curve')).toHaveCount(3);
   await expect(page.getByText('12/07', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('13/07', { exact: true }).first()).toBeVisible();
-  await expect(page.getByRole('link', { name: /PLAUSIBLE/ })).toHaveAttribute('href', /plausible\.io/);
+  await expect(page.getByText('Analytics próprio', { exact: true })).toBeVisible();
   await expect.poll(() => overviewRequests).toBe(1);
   await page.screenshot({ path: 'test-results/analytics-overview-desktop.png', fullPage: true });
 

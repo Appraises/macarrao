@@ -16,7 +16,7 @@ import {
 import { runAnalyticsSync } from '../../services/analytics/sync';
 
 const router = Router();
-const providers = Object.values(AnalyticsProvider);
+const providers: AnalyticsProvider[] = [AnalyticsProvider.INTERNAL, AnalyticsProvider.SEARCH_CONSOLE, AnalyticsProvider.SENTRY, AnalyticsProvider.CRUX, AnalyticsProvider.PAGESPEED];
 
 const withRange = (handler: (range: Exclude<ReturnType<typeof parseAnalyticsRange>, { error: string }>) => Promise<unknown>) => async (req: any, res: any) => {
     const range = parseAnalyticsRange(req.query);
