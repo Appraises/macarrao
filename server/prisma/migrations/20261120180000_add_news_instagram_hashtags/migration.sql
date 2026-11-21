@@ -1,0 +1,1 @@
+ALTER TABLE "News" ADD COLUMN "instagramHashtags" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];

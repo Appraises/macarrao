@@ -1,8 +1,13 @@
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
+import { normalizeInstagramHashtags } from './social/hashtags.mjs';
 
 const prisma = new PrismaClient();
+const supportsInstagramHashtags = Prisma.dmmf.datamodel.models
+    .find(({ name }) => name === 'News')?.fields.some(({ name }) => name === 'instagramHashtags') ?? false;
 const ALLOWED_CATEGORIES = new Set(['LANÇAMENTOS', 'LANÃ‡AMENTOS', 'RUMORES', 'INDÚSTRIA', 'INDÃšSTRIA', 'NINTENDO', 'PLAYSTATION', 'XBOX', 'PC', 'E-SPORTS']);
 const MAX_ITEMS = 10;
+const MAX_INPUT_BYTES = 2 * 1024 * 1024;
+class ImportInputError extends Error {}
 const PERSONAS = {
     games: 'Lucas Andrade',
     industry: 'Marina Costa',
@@ -16,14 +21,19 @@ const STOP_WORDS = new Set([
 ]);
 
 const readStdin = async () => {
-    let body = '';
-    for await (const chunk of process.stdin) body += chunk;
-    return body;
+    const chunks = [];
+    let size = 0;
+    for await (const chunk of process.stdin) {
+        size += chunk.length;
+        if (size > MAX_INPUT_BYTES) throw new ImportInputError('O lote JSON excede 2 MiB.');
+        chunks.push(chunk);
+    }
+    return Buffer.concat(chunks).toString('utf8');
 };
 
 const requiredText = (value, field, max = 200000) => {
     if (typeof value !== 'string' || !value.trim() || value.length > max) {
-        throw new Error(`Campo invÃ¡lido: ${field}`);
+        throw new ImportInputError(`Campo invalido: ${field}`);
     }
     return value.trim();
 };
@@ -79,6 +89,7 @@ const duplicateReason = (item, existing) => {
 };
 
 const normalizeItem = (raw) => {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new ImportInputError('Materia invalida no lote.');
     const headline = requiredText(raw.headline, 'headline', 180);
     const slug = requiredText(raw.slug, 'slug', 180);
     const categoryInput = requiredText(raw.category, 'category', 40).toUpperCase();
@@ -89,9 +100,17 @@ const normalizeItem = (raw) => {
     const image = raw.image == null ? null : requiredText(raw.image, 'image', 2000);
     const seoTitle = raw.seoTitle == null ? headline : requiredText(raw.seoTitle, 'seoTitle', 180);
     const seoDescription = raw.seoDescription == null ? null : requiredText(raw.seoDescription, 'seoDescription', 320);
-    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) throw new Error(`Slug invÃ¡lido: ${slug}`);
-    if (!ALLOWED_CATEGORIES.has(category)) throw new Error(`Categoria nÃ£o permitida: ${category}`);
-    return { headline, slug, category, image, content, author, seoTitle, seoDescription };
+    let instagramHashtags;
+    try {
+        instagramHashtags = normalizeInstagramHashtags(raw.instagramHashtags);
+    } catch (error) {
+        throw new ImportInputError(error.message);
+    }
+    const tournamentSlug = raw.tournamentSlug == null ? null : requiredText(raw.tournamentSlug, 'tournamentSlug', 180);
+    if (tournamentSlug && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(tournamentSlug)) throw new ImportInputError('Slug do campeonato invalido.');
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) throw new ImportInputError('Slug da noticia invalido.');
+    if (!ALLOWED_CATEGORIES.has(category)) throw new ImportInputError('Categoria da noticia nao permitida.');
+    return { headline, slug, category, image, content, author, seoTitle, seoDescription, instagramHashtags, tournamentSlug };
 };
 
 const isUniqueViolation = (error) => error?.code === 'P2002';
@@ -101,21 +120,36 @@ const main = async () => {
         console.log('Uso: cat materias.json | node scripts/publish-news.mjs --apply');
         return;
     }
-    if (!process.argv.includes('--apply')) throw new Error('Modo seguro: informe --apply para publicar.');
-    const parsed = JSON.parse(await readStdin());
+    const apply = process.argv.includes('--apply');
+    const preview = process.argv.includes('--dry-run');
+    if (apply === preview) throw new ImportInputError('Informe --dry-run para conferir ou --apply para publicar.');
+    const body = await readStdin();
+    let parsed;
+    try {
+        parsed = JSON.parse(body);
+    } catch {
+        throw new ImportInputError('Lote JSON invalido.');
+    }
     if (!Array.isArray(parsed) || parsed.length < 1 || parsed.length > MAX_ITEMS) {
-        throw new Error(`Envie de 1 a ${MAX_ITEMS} matÃ©rias em um array JSON.`);
+        throw new ImportInputError(`Envie de 1 a ${MAX_ITEMS} materias em um array JSON.`);
     }
 
     const items = parsed.map(normalizeItem);
+    const tournamentSlugs = [...new Set(items.flatMap(({ tournamentSlug }) => tournamentSlug ? [tournamentSlug] : []))];
+    const tournaments = new Map((await prisma.tournament.findMany({
+        where: { slug: { in: tournamentSlugs }, publicationStatus: 'PUBLISHED' },
+        select: { id: true, slug: true },
+    })).map(({ id, slug }) => [slug, id]));
+    for (const slug of tournamentSlugs) if (!tournaments.has(slug)) throw new ImportInputError(`Campeonato publicado nao encontrado: ${slug}`);
     const existing = await prisma.news.findMany({
         where: { status: { not: 'ARCHIVED' } },
         select: { id: true, slug: true, headline: true, content: true, status: true, publishedAt: true }
     });
     const published = [];
     const skipped = [];
+    const planned = [];
 
-    for (const item of items) {
+    for (const { tournamentSlug, instagramHashtags, ...item } of items) {
         const duplicate = existing
             .map((record) => ({ record, reason: duplicateReason(item, record) }))
             .find((candidate) => candidate.reason);
@@ -125,10 +159,19 @@ const main = async () => {
             continue;
         }
 
+        const tournamentId = tournaments.get(tournamentSlug) ?? null;
+        if (preview) {
+            planned.push({ slug: item.slug, author: item.author, tournamentSlug, instagramHashtags });
+            existing.push(item);
+            continue;
+        }
+
         try {
             const saved = await prisma.news.create({
-                data: { ...item, status: 'PUBLISHED', publishedAt: new Date() },
-                select: { id: true, slug: true, headline: true, status: true, publishedAt: true }
+                data: { ...item, tournamentId, status: 'PUBLISHED', publishedAt: new Date(),
+                    ...(supportsInstagramHashtags ? { instagramHashtags } : {}) },
+                select: { id: true, slug: true, headline: true, status: true, publishedAt: true,
+                    ...(supportsInstagramHashtags ? { instagramHashtags: true } : {}) }
             });
             published.push(saved);
             existing.push({ ...saved, content: item.content });
@@ -141,12 +184,16 @@ const main = async () => {
         }
     }
 
-    console.log(JSON.stringify({ published, skipped, summary: { published: published.length, skipped: skipped.length } }, null, 2));
+    console.log(JSON.stringify({ published, skipped, ...(preview ? { planned } : {}),
+        capabilities: { instagramHashtags: supportsInstagramHashtags },
+        summary: { published: published.length, skipped: skipped.length } }, null, 2));
 };
 
 main()
     .catch((error) => {
-        console.error(error instanceof Error ? error.message : error);
+        const code = error?.code || error?.errorCode;
+        console.error(error instanceof ImportInputError ? error.message
+            : /^P\d{4}$/.test(code || '') ? 'IMPORT_DATABASE_ERROR ' + code : 'IMPORT_FAILED');
         process.exitCode = 1;
     })
     .finally(() => prisma.$disconnect());

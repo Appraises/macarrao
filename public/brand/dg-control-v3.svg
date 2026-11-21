@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 270 150" role="img" aria-labelledby="title desc">
+  <title id="title">Dicion&#225;rio Gamer</title>
+  <desc id="desc">Monograma DG: D s&#243;lido com direcional vazado, G com quatro bot&#245;es e fio saindo entre as letras.</desc>
+  <defs><mask id="dg" maskUnits="userSpaceOnUse" x="0" y="0" width="270" height="150"><path d="M40 25H88A50 50 0 0 1 88 125H40A10 10 0 0 1 30 115V35A10 10 0 0 1 40 25Z" fill="#fff"/>
+<rect x="56" y="67" width="52" height="16" rx="4" fill="#000"/>
+<rect x="74" y="49" width="16" height="52" rx="4" fill="#000"/>
+<path d="M235.2 49.6A38 38 0 1 0 245 75" fill="none" stroke="#fff" stroke-width="24"/>
+<rect x="211" y="63" width="45" height="24" fill="#fff"/>
+<g fill="#fff"><circle cx="195" cy="67" r="4.4"/><circle cx="187" cy="75" r="4.4"/><circle cx="203" cy="75" r="4.4"/><circle cx="195" cy="83" r="4.4"/></g>
+<path d="M134 75H161M147.5 75V32C147.5 21 157 21 157 10V6" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/></mask></defs>
+  <rect width="270" height="150" fill="#38bdf8" mask="url(#dg)"/>
+</svg>

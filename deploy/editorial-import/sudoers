@@ -1,0 +1,1 @@
+blopes ALL=(dicionario) NOPASSWD: NOSETENV: /usr/local/bin/dicionario-import-news --dry-run, /usr/local/bin/dicionario-import-news --apply

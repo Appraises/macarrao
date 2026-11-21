@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 248 136" role="img" aria-labelledby="title desc">
+  <title id="title">Dicion&#225;rio Gamer</title>
+  <desc id="desc">Controle em contorno: D com quatro setas, G com quatro bot&#245;es e fio no topo.</desc>
+  <g fill="none" stroke="#0369a1" stroke-linecap="round" stroke-linejoin="round">
+    <g stroke-width="5.5">
+      <path d="M28 58Q34 39 55 39H76C100 39 117 54 117 75S100 109 76 109H48L30 120C19 127 10 119 14 105Z"/>
+      <path d="M218 53Q205 39 178 39C151 39 131 54 131 75S149 109 173 109H200L218 120C229 127 238 119 234 105L225 73H197"/>
+    </g>
+    <path d="M116 66H132M124 66V35C124 27 133 27 133 19V11" stroke-width="4"/>
+    <g stroke-width="2.8">
+      <path d="M60 62L65 57L70 62M54 69L49 74L54 79M76 69L81 74L76 79M60 86L65 91L70 86"/>
+      <circle cx="174" cy="62" r="4"/>
+      <circle cx="162" cy="74" r="4"/>
+      <circle cx="186" cy="74" r="4"/>
+      <circle cx="174" cy="86" r="4"/>
+    </g>
+  </g>
+</svg>

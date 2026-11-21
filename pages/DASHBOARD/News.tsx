@@ -410,7 +410,7 @@ export const News: React.FC = () => {
                         </label>
                         <div className="rounded-lg border border-white/10 bg-white p-4">
                             <p className="truncate text-lg text-blue-700">{form.seoTitle || form.headline || 'Titulo da noticia'}</p>
-                            <p className="truncate text-xs text-green-700">dicionariogamer.com/news/{form.slug || 'slug-da-noticia'}</p>
+                            <p className="truncate text-xs text-green-700">dicionariogamer.com/noticias/{form.slug || 'slug-da-noticia'}</p>
                             <p className="mt-1 line-clamp-2 text-sm text-gray-700">{form.seoDescription || 'A descricao da noticia aparecera aqui.'}</p>
                         </div>
                     </div>

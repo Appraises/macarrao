@@ -1,0 +1,9 @@
+#!/bin/sh
+set -eu
+case "$#:${1-}" in
+    1:--dry-run|1:--apply) ;;
+    *) printf '%s\n' 'Use --dry-run ou --apply.' >&2; exit 2 ;;
+esac
+
+cd -P /usr/local/lib/dicionario-news-import
+exec /usr/bin/env -i PATH=/usr/bin:/bin /usr/bin/timeout --kill-after=5s 90s /usr/bin/node ./start.mjs "$1"
