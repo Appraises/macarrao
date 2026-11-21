@@ -15,7 +15,6 @@
     "test:e2e:newsletter": "playwright test e2e/newsletter.spec.ts --reporter=line"
   },
   "dependencies": {
-    "@plausible-analytics/tracker": "^0.4.5",
     "@sentry/react": "^10.65.0",
     "axios": "^1.13.2",
     "boring-avatars": "^2.0.4",

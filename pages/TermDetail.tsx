@@ -216,7 +216,7 @@ export const TermDetail: React.FC = () => {
 
               {/* Game context */}
               {term.game && (
-                <Link data-arcade-panel="game-card" to={`/games/${term.game.slug}`} className="group block overflow-hidden rounded-xl border border-white/5 bg-dark-900 transition-colors hover:border-brand-500/30">
+                <Link data-arcade-panel="game-card" to={`/jogos/${term.game.slug}`} className="group block overflow-hidden rounded-xl border border-white/5 bg-dark-900 transition-colors hover:border-brand-500/30">
                   {term.game.image && (
                     <div className="h-24 overflow-hidden">
                       <img src={term.game.image} alt={term.game.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />

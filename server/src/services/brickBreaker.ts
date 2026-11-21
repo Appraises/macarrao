@@ -53,8 +53,8 @@ export const validateBrickBreakerScore = (
         throw new BrickBreakerScoreError('Duracao incompativel com a sessao.');
     }
 
-    const maximumPlausibleBricks = Math.floor(durationMs / 120) + BRICKS_PER_LEVEL;
-    if (bricksDestroyed > maximumPlausibleBricks) {
+    const maximumExpectedBricks = Math.floor(durationMs / 120) + BRICKS_PER_LEVEL;
+    if (bricksDestroyed > maximumExpectedBricks) {
         throw new BrickBreakerScoreError('Quantidade de tijolos incompativel com a duracao.');
     }
 

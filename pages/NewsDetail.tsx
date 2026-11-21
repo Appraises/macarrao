@@ -1,9 +1,10 @@
 import React from 'react';
 import { useLoaderData, Link, useNavigation, useParams } from 'react-router-dom';
 import { getNewsById, getNews } from '../src/services/api';
-import { ChevronRight, Share2, Clock, Flame, CalendarDays } from 'lucide-react';
+import { ChevronRight, Share2, Clock, Flame } from 'lucide-react';
 import { Button } from '../components/UI';
 import { CommentsSection } from '../components/CommentsSection';
+import { NewsPublicationTime } from '../components/NewsPublicationTime';
 import { Seo } from '../components/Seo';
 import { JsonLd, articleSchema, breadcrumbSchema } from '../components/JsonLd';
 import type { News as NewsItem } from '../types';
@@ -13,10 +14,22 @@ export interface NewsDetailLoaderData {
     relatedNews: NewsItem[];
 }
 
+const fetchRelatedNews = () => getNews({ page: 1, pageSize: 5, sort: 'createdAt', order: 'desc' });
+let prerenderRelatedNews: ReturnType<typeof fetchRelatedNews> | undefined;
+
+const loadRelatedNews = () => {
+    if (typeof window !== 'undefined') return fetchRelatedNews();
+    // Every article prerender shares the same related-news query.
+    return prerenderRelatedNews ??= fetchRelatedNews().catch((error) => {
+        prerenderRelatedNews = undefined;
+        throw error;
+    });
+};
+
 export async function loadNewsDetail(idOrSlug: string): Promise<NewsDetailLoaderData> {
     const [newsItem, relatedResponse] = await Promise.all([
         getNewsById(idOrSlug) as Promise<NewsItem>,
-        getNews({ page: 1, pageSize: 5, sort: 'createdAt', order: 'desc' })
+        loadRelatedNews()
     ]);
 
     return {
@@ -100,7 +113,7 @@ export const NewsDetail: React.FC = () => {
                     {fallbackForCurrentRoute?.failed && (
                         <Button onClick={() => setRetry((value) => value + 1)}>Tentar novamente</Button>
                     )}
-                    <Link to="/news">
+                    <Link to="/noticias">
                         <Button variant="secondary">Voltar para Notícias</Button>
                     </Link>
                 </div>
@@ -109,14 +122,6 @@ export const NewsDetail: React.FC = () => {
     }
 
     const { newsItem, relatedNews } = detail;
-
-    const formatDate = (value?: string) => {
-        if (!value) return '';
-        const date = new Date(value);
-        return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString('pt-BR', {
-            day: '2-digit', month: 'long', year: 'numeric'
-        });
-    };
 
     const stripHtml = (value?: string) => String(value || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 
@@ -183,45 +188,45 @@ export const NewsDetail: React.FC = () => {
                 image={socialImage}
                 imageAlt={`Capa da notícia: ${newsItem.headline}`}
                 imageType="image/png"
-                path={`/news/${newsItem.slug}/`}
+                path={`/noticias/${newsItem.slug}/`}
                 type="article"
             />
             <JsonLd data={articleSchema(newsItem)} />
             <JsonLd data={breadcrumbSchema([
                 { name: 'Início', path: '/' },
-                { name: 'Notícias', path: '/news' },
-                { name: newsItem.headline, path: `/news/${newsItem.slug}/` },
+                { name: 'Notícias', path: '/noticias' },
+                { name: newsItem.headline, path: `/noticias/${newsItem.slug}/` },
             ])} />
 
             <article>
                 <header className="border-b border-white/[0.07] pb-8 pt-6 md:pb-12 md:pt-8">
                     <div className="mx-auto max-w-6xl px-4">
-                        <nav
-                            aria-label="Navegação da notícia"
-                            className="mb-8 flex min-w-0 items-center gap-2 text-[11px] font-bold uppercase text-gray-600 md:mb-10"
-                        >
-                            <Link to="/" className="transition-colors hover:text-gray-300">
-                                Início
-                            </Link>
-                            <ChevronRight className="h-3 w-3 shrink-0 text-gray-700" aria-hidden="true" />
-                            <Link to="/news" className="transition-colors hover:text-brand-400">
-                                Notícias
-                            </Link>
-                            <ChevronRight className="h-3 w-3 shrink-0 text-gray-700" aria-hidden="true" />
-                            <span className="truncate text-gray-500" aria-current="page">
-                                {newsItem.category}
-                            </span>
-                        </nav>
+                        <div className="mb-8 flex items-center justify-between gap-4 md:mb-10">
+                            <nav
+                                aria-label="Navegação da notícia"
+                                className="flex min-w-0 items-center gap-2 text-[11px] font-bold uppercase text-gray-600"
+                            >
+                                <Link to="/" className="transition-colors hover:text-gray-300">
+                                    Início
+                                </Link>
+                                <ChevronRight className="h-3 w-3 shrink-0 text-gray-700" aria-hidden="true" />
+                                <Link to="/noticias" className="transition-colors hover:text-brand-400">
+                                    Notícias
+                                </Link>
+                                <ChevronRight className="h-3 w-3 shrink-0 text-gray-700" aria-hidden="true" />
+                                <span className="truncate text-gray-500" aria-current="page">
+                                    {newsItem.category}
+                                </span>
+                            </nav>
+                            <img src="/dg-control-logo.svg" alt="" width="72" height="39" className="shrink-0" />
+                        </div>
 
                         <div className="max-w-5xl">
                             <div className="mb-5 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-gray-500">
                                 <span className="border-l-2 border-brand-500 pl-3 font-black uppercase text-brand-400">
                                     {newsItem.category}
                                 </span>
-                                <span className="inline-flex items-center gap-1.5">
-                                    <CalendarDays className="h-3.5 w-3.5" />
-                                    {formatDate(newsItem.publishedAt || newsItem.createdAt)}
-                                </span>
+                                <NewsPublicationTime news={newsItem} />
                                 <span className="inline-flex items-center gap-1.5">
                                     <Clock className="h-3.5 w-3.5" />
                                     {readingMinutes} min de leitura
@@ -314,7 +319,7 @@ export const NewsDetail: React.FC = () => {
                             </div>
 
                             <Link
-                                to={`/news/${relatedNews[0].slug}/`}
+                                to={`/noticias/${relatedNews[0].slug}/`}
                                 className="group grid grid-cols-[112px_minmax(0,1fr)] gap-4 border-b border-white/10 pb-5 lg:block"
                             >
                                 <span className="block aspect-[4/3] self-center overflow-hidden bg-dark-900 lg:aspect-[16/10]">
@@ -342,7 +347,7 @@ export const NewsDetail: React.FC = () => {
                                     {relatedNews.slice(1).map((item) => (
                                         <Link
                                             key={item.id}
-                                            to={`/news/${item.slug}/`}
+                                            to={`/noticias/${item.slug}/`}
                                             className="group grid grid-cols-[minmax(0,1fr)_64px] gap-3 py-4"
                                         >
                                             <span className="min-w-0 self-center">
@@ -369,7 +374,7 @@ export const NewsDetail: React.FC = () => {
                             )}
 
                             <Link
-                                to="/news"
+                                to="/noticias"
                                 className="mt-4 inline-flex items-center gap-1 text-xs font-black uppercase text-brand-400 transition-colors hover:text-brand-300"
                             >
                                 Todas as notícias

@@ -34,5 +34,5 @@ o backend com uma secret key real enquanto o frontend estiver sem site key.
 
 Os limites podem ser alterados pelas variaveis descritas em
 `server/.env.example`. Mudancas devem ser acompanhadas pelos eventos de
-analytics e pelos retornos `429`, sem registrar token, IP ou identificador no
-Plausible.
+ analytics e pelos retornos `429`, sem registrar token, IP ou identificador no
+ analytics próprio.

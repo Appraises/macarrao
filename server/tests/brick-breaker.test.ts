@@ -93,7 +93,7 @@ beforeEach(() => {
 });
 
 describe('Brick Breaker score rules', () => {
-    it('accepts plausible brick progress and derives the level', () => {
+    it('accepts reasonable brick progress and derives the level', () => {
         const now = new Date();
         const startedAt = new Date(now.getTime() - 60_000);
         expect(validateBrickBreakerScore(

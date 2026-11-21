@@ -10,9 +10,11 @@ import { normalizeStaticOutputPaths } from './scripts/static-output';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Static, content-rich pages always included in the prerender + sitemap.
-const STATIC_ROUTES = ['/', '/dicionario', '/games', '/news', '/esports', '/termos', '/privacidade'];
+const STATIC_ROUTES = ['/', '/dicionario', '/jogos', '/noticias', '/esports', '/termos', '/privacidade'];
+const LEGACY_STATIC_ROUTES = ['/games'];
 
-type TermLite = { word: string; definition?: string; tags?: unknown };
+type TermLite = { word: string; definition?: string; tags?: unknown; gameId?: string | null; gameIds?: unknown };
+type GameLite = { id: string; slug: string };
 type NewsLite = {
   slug: string;
   headline?: string | null;
@@ -24,6 +26,23 @@ type NewsLite = {
 // Cached between includedRoutes() and onFinished() within a single build.
 let terms: TermLite[] = [];
 let news: NewsLite[] = [];
+let games: GameLite[] = [];
+
+// A production build that cannot reach the API used to finish "successfully"
+// with only the static pages and a near-empty sitemap. Strict mode turns that
+// into a failed build instead; SSG_ALLOW_EMPTY=true opts out for local builds
+// without a backend.
+let strictContent = false;
+
+const contentUnavailable = (what: string, apiUrl: string, reason: string): [] => {
+  const message = `[ssg] Could not fetch ${what} from ${apiUrl}: ${reason}`;
+  if (strictContent) {
+    throw new Error(`${message}. Aborting the production build so a partial site is never published ` +
+      '(set SSG_ALLOW_EMPTY=true to build without content).');
+  }
+  console.warn(`${message} — prerendering without them.`);
+  return [];
+};
 
 // Fetch approved terms (full objects) from the public API.
 async function fetchTerms(apiUrl: string): Promise<TermLite[]> {
@@ -42,21 +61,47 @@ async function fetchTerms(apiUrl: string): Promise<TermLite[]> {
       page++;
     } while (page <= totalPages);
 
-    return collected.filter(
+    const valid = collected.filter(
       (t: any): t is TermLite => typeof t?.word === 'string' && t.word.trim().length > 0,
     );
+    if (valid.length === 0) return contentUnavailable('terms', apiUrl, 'the API returned no approved terms');
+    return valid;
   } catch (e) {
-    console.warn(
-      `[ssg] Could not fetch terms from ${apiUrl} — prerendering static pages only. ` +
-      `Start the backend before building to prerender term pages. (${(e as Error).message})`,
-    );
-    return [];
+    if ((e as Error).message.startsWith('[ssg]')) throw e;
+    return contentUnavailable('terms', apiUrl, (e as Error).message);
   }
 }
 
+async function fetchGames(apiUrl: string): Promise<GameLite[]> {
+  try {
+    const res = await fetch(`${apiUrl}/games`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data: any = await res.json();
+    const list = (Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : [])
+      .filter((g: any): g is GameLite => typeof g?.id === 'string' && typeof g?.slug === 'string' && g.slug.trim().length > 0);
+    if (list.length === 0) return contentUnavailable('games', apiUrl, 'the API returned no games');
+    return list;
+  } catch (e) {
+    if ((e as Error).message.startsWith('[ssg]')) throw e;
+    return contentUnavailable('games', apiUrl, (e as Error).message);
+  }
+}
+
+const gamePath = (slug: string) => `/jogos/${encodeURIComponent(slug)}`;
+// Only games with at least one approved term go to the sitemap; the others are
+// still prerendered (no empty SPA shell) but would be thin pages to index.
+const gamesWithTerms = (list: GameLite[], termList: TermLite[]) => {
+  const ids = new Set<string>();
+  for (const term of termList) {
+    if (term.gameId) ids.add(term.gameId);
+    if (Array.isArray(term.gameIds)) term.gameIds.forEach((id) => typeof id === 'string' && ids.add(id));
+  }
+  return list.filter((game) => ids.has(game.id));
+};
+
 const termPath = (word: string) => `/term/${encodeURIComponent(word)}`;
 const uniquePaths = (list: TermLite[]) => Array.from(new Set(list.map((t) => termPath(t.word))));
-const newsPath = (slug: string) => `/news/${encodeURIComponent(slug)}/`;
+const newsPath = (slug: string) => `/noticias/${encodeURIComponent(slug)}/`;
 const uniqueNewsPaths = (list: NewsLite[]) => Array.from(new Set(list.map((item) => newsPath(item.slug))));
 
 async function fetchPublishedNews(apiUrl: string): Promise<NewsLite[]> {
@@ -76,10 +121,11 @@ async function fetchPublishedNews(apiUrl: string): Promise<NewsLite[]> {
       page++;
     } while (page <= totalPages);
 
+    if (collected.length === 0) return contentUnavailable('published news', apiUrl, 'the API returned no published news');
     return collected;
   } catch (e) {
-    console.warn(`[ssg] Could not fetch published news from ${apiUrl} — news routes will not be prerendered. ${(e as Error).message}`);
-    return [];
+    if ((e as Error).message.startsWith('[ssg]')) throw e;
+    return contentUnavailable('published news', apiUrl, (e as Error).message);
   }
 }
 
@@ -182,7 +228,9 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const apiUrl = process.env.VITE_API_URL || env.VITE_API_URL || 'http://localhost:3001';
   const configuredSiteUrl = process.env.VITE_SITE_URL || env.VITE_SITE_URL;
-  const siteUrl = (configuredSiteUrl || 'https://dicionariogamer.com.br').replace(/\/$/, '');
+  const siteUrl = (configuredSiteUrl || 'https://dicionariogamer.com').replace(/\/$/, '');
+  const allowEmpty = (process.env.SSG_ALLOW_EMPTY || env.SSG_ALLOW_EMPTY) === 'true';
+  strictContent = mode === 'production' && !allowEmpty;
   const sentryAuthToken = process.env.SENTRY_AUTH_TOKEN || env.SENTRY_AUTH_TOKEN;
   const sentryOrg = process.env.SENTRY_ORG || env.SENTRY_ORG;
   const sentryProject = process.env.SENTRY_PROJECT || env.SENTRY_PROJECT;
@@ -203,9 +251,7 @@ export default defineConfig(({ mode }) => {
     ],
     build: { sourcemap: sentryUploadEnabled ? 'hidden' : false },
     ssr: {
-      // The tracker package is ESM-only and exposes `module` without a legacy `main`.
-      // Bundling it avoids Node's legacy package resolver during SSG prerendering.
-      noExternal: ['@plausible-analytics/tracker', '@sentry/react'],
+      noExternal: ['@sentry/react'],
     },
     resolve: {
       alias: {
@@ -217,18 +263,20 @@ export default defineConfig(({ mode }) => {
       // Private contribution routes still work as a normal SPA via the
       // host's index.html fallback.
       includedRoutes: async () => {
-        [terms, news] = await Promise.all([fetchTerms(apiUrl), fetchPublishedNews(apiUrl)]);
-        return [...STATIC_ROUTES, ...uniquePaths(terms), ...uniqueNewsPaths(news)];
+        [terms, news, games] = await Promise.all([fetchTerms(apiUrl), fetchPublishedNews(apiUrl), fetchGames(apiUrl)]);
+        return [...STATIC_ROUTES, ...LEGACY_STATIC_ROUTES, ...games.map((game) => gamePath(game.slug)), ...uniquePaths(terms), ...uniqueNewsPaths(news)];
       },
-      // `/games` -> dist/games/index.html, served reliably by any static host.
+      // Static hosts can serve the canonical `/jogos` route and the legacy redirect.
       dirStyle: 'nested',
       // After rendering: emit the sitemap and per-term OG images.
       onFinished: async (dir) => {
         if (terms.length === 0) terms = await fetchTerms(apiUrl);
         if (news.length === 0) news = await fetchPublishedNews(apiUrl);
+        if (games.length === 0) games = await fetchGames(apiUrl);
 
-        // Sitemap (static pages, all prerendered terms, and published news).
-        const urls = [...STATIC_ROUTES, ...uniquePaths(terms), ...uniqueNewsPaths(news)];
+        // Sitemap (static pages, game glossaries with terms, all prerendered terms, and published news).
+        const gameUrls = gamesWithTerms(games, terms).map((game) => gamePath(game.slug));
+        const urls = [...STATIC_ROUTES, ...gameUrls, ...uniquePaths(terms), ...uniqueNewsPaths(news)];
         const newsByPath = new Map(news.map((item) => [newsPath(item.slug), item]));
         const body = urls.map((u) => {
           const item = newsByPath.get(u);

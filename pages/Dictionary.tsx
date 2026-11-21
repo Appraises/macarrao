@@ -256,13 +256,8 @@ export const Dictionary: React.FC = () => {
               placeholder="Buscar palavra, definição ou categoria..."
               aria-label="Buscar no dicionário"
               maxLength={100}
-              className="h-14 w-full rounded-lg border border-white/10 bg-dark-900 pl-12 pr-12 text-base text-white outline-none placeholder:text-gray-600 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
+              className="h-14 w-full rounded-lg border border-white/10 bg-dark-900 pl-12 pr-10 text-base text-white outline-none placeholder:text-gray-600 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
             />
-            {queryInput && (
-              <button type="button" title="Limpar busca" aria-label="Limpar busca" onClick={() => setQueryInput('')} className="absolute right-3 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded text-gray-500 hover:bg-white/5 hover:text-white">
-                <X className="h-4 w-4" />
-              </button>
-            )}
           </div>
         </header>
 

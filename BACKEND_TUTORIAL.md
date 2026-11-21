@@ -35,7 +35,6 @@ Make sure you have Node.js installed. You've already installed the necessary dep
    ```bash
    npx ts-node prisma/seed.ts
    ```
-   (If that fails, try `node prisma/seed.js` after running `npx tsc prisma/seed.ts`)
 
 4. **Start Server**:
    ```bash

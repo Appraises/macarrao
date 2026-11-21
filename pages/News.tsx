@@ -1,7 +1,8 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Calendar, User, MessageSquare, Clock } from 'lucide-react';
+import { MessageSquare } from 'lucide-react';
 import { Badge } from '../components/UI';
+import { NewsPublicationTime } from '../components/NewsPublicationTime';
 import { getNews } from '../src/services/api';
 import { Seo } from '../components/Seo';
 import { PaginationControls } from '../components/PaginationControls';
@@ -54,12 +55,13 @@ export const News: React.FC = () => {
             <Seo
                 title="Notícias sobre Games"
                 description="As últimas notícias do mundo dos games e e-sports: lançamentos, atualizações, campeonatos e cultura gamer."
-                path="/news"
+                path="/noticias"
             />
 
             {/* Header Section */}
             <div className="bg-dark-950 border-b border-white/5 py-12">
                 <div className="max-w-7xl mx-auto px-4 text-center">
+                    <img src="/dg-control-logo.svg" alt="" width="96" height="53" className="mx-auto mb-4 block" />
                     <h1 className="text-4xl md:text-5xl font-black text-white tracking-tight mb-4">
                         "Notícias sobre Games"
                     </h1>
@@ -83,7 +85,7 @@ export const News: React.FC = () => {
                     {featuredNews.map((item) => (
                         <Link
                             key={item.id}
-                            to={`/news/${item.slug}/`}
+                            to={`/noticias/${item.slug}/`}
                             className="group relative aspect-[3/4] overflow-hidden rounded-lg cursor-pointer border border-transparent hover:border-brand-500 transition-all duration-300"
                         >
                             <img
@@ -117,7 +119,7 @@ export const News: React.FC = () => {
                     {latestNews.map((item) => (
                         <Link
                             key={item.id}
-                            to={`/news/${item.slug}/`}
+                            to={`/noticias/${item.slug}/`}
                             className="group flex flex-col md:flex-row gap-4 bg-dark-900/50 border border-dark-800/50 hover:bg-dark-900 hover:border-brand-500/30 rounded-lg overflow-hidden transition-all duration-300 p-4"
                         >
                             {/* Thumbnail */}
@@ -135,7 +137,7 @@ export const News: React.FC = () => {
                             </div>
 
                             {/* Content */}
-                            <div className="flex-1 flex flex-col justify-between">
+                            <div className="flex min-w-0 flex-1 flex-col justify-between">
                                 <div>
                                     <h3 className="text-lg md:text-xl font-bold text-white mb-2 leading-tight group-hover:text-brand-400 transition-colors">
                                         {item.headline}
@@ -146,17 +148,13 @@ export const News: React.FC = () => {
                                     </p>
                                 </div>
 
-                                <div className="flex items-center justify-between border-t border-white/5 pt-3 mt-2">
-                                    <div className="flex items-center gap-2 text-[11px] text-gray-500 font-medium uppercase tracking-wide">
-                                        <span className="text-brand-500">Por {item.author}</span>
-                                        <span>|</span>
-                                        <span className="flex items-center gap-1">
-                                            <Clock className="w-3 h-3" />
-                                            {item.createdAt}
-                                        </span>
+                                <div className="mt-2 flex items-center justify-between gap-3 border-t border-white/5 pt-3">
+                                    <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-medium text-gray-400">
+                                        {item.author && <span className="uppercase text-brand-400">Por {item.author}</span>}
+                                        <NewsPublicationTime news={item} compact />
                                     </div>
 
-                                    <div className="flex items-center gap-1 text-gray-500 text-xs group-hover:text-brand-400 transition-colors">
+                                    <div className="flex shrink-0 items-center gap-1 text-gray-500 text-xs group-hover:text-brand-400 transition-colors">
                                         <MessageSquare className="w-3 h-3" />
                                         <span className="font-bold">{item.commentsCount ?? 0}</span>
                                     </div>

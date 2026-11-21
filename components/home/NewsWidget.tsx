@@ -56,11 +56,11 @@ export const NewsWidget: React.FC = () => {
 
     return (
         <section>
-            <SectionHeader title="Últimas Notícias" to="/news" linkLabel="Ver todas" />
+            <SectionHeader title="Últimas Notícias" to="/noticias" linkLabel="Ver todas" />
 
             <div className="bg-dark-900/60 border border-white/5 rounded-xl overflow-hidden">
                 {/* Featured */}
-                <div className="group cursor-pointer" onClick={() => navigate(`/news/${featured.id}`)}>
+                <div className="group cursor-pointer" onClick={() => navigate(`/noticias/${featured.id}`)}>
                     <div className="h-36 relative overflow-hidden">
                         <img src={featured.image} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" alt={featured.headline} />
                         <div className="absolute inset-0 bg-gradient-to-t from-dark-950 via-dark-950/20 to-transparent"></div>
@@ -79,7 +79,7 @@ export const NewsWidget: React.FC = () => {
                     {rest.slice(0, 5).map((item) => (
                         <div
                             key={item.id}
-                            onClick={() => navigate(`/news/${item.id}`)}
+                            onClick={() => navigate(`/noticias/${item.id}`)}
                             className="px-4 py-3 group cursor-pointer hover:bg-dark-800/50 transition-colors"
                         >
                             <span className="text-[9px] font-bold text-brand-500 uppercase tracking-wider">{item.category}</span>

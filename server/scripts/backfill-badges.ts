@@ -1,7 +1,7 @@
 // Grants earned badges to every existing user, so people who contributed before the
 // badge system shipped get what they already qualify for. Idempotent (evaluateBadges
 // skips badges a user already has), so it's safe to re-run.
-// Run: npx ts-node scripts/backfill-badges.mjs   (or via the ts helper below)
+// Run: npx ts-node scripts/backfill-badges.ts
 //
 // This file is JS but pulls the TS service through ts-node's require hook when run as
 // `npx ts-node scripts/backfill-badges.mjs`. If run with plain node it won't resolve

@@ -1,12 +1,12 @@
 import React, { useEffect, useState, Suspense } from 'react';
-import { Link, useNavigate, Navigate, Outlet, type RouteObject } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams, Navigate, Outlet, type RouteObject } from 'react-router-dom';
 
 // Eager: prerendered / content-rich pages (must render synchronously at build).
 import { Home } from './pages/Home';
 import { Dictionary } from './pages/Dictionary';
 import { TermDetail, termLoader } from './pages/TermDetail';
 import { Games } from './pages/Games';
-import { GameDetail } from './pages/GameDetail';
+import { GameDetail, gameLoader } from './pages/GameDetail';
 import { Esports } from './pages/Esports';
 import { News as NewsPage } from './pages/News';
 import { NewsDetail, newsDetailLoader } from './pages/NewsDetail';
@@ -63,6 +63,37 @@ import { initAnalytics } from './src/lib/analytics';
 import { ArcadeProvider } from './src/context/ArcadeContext';
 import { ArcadeMain } from './components/arcade/ArcadeMain';
 import { Avatar } from './components/Avatar';
+import { AppErrorBoundary, RouteErrorElement } from './components/AppErrorBoundary';
+
+const LegacyNewsRedirect: React.FC = () => {
+  const { slug } = useParams<{ slug?: string }>();
+  const location = useLocation();
+  return (
+    <Navigate
+      replace
+      to={{
+        pathname: slug ? `/noticias/${encodeURIComponent(slug)}` : '/noticias',
+        search: location.search,
+        hash: location.hash,
+      }}
+    />
+  );
+};
+
+const LegacyGamesRedirect: React.FC = () => {
+  const { slug } = useParams<{ slug?: string }>();
+  const location = useLocation();
+  return (
+    <Navigate
+      replace
+      to={{
+        pathname: slug ? `/jogos/${encodeURIComponent(slug)}` : '/jogos',
+        search: location.search,
+        hash: location.hash,
+      }}
+    />
+  );
+};
 
 const Header: React.FC = () => {
   const { user, logout } = useAuth();
@@ -88,8 +119,8 @@ const Header: React.FC = () => {
         <nav className="hidden md:flex items-center justify-center gap-8 lg:gap-12 flex-1">
           <Link to="/" className="text-xs font-bold uppercase tracking-[0.2em] text-gray-400 hover:text-brand-400 transition-all duration-300 hover:drop-shadow-[0_0_8px_rgba(59,130,246,0.6)]">Início</Link>
           <Link to="/dicionario" className="text-xs font-bold uppercase tracking-[0.2em] text-gray-400 hover:text-brand-400 transition-all duration-300 hover:drop-shadow-[0_0_8px_rgba(59,130,246,0.6)]">Dicionário</Link>
-          <Link to="/games" className="text-xs font-bold uppercase tracking-[0.2em] text-gray-400 hover:text-brand-400 transition-all duration-300 hover:drop-shadow-[0_0_8px_rgba(59,130,246,0.6)]">Jogos</Link>
-          <Link to="/news" className="text-xs font-bold uppercase tracking-[0.2em] text-gray-400 hover:text-brand-400 transition-all duration-300 hover:drop-shadow-[0_0_8px_rgba(59,130,246,0.6)]">Notícias</Link>
+          <Link to="/jogos" className="text-xs font-bold uppercase tracking-[0.2em] text-gray-400 hover:text-brand-400 transition-all duration-300 hover:drop-shadow-[0_0_8px_rgba(59,130,246,0.6)]">Jogos</Link>
+          <Link to="/noticias" className="text-xs font-bold uppercase tracking-[0.2em] text-gray-400 hover:text-brand-400 transition-all duration-300 hover:drop-shadow-[0_0_8px_rgba(59,130,246,0.6)]">Notícias</Link>
           <Link to="/esports" className="text-xs font-bold uppercase tracking-[0.2em] text-gray-400 hover:text-brand-400 transition-all duration-300 hover:drop-shadow-[0_0_8px_rgba(59,130,246,0.6)]">E-Sports</Link>
         </nav>
 
@@ -193,7 +224,7 @@ const Header: React.FC = () => {
               Dicionário
             </Link>
             <Link
-              to="/games"
+              to="/jogos"
               onClick={() => setMobileMenuOpen(false)}
               className="group flex items-center gap-4 text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-gray-400 to-gray-600 hover:from-brand-400 hover:to-brand-600 transition-all duration-300"
             >
@@ -201,7 +232,7 @@ const Header: React.FC = () => {
               Jogos
             </Link>
             <Link
-              to="/news"
+              to="/noticias"
               onClick={() => setMobileMenuOpen(false)}
               className="group flex items-center gap-4 text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-gray-400 to-gray-600 hover:from-brand-400 hover:to-brand-600 transition-all duration-300"
             >
@@ -323,7 +354,7 @@ const Footer: React.FC = () => (
           <ul className="space-y-4">
             <li><Link to="/" className="text-gray-500 hover:text-white transition-colors text-sm font-medium block hover:translate-x-1 transform duration-200">Página Principal</Link></li>
             <li><Link to="/dicionario" className="text-gray-500 hover:text-white transition-colors text-sm font-medium block hover:translate-x-1 transform duration-200">Dicionário</Link></li>
-            <li><Link to="/games" className="text-gray-500 hover:text-white transition-colors text-sm font-medium block hover:translate-x-1 transform duration-200">Jogos</Link></li>
+            <li><Link to="/jogos" className="text-gray-500 hover:text-white transition-colors text-sm font-medium block hover:translate-x-1 transform duration-200">Jogos</Link></li>
             <li><Link to="/contribuir" className="text-gray-500 hover:text-white transition-colors text-sm font-medium block hover:translate-x-1 transform duration-200">Enviar Palavras</Link></li>
             <li><a href="#" className="text-gray-500 hover:text-white transition-colors text-sm font-medium block hover:translate-x-1 transform duration-200">Suporte</a></li>
             <li><Link to="/contribuir" className="text-gray-500 hover:text-white transition-colors text-sm font-medium block hover:translate-x-1 transform duration-200">Reportar Palavras</Link></li>
@@ -374,11 +405,13 @@ const MainLayout: React.FC = () => {
 
         <Header />
 
-        <ArcadeMain>
-          <Suspense fallback={<PageLoader />}>
-            <Outlet />
-          </Suspense>
-        </ArcadeMain>
+        <AppErrorBoundary>
+          <ArcadeMain>
+            <Suspense fallback={<PageLoader />}>
+              <Outlet />
+            </Suspense>
+          </ArcadeMain>
+        </AppErrorBoundary>
 
         <Footer />
       </div>
@@ -406,6 +439,7 @@ const RootLayout: React.FC = () => {
 export const routes: RouteObject[] = [
   {
     element: <RootLayout />,
+    errorElement: <RouteErrorElement />,
     children: [
       // Dashboard - independent layout, not indexed
       { path: 'dashboard/login', element: <DashboardLogin /> },
@@ -439,10 +473,14 @@ export const routes: RouteObject[] = [
         children: [
           { index: true, element: <Home /> },
           { path: 'dicionario', element: <Dictionary /> },
-          { path: 'games', element: <Games /> },
-          { path: 'games/:slug', element: <GameDetail /> },
-          { path: 'news', element: <NewsPage /> },
-          { path: 'news/:slug', element: <NewsDetail />, loader: newsDetailLoader },
+          { path: 'jogos', element: <Games /> },
+          { path: 'jogos/:slug', element: <GameDetail />, loader: gameLoader },
+          { path: 'games', element: <LegacyGamesRedirect /> },
+          { path: 'games/:slug', element: <LegacyGamesRedirect /> },
+          { path: 'noticias', element: <NewsPage /> },
+          { path: 'noticias/:slug', element: <NewsDetail />, loader: newsDetailLoader },
+          { path: 'news', element: <LegacyNewsRedirect /> },
+          { path: 'news/:slug', element: <LegacyNewsRedirect /> },
           { path: 'esports', element: <Esports /> },
           { path: 'esports/match/:id', element: <MatchDetail /> },
           { path: 'esports/tournament/:id', element: <TournamentDetail /> },

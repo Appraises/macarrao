@@ -33,6 +33,7 @@ enum MatchStatus {
 enum EsportsProvider {
   MANUAL
   LIQUIPEDIA
+  PANDASCORE
 }
 
 enum EsportsSyncStatus {
@@ -165,7 +166,7 @@ enum NewsletterBatchStatus {
 }
 
 enum AnalyticsProvider {
-  PLAUSIBLE
+  INTERNAL
   SEARCH_CONSOLE
   SENTRY
   CRUX
@@ -594,6 +595,44 @@ model AnalyticsSyncRun {
   @@index([actorId, startedAt])
 }
 
+// Raw first-party analytics events. This table is intentionally free of IP,
+// account id, user-agent and arbitrary JSON payloads. It is rolled up and
+// purged by the local analytics scheduler.
+model AnalyticsEvent {
+  id              String   @id @default(uuid())
+  clientEventId   String?  @unique @db.VarChar(80)
+  eventName       String   @db.VarChar(80)
+  visitorHash     String   @db.VarChar(64)
+  sessionHash     String   @db.VarChar(64)
+  path            String?  @db.VarChar(160)
+  referrer        String?  @db.VarChar(250)
+  channel         String?  @db.VarChar(40)
+  source          String?  @db.VarChar(120)
+  campaign        String?  @db.VarChar(120)
+  device          String?  @db.VarChar(30)
+  browser         String?  @db.VarChar(40)
+  operatingSystem String?  @db.VarChar(40)
+  value           String?  @db.VarChar(200)
+  position        Int?
+  resultCount     Int?
+  occurredAt      DateTime @default(now())
+  createdAt       DateTime @default(now())
+
+  @@index([occurredAt])
+  @@index([eventName, occurredAt])
+  @@index([visitorHash, occurredAt])
+  @@index([sessionHash, occurredAt])
+  @@index([path, occurredAt])
+}
+
+model AnalyticsVisitor {
+  visitorHash String   @id @db.VarChar(64)
+  firstSeenAt DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+
+  @@index([lastSeenAt])
+}
+
 model TrafficDailyMetric {
   id               String   @id @default(uuid())
   date             DateTime @unique @db.Date
@@ -738,10 +777,12 @@ model News {
   archivedAt     DateTime?
   seoTitle       String?
   seoDescription String?
+  instagramHashtags String[] @default([])
   createdById    String?
   createdBy      User?       @relation("NewsCreator", fields: [createdById], references: [id], onDelete: SetNull)
   tournamentId   String?
   tournament     Tournament? @relation(fields: [tournamentId], references: [id], onDelete: SetNull)
+  socialPosts    NewsSocialPost[]
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
@@ -751,6 +792,41 @@ model News {
   @@index([status, publishedAt])
   @@index([createdById])
   @@index([tournamentId, publishedAt])
+}
+
+enum NewsSocialChannel {
+  INSTAGRAM
+  X
+}
+
+enum NewsSocialStatus {
+  PENDING
+  PREPARING
+  PUBLISHING
+  PUBLISHED
+  FAILED
+  REVIEW
+  CANCELED
+}
+
+model NewsSocialPost {
+  id              String           @id @default(uuid())
+  newsId          String
+  news            News             @relation(fields: [newsId], references: [id], onDelete: Cascade)
+  channel         NewsSocialChannel
+  status          NewsSocialStatus @default(PENDING)
+  attempts        Int              @default(0)
+  nextAttemptAt   DateTime         @default(now())
+  providerMediaId String?
+  providerPostId  String?
+  sourceUpdatedAt DateTime?
+  lastError       String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  publishedAt     DateTime?
+
+  @@unique([newsId, channel])
+  @@index([channel, status, nextAttemptAt])
 }
 
 model AdminAuditLog {

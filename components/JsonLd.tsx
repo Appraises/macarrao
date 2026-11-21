@@ -61,6 +61,26 @@ export function definedTermSchema(term: {
   };
 }
 
+// A game's glossary is its own DefinedTermSet: each term links to its page,
+// which carries the full DefinedTerm.
+export function gameGlossarySchema(game: { name: string; slug: string }, terms: Array<{ word: string; definition: string }>) {
+  const url = abs(`/jogos/${game.slug}`);
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'DefinedTermSet',
+    name: `Glossário de ${game.name}`,
+    description: `Gírias e termos de ${game.name} explicados pelo ${SITE_NAME}.`,
+    url,
+    hasDefinedTerm: terms.map((term) => ({
+      '@type': 'DefinedTerm',
+      name: term.word,
+      description: term.definition,
+      url: abs(`/term/${encodeURIComponent(term.word)}`),
+      inDefinedTermSet: url,
+    })),
+  };
+}
+
 export function websiteSchema() {
   return {
     '@context': 'https://schema.org',
@@ -91,7 +111,7 @@ export function articleSchema(news: {
     updatedAt?: string;
 }) {
   const description = news.seoDescription || String(news.content || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160);
-  const canonicalPath = `/news/${news.slug || news.id}`;
+  const canonicalPath = `/noticias/${news.slug || news.id}`;
   return {
     '@context': 'https://schema.org',
     '@type': 'NewsArticle',

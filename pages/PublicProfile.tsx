@@ -74,7 +74,7 @@ export const PublicProfile: React.FC = () => {
                         {/* Favorite game box — same visual, read-only */}
                         <div className="bg-dark-900 border border-dark-700 rounded-xl overflow-hidden shadow-lg">
                             {profile.favoriteGame ? (
-                                <Link to={`/games/${profile.favoriteGame.slug}`} className="group block h-48 relative overflow-hidden bg-gradient-to-r from-brand-900/50 to-dark-900">
+                                <Link to={`/jogos/${profile.favoriteGame.slug}`} className="group block h-48 relative overflow-hidden bg-gradient-to-r from-brand-900/50 to-dark-900">
                                     <div
                                         className="absolute inset-0 bg-cover bg-center opacity-40 group-hover:opacity-50 transition-opacity"
                                         style={{ backgroundImage: `url(${profile.favoriteGame.image})` }}

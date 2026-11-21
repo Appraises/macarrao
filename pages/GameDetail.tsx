@@ -1,14 +1,14 @@
 
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Link, useParams, useNavigate, useLoaderData, type LoaderFunctionArgs } from 'react-router-dom';
 import { getGameBySlug, getTerms, getMaps } from '../src/services/api';
 import { Game, Term, GameMap } from '../types';
-import { ArrowLeft, Map, Book, Search } from 'lucide-react';
+import { ArrowLeft, Map as MapIcon, Book, Search } from 'lucide-react';
 import { Input, Button, Badge } from '../components/UI';
-import { TermCard } from '../components/TermCard';
+import { CatalogTermCard } from '../components/CatalogTermCard';
 import { MapViewer } from '../components/game/MapViewer';
 import { Seo } from '../components/Seo';
-import { JsonLd, breadcrumbSchema } from '../components/JsonLd';
+import { JsonLd, breadcrumbSchema, gameGlossarySchema } from '../components/JsonLd';
 import { PaginationControls } from '../components/PaginationControls';
 import { usePaginatedListQuery } from '../src/hooks/usePaginatedListQuery';
 import type { PaginationMeta } from '../types';
@@ -22,25 +22,77 @@ const EMPTY_PAGINATION: PaginationMeta = {
     hasPrevious: false
 };
 
+const PAGE_SIZE = 12;
+
+interface GameLoaderData {
+    game: Game | null;
+    /** Every approved term of the game, A-Z, for the prerendered glossary. */
+    terms: Term[];
+}
+
+// Runs at build time (prerender) and on client navigation, so the game, its
+// first page of cards and the full A-Z index of term links are in the HTML.
+export async function gameLoader({ params }: LoaderFunctionArgs): Promise<GameLoaderData> {
+    const slug = params.slug;
+    if (!slug) return { game: null, terms: [] };
+    try {
+        const game: Game | null = await getGameBySlug(slug);
+        if (!game) return { game: null, terms: [] };
+        const terms: Term[] = [];
+        for (let page = 1; page <= 10; page++) {
+            const result = await getTerms({ gameId: game.id, page, pageSize: 100, sort: 'word', order: 'asc' });
+            terms.push(...result.items);
+            if (!result.pagination.hasNext) break;
+        }
+        return { game, terms };
+    } catch {
+        return { game: null, terms: [] };
+    }
+}
+
+const firstPage = (terms: Term[]): PaginationMeta => ({
+    ...EMPTY_PAGINATION,
+    total: terms.length,
+    totalPages: Math.ceil(terms.length / PAGE_SIZE),
+    hasNext: terms.length > PAGE_SIZE,
+});
+
+// Group term links by initial for the A-Z index ("#" for digits and symbols).
+const initialOf = (word: string) => {
+    const letter = word.normalize('NFD').replace(/[\u0300-\u036f]/g, '').charAt(0).toUpperCase();
+    return /[A-Z]/.test(letter) ? letter : '#';
+};
+
 export const GameDetail: React.FC = () => {
+    const loaded = useLoaderData() as GameLoaderData | null;
     const { slug } = useParams();
     const navigate = useNavigate();
     const [tab, setTab] = useState<'glossary' | 'maps'>('glossary');
-    const { page, pageSize, search, setPage, setPageSize, setSearch } = usePaginatedListQuery(12);
-    const [game, setGame] = useState<Game | null>(null);
-    const [terms, setTerms] = useState<Term[]>([]);
+    const { page, pageSize, search, setPage, setPageSize, setSearch } = usePaginatedListQuery(PAGE_SIZE);
+    const [game, setGame] = useState<Game | null>(loaded?.game ?? null);
+    const allTerms = useMemo(() => (loaded?.game ? loaded.terms : []), [loaded]);
+    const [terms, setTerms] = useState<Term[]>(() => allTerms.slice(0, PAGE_SIZE));
     const [gameMaps, setGameMaps] = useState<GameMap[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(!loaded?.game);
     const [error, setError] = useState<string | null>(null);
     const [selectedMapId, setSelectedMapId] = useState<string | null>(null);
     const [termsLoading, setTermsLoading] = useState(false);
-    const [termsPagination, setTermsPagination] = useState<PaginationMeta>(EMPTY_PAGINATION);
+    const [termsPagination, setTermsPagination] = useState<PaginationMeta>(() => firstPage(allTerms));
+    const index = useMemo(() => {
+        const groups = new Map<string, Term[]>();
+        for (const term of allTerms) {
+            const key = initialOf(term.word);
+            groups.set(key, [...(groups.get(key) ?? []), term]);
+        }
+        return [...groups.entries()].sort(([a], [b]) => (a === '#' ? 1 : b === '#' ? -1 : a.localeCompare(b)));
+    }, [allTerms]);
 
     useEffect(() => {
         const fetchData = async () => {
             if (!slug) return;
             try {
-                const gameData = await getGameBySlug(slug);
+                // The loader already brought the game; only the maps load client-side.
+                const gameData = loaded?.game?.slug === slug ? loaded.game : await getGameBySlug(slug);
                 setGame(gameData);
 
                 if (gameData) {
@@ -49,13 +101,13 @@ export const GameDetail: React.FC = () => {
                 }
             } catch (error: any) {
                 console.error("Failed to fetch game details", error);
-                setError(error.message || "Erro ao carregar dados");
+                if (!loaded?.game) setError(error.message || "Erro ao carregar dados");
             } finally {
                 setLoading(false);
             }
         };
         fetchData();
-    }, [slug]);
+    }, [slug, loaded]);
 
     useEffect(() => {
         if (!game?.id) return;
@@ -98,7 +150,7 @@ export const GameDetail: React.FC = () => {
         return (
             <div className="flex flex-col items-center justify-center min-h-[60vh]">
                 <h2 className="text-2xl font-bold text-white mb-4">Jogo não encontrado</h2>
-                <Button onClick={() => navigate('/games')}>Voltar para Biblioteca</Button>
+                <Button onClick={() => navigate('/jogos')}>Voltar para Biblioteca</Button>
             </div>
         );
     }
@@ -111,20 +163,21 @@ export const GameDetail: React.FC = () => {
                 title={`${game.name} — Glossário e Mapas`}
                 description={`Glossário de gírias e termos de ${game.name}${game.genre ? ` (${game.genre})` : ''}, além de mapas táticos e callouts. Aprenda o vocabulário do jogo.`}
                 image={game.image}
-                path={`/games/${game.slug}`}
+                path={`/jogos/${game.slug}`}
                 type="article"
             />
             <JsonLd data={breadcrumbSchema([
                 { name: 'Início', path: '/' },
-                { name: 'Jogos', path: '/games' },
-                { name: game.name, path: `/games/${game.slug}` },
+                { name: 'Jogos', path: '/jogos' },
+                { name: game.name, path: `/jogos/${game.slug}` },
             ])} />
+            {allTerms.length > 0 && <JsonLd data={gameGlossarySchema(game, allTerms)} />}
             {/* Hero Banner */}
             <div className="relative h-[40vh] w-full overflow-hidden border-b border-brand-500/20">
-                <img src={game.image} className="w-full h-full object-cover animate-in fade-in duration-1000" />
+                <img src={game.image} alt="" className="w-full h-full object-cover animate-in fade-in duration-1000" />
                 <div className="absolute inset-0 bg-gradient-to-b from-dark-950/30 via-dark-950/60 to-dark-950"></div>
                 <div className="absolute bottom-0 left-0 w-full p-4 md:p-8 max-w-7xl mx-auto">
-                    <Button variant="ghost" onClick={() => navigate('/games')} className="mb-4 pl-0 text-gray-300 hover:text-white hover:bg-black/20 w-fit">
+                    <Button variant="ghost" onClick={() => navigate('/jogos')} className="mb-4 pl-0 text-gray-300 hover:text-white hover:bg-black/20 w-fit">
                         <ArrowLeft className="w-4 h-4" /> Voltar para Biblioteca
                     </Button>
                     <h1 className="text-4xl md:text-7xl font-black text-white mb-4 tracking-tight drop-shadow-2xl">{game.name}</h1>
@@ -151,7 +204,7 @@ export const GameDetail: React.FC = () => {
                         onClick={() => setTab('maps')}
                         className={`pb-4 px-2 flex items-center gap-2 font-bold text-sm uppercase tracking-wider border-b-2 transition-colors whitespace-nowrap ${tab === 'maps' ? 'border-brand-500 text-brand-500' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
                     >
-                        <Map className="w-4 h-4" /> Mapas & Callouts
+                        <MapIcon className="w-4 h-4" /> Mapas & Callouts
                     </button>
                 </div>
 
@@ -167,11 +220,9 @@ export const GameDetail: React.FC = () => {
                             />
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                             {terms.map(term => (
-                                <div key={term.id} onClick={() => navigate(`/term/${term.word}`)} className="cursor-pointer h-full">
-                                    <TermCard term={term} />
-                                </div>
+                                <CatalogTermCard key={term.id} term={term} navigationState={{ source: 'game_glossary' }} />
                             ))}
                             {!termsLoading && terms.length === 0 && (
                                 <div className="col-span-full text-center py-20 bg-dark-900/30 rounded-xl border border-dark-800 border-dashed">
@@ -190,6 +241,29 @@ export const GameDetail: React.FC = () => {
                                 pageSizeOptions={[12, 24, 48]}
                             />
                         </div>
+
+                        {index.length > 0 && (
+                            <section aria-labelledby="game-glossary-index" className="mt-14">
+                                <h2 id="game-glossary-index" className="text-2xl font-black text-white">
+                                    Todos os termos de {game.name} <span className="text-gray-500">de A a Z</span>
+                                </h2>
+                                <p className="mt-1 text-sm text-gray-400">{allTerms.length} {allTerms.length === 1 ? 'termo' : 'termos'} no glossário.</p>
+                                <div className="mt-6 grid gap-x-8 gap-y-6 sm:grid-cols-2 lg:grid-cols-4">
+                                    {index.map(([letter, group]) => (
+                                        <div key={letter}>
+                                            <h3 className="mb-2 border-b border-dark-800 pb-1 text-sm font-black text-brand-400">{letter}</h3>
+                                            <ul className="space-y-1">
+                                                {group.map((term) => (
+                                                    <li key={term.id}>
+                                                        <Link to={`/term/${encodeURIComponent(term.word)}`} className="text-sm text-gray-300 hover:text-brand-300 hover:underline">{term.word}</Link>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    ))}
+                                </div>
+                            </section>
+                        )}
                     </div>
                 ) : (
                     !selectedMapId ? (
@@ -215,7 +289,7 @@ export const GameDetail: React.FC = () => {
                                 ))}
                                 {gameMaps.length === 0 && (
                                     <div className="col-span-full text-center py-20 bg-dark-900/30 rounded-xl border border-dark-800 border-dashed">
-                                        <Map className="w-12 h-12 text-dark-700 mx-auto mb-4" />
+                                        <MapIcon className="w-12 h-12 text-dark-700 mx-auto mb-4" />
                                         <h3 className="text-xl font-bold text-gray-300">Nenhum mapa encontrado</h3>
                                         <p className="text-gray-500 max-w-md mx-auto">
                                             Ainda não temos mapas cadastrados para este jogo.
