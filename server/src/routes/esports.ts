@@ -2,9 +2,9 @@ import { ContentStatus, MatchStatus, NewsStatus, Prisma } from '@prisma/client';
 import { Router } from 'express';
 import { prisma } from '../lib/prisma';
 import { authenticateToken, AuthRequest } from '../middleware/auth';
-import { currentLiveMatchWhere, esportsAttribution, publicMatchInclude, toPublicMatch } from '../services/esports/dto';
+import { currentLiveMatchWhere, esportsAttribution, pandaScoreAttribution, publicMatchInclude, toPublicMatch } from '../services/esports/dto';
 import { brazilFocusDescription } from '../services/esports/focus';
-import { isEsportsFeedConfigured } from '../services/esports/sync';
+import { configuredEsportsProviders, isEsportsFeedConfigured } from '../services/esports/sync';
 import { esportsGameCatalogQuery, esportsGameScope, isEsportsGameSlug } from '../services/esports/gameScope';
 import { sanitizeNewsRecord } from '../utils/news';
 
@@ -137,7 +137,13 @@ router.get('/overview', async (req, res) => {
             pastTournaments,
             rankings: rankings.map((item) => ({ id: item.id, rank: item.rank, team: item.teamRecord || { id: item.teamId, name: item.teamName, country: item.teamCountry, logo: null }, points: item.points, trend: item.trend, game: item.gameRecord || { id: item.gameId, name: item.game, slug: null } })),
             news: news.map(toNews),
-            source: { attribution: esportsAttribution, configured: isEsportsFeedConfigured(), focus: brazilFocusDescription(), latestSync },
+            source: {
+                attribution: configuredEsportsProviders().includes('Liquipedia') ? esportsAttribution : null,
+                providers: configuredEsportsProviders(),
+                configured: isEsportsFeedConfigured(),
+                focus: brazilFocusDescription(),
+                latestSync,
+            },
         });
     } catch (error) {
         console.error('[esports] overview:', error);
@@ -184,7 +190,9 @@ router.get('/tournaments/:idOrSlug', async (req, res) => {
             bracket: tournament.bracket.map((item) => ({ id: item.id, matchId: item.esportsMatchId, matchKey: item.matchKey, round: item.round, teamA: { id: item.teamAId, name: item.teamAName, score: item.teamAScore, isWinner: item.teamAWinner }, teamB: { id: item.teamBId, name: item.teamBName, score: item.teamBScore, isWinner: item.teamBWinner }, date: item.date, status: item.status })),
             matches: tournament.matches.map((match) => toPublicMatch(match)),
             news: tournament.news.map((item) => toNews({ ...item, tournament: { game: tournament.game, gameRecord: tournament.gameRecord } })),
-            attribution: tournament.provider === 'LIQUIPEDIA' ? esportsAttribution : null,
+            attribution: tournament.provider === 'LIQUIPEDIA'
+                ? esportsAttribution
+                : tournament.provider === 'PANDASCORE' ? pandaScoreAttribution : null,
         });
     } catch (error) {
         console.error('[esports] tournament detail:', error);

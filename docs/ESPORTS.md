@@ -58,7 +58,7 @@ Uma partida entra no banco quando ao menos uma destas condicoes e verdadeira:
 - uma equipe esta na allowlist `ESPORTS_FOCUS_TEAMS`;
 - campeonato, etapa ou rodada contem uma palavra de `ESPORTS_FOCUS_KEYWORDS`.
 
-Revise as duas listas conforme novas ligas e equipes brasileiras surgirem. O feed publico aplica `isBrazilFocused=true` por padrao.
+Revise as duas listas conforme novas ligas e equipes brasileiras surgirem. O feed publico inclui os torneios filtrados dos provedores; `?focus=br` restringe a cobertura a partidas e campeonatos com foco brasileiro.
 
 ## Sincronizacao
 

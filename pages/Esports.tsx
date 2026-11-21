@@ -191,6 +191,11 @@ export const Esports: React.FC = () => {
                 {attribution?.url && data && (data.source.configured || feed.matches.some((match) => match.provider === 'LIQUIPEDIA') || feed.results.some((match) => match.provider === 'LIQUIPEDIA') || feed.tournaments.some((item) => item.provider === 'LIQUIPEDIA')) && (
                     <p className="mt-10 border-t border-white/10 pt-4 text-xs text-slate-400">Dados competitivos: <a href={attribution.url} target="_blank" rel="noreferrer" className="text-brand-300 underline underline-offset-4">{attribution.provider}</a> ({attribution.license}).</p>
                 )}
+                {data?.source.providers?.includes('PandaScore') && (
+                    <p className="mt-3 text-xs text-slate-400">
+                        Source: <a href="https://pandascore.co/" target="_blank" rel="noreferrer" className="text-brand-300 underline underline-offset-4">PandaScore</a>
+                    </p>
+                )}
             </div>
         </div>
     );

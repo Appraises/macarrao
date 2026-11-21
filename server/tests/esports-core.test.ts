@@ -10,6 +10,7 @@ import type { ProviderMatch } from '../src/services/esports/provider';
 const match = (overrides: Partial<ProviderMatch> = {}): ProviderMatch => ({
     externalId: 'valorant:1',
     gameWiki: 'valorant',
+    gameName: 'Valorant',
     gameAliases: ['valorant'],
     tournament: { externalId: 'valorant:event', gameWiki: 'valorant', name: 'International League', slugSeed: 'event', sourceUrl: 'https://liquipedia.net/valorant/Event' },
     teamA: { externalId: 'a', name: 'Team A', country: 'us' },
@@ -55,7 +56,7 @@ describe('Liquipedia scoreboard', () => {
 
     it('does not infer a live match or a zero score from missing provider fields', () => {
         expect(mapLiquipediaMatch('valorant', row())).toMatchObject({
-            status: MatchStatus.SCHEDULED, scoreA: null, scoreB: null,
+            gameName: 'Valorant', status: MatchStatus.SCHEDULED, scoreA: null, scoreB: null,
         });
     });
 

@@ -56,3 +56,4 @@ export const toPublicMatch = (match: PublicMatchRecord, now = new Date()) => ({
 });
 
 export const esportsAttribution = { provider: 'Liquipedia', license: 'CC BY-SA 3.0', url: 'https://liquipedia.net/' };
+export const pandaScoreAttribution = { provider: 'PandaScore', license: 'Source: PandaScore', url: 'https://pandascore.co/' };

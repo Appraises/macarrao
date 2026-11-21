@@ -764,14 +764,14 @@ model Report {
 }
 
 model News {
-  id             String      @id @default(uuid())
+  id             String           @id @default(uuid())
   headline       String
-  slug           String      @unique
+  slug           String           @unique
   category       String
   image          String?
   content        String?
   author         String?
-  status         NewsStatus  @default(DRAFT)
+  status         NewsStatus       @default(DRAFT)
   publishedAt    DateTime?
   scheduledAt    DateTime?
   archivedAt     DateTime?
@@ -779,7 +779,7 @@ model News {
   seoDescription String?
   instagramHashtags String[] @default([])
   createdById    String?
-  createdBy      User?       @relation("NewsCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  createdBy      User?            @relation("NewsCreator", fields: [createdById], references: [id], onDelete: SetNull)
   tournamentId   String?
   tournament     Tournament? @relation(fields: [tournamentId], references: [id], onDelete: SetNull)
   socialPosts    NewsSocialPost[]
