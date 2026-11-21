@@ -20,6 +20,14 @@ const gameAliases: Record<string, string[]> = {
     r6siege: ['rainbow-six-siege', 'rainbow six siege', 'r6'],
     rl: ['rocket-league', 'rocket league'],
 };
+const gameNames: Record<string, string> = {
+    csgo: 'CS2',
+    valorant: 'Valorant',
+    lol: 'League of Legends',
+    dota2: 'Dota 2',
+    r6siege: 'Rainbow Six Siege',
+    rl: 'Rocket League',
+};
 
 // S is the most prestigious tier and D the lowest (PandaScore assigns them per
 // tournament from organizer, team level and prize pool).
@@ -122,6 +130,7 @@ export const mapPandaScoreMatch = (game: string, row: JsonRecord): ProviderMatch
     return {
         externalId: `${game}:${id}`,
         gameWiki: game,
+        gameName: gameNames[game] ?? game,
         gameAliases: gameAliases[game] ?? [game],
         tournament: {
             // Our tournament is the event (PandaScore "serie"); its stages

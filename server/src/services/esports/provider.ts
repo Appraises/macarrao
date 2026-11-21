@@ -26,6 +26,7 @@ export interface ProviderTournament {
 export interface ProviderMatch {
     externalId: string;
     gameWiki: string;
+    gameName: string;
     /** Slugs or names our Game table may use for this title. */
     gameAliases: string[];
     tournament: ProviderTournament;

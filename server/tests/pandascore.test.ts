@@ -42,6 +42,7 @@ describe('PandaScore mapping', () => {
     it('maps an event, its stage, logos, scores and the Portuguese stream', () => {
         expect(mapPandaScoreMatch('csgo', row())).toMatchObject({
             externalId: 'csgo:1001',
+            gameName: 'CS2',
             gameAliases: expect.arrayContaining(['cs2']),
             tournament: {
                 externalId: 'csgo:serie:20', name: 'IEM Rio 2026', tier: 's', region: 'SA',

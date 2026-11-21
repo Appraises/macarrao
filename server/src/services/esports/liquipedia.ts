@@ -24,6 +24,14 @@ const wikiGameAliases: Record<string, string[]> = {
     rainbowsix: ['rainbow-six-siege', 'rainbow six siege', 'r6'],
     rocketleague: ['rocket-league', 'rocket league'],
 };
+const wikiGameNames: Record<string, string> = {
+    valorant: 'Valorant',
+    counterstrike: 'CS2',
+    leagueoflegends: 'League of Legends',
+    freefire: 'Free Fire',
+    rainbowsix: 'Rainbow Six Siege',
+    rocketleague: 'Rocket League',
+};
 
 export const aliasesForLiquipediaWiki = (wiki: string): string[] => wikiGameAliases[wiki] || [wiki];
 
@@ -113,6 +121,7 @@ export const mapLiquipediaMatch = (wiki: string, row: JsonRecord): ProviderMatch
     return {
         externalId: `${wiki}:${externalMatchId}`,
         gameWiki: wiki,
+        gameName: wikiGameNames[wiki] || wiki,
         gameAliases: aliasesForLiquipediaWiki(wiki),
         tournament: {
             externalId: `${wiki}:${parent}`,

@@ -62,7 +62,8 @@ const upsertTeam = async (client: EsportsProviderClient, team: ProviderTeam) => 
 
 const upsertMatch = async (client: EsportsProviderClient, match: ProviderMatch) => {
     const game = await findGame(match.gameAliases);
-    if (!game) return null;
+    const gameId = game?.id ?? null;
+    const gameName = game?.name ?? match.gameName;
     const brazilFocused = isBrazilFocusedMatch(match);
     const [teamA, teamB] = await Promise.all([upsertTeam(client, match.teamA), upsertTeam(client, match.teamB)]);
     const now = new Date();
@@ -81,8 +82,8 @@ const upsertMatch = async (client: EsportsProviderClient, match: ProviderMatch) 
     const shared = {
         sourceUrl: match.tournament.sourceUrl || null,
         name: match.tournament.name,
-        gameId: game.id,
-        game: game.name,
+        gameId,
+        game: gameName,
         region,
         country: tournamentBrazilian ? 'br' : 'xx',
         isBrazilFocused: tournamentBrazilian,
@@ -118,9 +119,9 @@ const upsertMatch = async (client: EsportsProviderClient, match: ProviderMatch) 
 
     const data = {
         sourceUrl: match.sourceUrl || null,
-        gameId: game.id,
+        gameId,
         tournamentId: tournament.id,
-        game: game.name,
+        game: gameName,
         competition: tournament.name,
         stage: match.stage,
         round: match.round,
